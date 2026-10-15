@@ -2,7 +2,7 @@ import type { PublicState } from "./engine";
 import type { PlayerState } from "./sim";
 
 // ---------- İstemci → Sunucu ----------
-/** [seq, mx, my, act(0|1)] */
+/** [seq, mx, my, tuşlar: bit0 parkur, bit1 rol aksiyonu] */
 export type InputTuple = [number, number, number, number];
 
 export type ClientMsg =

@@ -7,7 +7,7 @@ import {
   RESULT_TICKS,
 } from "./constants";
 import { LAYOUTS, getLayout, pickSpawnPair, type QuadLayout } from "./maps";
-import { createPlayer, isTag, NEUTRAL_INPUT, stepPlayer, type Input, type PlayerState } from "./sim";
+import { chaserReach, createPlayer, isTag, NEUTRAL_INPUT, stepPlayer, type Input, type PlayerState } from "./sim";
 
 /**
  * Maç kuralları (World Chase Tag formatından uyarlandı):
@@ -347,12 +347,13 @@ export class MatchEngine {
       return events;
     }
 
-    let tagged = isTag(cp.x, cp.y, ep.x, ep.y);
+    const reach = chaserReach(cp);
+    let tagged = isTag(cp.x, cp.y, ep.x, ep.y, reach);
     if (!tagged && ci?.viewTick !== undefined) {
       // Lag kompanzasyonu: kovalayan rakibi ekranında nerede gördüyse oraya göre de kontrol et.
       const vt = Math.max(this.tick - MAX_REWIND_TICKS, Math.min(this.tick, Math.round(ci.viewTick)));
       const h = this.evaderHist.find((e) => e.tick === vt);
-      if (h) tagged = isTag(cp.x, cp.y, h.x, h.y);
+      if (h) tagged = isTag(cp.x, cp.y, h.x, h.y, reach);
     }
     if (tagged) {
       events.push(this.endChase("chaser", "tag", elapsed));
@@ -367,7 +368,7 @@ export class MatchEngine {
   /** Input gelmediyse son yönü korur ama aksiyonu tekrarlamaz. */
   private carry(id: string): Input {
     const l = this.lastInputs.get(id);
-    return l ? { mx: l.mx, my: l.my, act: false } : NEUTRAL_INPUT;
+    return l ? { mx: l.mx, my: l.my, act: false, act2: false } : NEUTRAL_INPUT;
   }
 
   private replaceDisconnected() {

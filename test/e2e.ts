@@ -99,6 +99,7 @@ async function main() {
       const inp = bots.get(c)!.think(role, f.self, opp, c.layout());
       c.setMove(inp.mx, inp.my);
       if (inp.act) c.pressAction();
+      if (inp.act2) c.pressAction2();
     }
   }, 16);
 
@@ -114,6 +115,7 @@ async function main() {
     return s.phase === "finished";
   }, 420000, "maç bitti");
   clearInterval(loop);
+  await waitFor(() => B2.getState()?.phase === "finished", 5000, "B maç sonunu gördü");
   const fa = A.getState()!, fb = B2.getState()!;
   assert(fb.phase === "finished", "iki istemci de maç sonunu gördü");
   assert(fa.scores.join() === fb.scores.join(), `skorlar aynı: ${fa.scores.join("-")}`);

@@ -143,10 +143,11 @@ export function Home({ offline, initialCode, busy, error, onQuick, onCreate, onJ
             <li>Kaçan 20 saniye yakalanmazsa takımı 1 puan alır. Yakalamak puan getirmez.</li>
             <li>Chase'i kazanan sahada kalır ve bir sonrakinde kaçan olur; kaybedenin takımı sıradaki oyuncusunu yollar.</li>
             <li>Saha çizgisinin dışına basan chase'i kaybeder.</li>
-            <li>Sarı engellerin üstünden <b>ATLA</b>, açık alanda <b>DEPAR</b> at. İkisi de enerji harcar.</li>
-            <li>Kaçan daha çevik döner, kovalayan biraz daha hızlı koşar.</li>
+            <li>Sarı kutular koşarken kendiliğinden atlanır. <b>PARKUR</b> tuşu: duvara <b>TIRMAN</b>, sırtın duvardayken <b>SEK</b>.</li>
+            <li>Kaçan <b>SIÇRA</b> ile ani yön değiştirir; kovalayan <b>DALIŞ</b> ile uzağa uzanır ama sonra tökezler.</li>
+            <li>Düz koşarken çizgi seni tutar; hamle yaparken çizgiyi geçersen chase'i kaybedersin.</li>
             <li>Eşitlikte sudden death: her takım bir kez kaçar, en uzun dayanan kazanır.</li>
-            <li>Telefonda: ekranı sürükleyerek koş, sağdaki tuşla aksiyon. Bilgisayarda: WASD/ok tuşları + Boşluk.</li>
+            <li>Telefonda: sol tarafı sürükleyerek koş, sağdaki tuşlar hamle. Bilgisayarda: WASD/ok tuşları, Boşluk = rol hamlesi, Shift = parkur.</li>
           </ul>
         )}
       </section>

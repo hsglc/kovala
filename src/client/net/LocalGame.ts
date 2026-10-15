@@ -23,6 +23,7 @@ export class LocalGame implements GameSource {
   private prev = new Map<string, PlayerState>();
   private move = { mx: 0, my: 0 };
   private act = false;
+  private act2 = false;
   private paused = false;
 
   constructor(pid: string, name: string, level: BotLevel, chases = 10) {
@@ -43,11 +44,13 @@ export class LocalGame implements GameSource {
       const botRole = selfRole === "chaser" ? "evader" : "chaser";
       const me = e.players.get(this.selfId)!;
       const bp = e.players.get(BOT_ID)!;
-      inputs.set(this.selfId, { input: quantizeInput(this.move.mx, this.move.my, this.act) });
+      inputs.set(this.selfId, { input: quantizeInput(this.move.mx, this.move.my, this.act, this.act2) });
       this.act = false;
+      this.act2 = false;
       inputs.set(BOT_ID, { input: this.bot.think(botRole, bp, me, e.layout) });
     } else {
       this.act = false;
+      this.act2 = false;
     }
     this.prev = new Map([...e.players].map(([id, p]) => [id, clonePlayer(p)]));
     const v = e.version;
@@ -110,6 +113,9 @@ export class LocalGame implements GameSource {
   }
   pressAction() {
     this.act = true;
+  }
+  pressAction2() {
+    this.act2 = true;
   }
   switchTeam() {}
   setChases(n: number) {

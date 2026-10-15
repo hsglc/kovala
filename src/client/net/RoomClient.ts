@@ -53,6 +53,7 @@ export class RoomClient implements GameSource {
   private acks: Record<string, number> = {};
 
   private pred: PlayerState | null = null;
+  private predPrev: PlayerState | null = null;
   private predRole: Role | null = null;
   private predChase = -1;
   private pending: { seq: number; input: Input }[] = [];
@@ -63,6 +64,7 @@ export class RoomClient implements GameSource {
   private lastFrame = 0;
   private move = { mx: 0, my: 0 };
   private actQueued = false;
+  private act2Queued = false;
   private offX = 0;
   private offY = 0;
 
@@ -241,6 +243,10 @@ export class RoomClient implements GameSource {
     for (const p of this.pending) stepPlayer(next, p.input, this.predRole, layout);
     const ex = this.pred.x + this.offX - next.x;
     const ey = this.pred.y + this.offY - next.y;
+    if (this.predPrev) {
+      this.predPrev.x += next.x - this.pred.x;
+      this.predPrev.y += next.y - this.pred.y;
+    }
     const err = Math.hypot(this.pred.x - next.x, this.pred.y - next.y);
     if (err > 0.01) {
       this.corrections++;
@@ -290,13 +296,15 @@ export class RoomClient implements GameSource {
     while (this.stepAcc >= TICK_MS) {
       this.stepAcc -= TICK_MS;
       if (role && this.pred) {
-        const input = quantizeInput(this.move.mx, this.move.my, this.actQueued);
+        const input = quantizeInput(this.move.mx, this.move.my, this.actQueued, this.act2Queued);
         this.actQueued = false;
+        this.act2Queued = false;
         const seq = ++this.seq;
+        this.predPrev = clonePlayer(this.pred);
         stepPlayer(this.pred, input, role, layout);
         this.pending.push({ seq, input });
         if (this.pending.length > MAX_PENDING) this.pending.shift();
-        this.sendBuf.push([seq, input.mx, input.my, input.act ? 1 : 0]);
+        this.sendBuf.push([seq, input.mx, input.my, (input.act ? 1 : 0) | (input.act2 ? 2 : 0)]);
         if (++this.stepsSinceSend >= INPUT_SEND_EVERY) this.flush(now);
       }
     }
@@ -308,7 +316,11 @@ export class RoomClient implements GameSource {
     const players = this.interpolated(this.renderTick(now));
     let self: PlayerState | null = players.get(this.selfId) ?? null;
     if (role && this.pred) {
-      self = { ...this.pred, x: this.pred.x + this.offX, y: this.pred.y + this.offY };
+      const t = Math.min(1, this.stepAcc / TICK_MS);
+      const pp = this.predPrev;
+      const sx = pp && Math.hypot(pp.x - this.pred.x, pp.y - this.pred.y) < 1 ? pp.x + (this.pred.x - pp.x) * t : this.pred.x;
+      const sy = pp && Math.hypot(pp.x - this.pred.x, pp.y - this.pred.y) < 1 ? pp.y + (this.pred.y - pp.y) * t : this.pred.y;
+      self = { ...this.pred, x: sx + this.offX, y: sy + this.offY };
       players.set(this.selfId, self);
     }
     return { players, tick: this.serverTick(now), self: role && this.pred ? this.pred : self };
@@ -373,6 +385,9 @@ export class RoomClient implements GameSource {
   }
   pressAction() {
     this.actQueued = true;
+  }
+  pressAction2() {
+    this.act2Queued = true;
   }
   switchTeam() {
     this.sendMsg({ t: "team" });

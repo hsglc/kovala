@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { CHASE_TICKS, PLAYER_RADIUS, QUAD_SIZE, SPEED_EVADER, TICK_RATE } from "../src/shared/constants";
 import { LAYOUTS } from "../src/shared/maps";
-import { canVault, createPlayer, quantizeInput, stepPlayer, type Input } from "../src/shared/sim";
+import { ACT_CLIMB, ACT_KICK, ACT_VAULT, ACT_KONG, canVault, createPlayer, quantizeInput, stepPlayer, type Input } from "../src/shared/sim";
 import { MatchEngine } from "../src/shared/engine";
 import { Bot } from "../src/shared/bot";
 
@@ -43,41 +43,60 @@ describe("hareket", () => {
 
   it("maks hıza ulaşır ve aşmaz", () => {
     const p = createPlayer(1, 11, 1, 0);
-    for (let i = 0; i < 20; i++) stepPlayer(p, { mx: 1, my: 0, act: false }, "evader", layout);
+    for (let i = 0; i < 20; i++) stepPlayer(p, { mx: 1, my: 0, act: false, act2: false }, "evader", layout);
     expect(Math.hypot(p.vx, p.vy)).toBeCloseTo(SPEED_EVADER, 5);
   });
 
   it("duvarın içinden geçemez", () => {
     // Klasik haritada ortadaki duvar 5..7
     const p = createPlayer(3.9, 6, 1, 0);
-    for (let i = 0; i < 60; i++) stepPlayer(p, { mx: 1, my: 0, act: false }, "chaser", layout);
+    for (let i = 0; i < 60; i++) stepPlayer(p, { mx: 1, my: 0, act: false, act2: false }, "chaser", layout);
     expect(p.x).toBeLessThanOrEqual(5 - PLAYER_RADIUS + 1e-6);
   });
 
-  it("depar duvarı delmez", () => {
+  it("dalış duvarı delmez", () => {
     const p = createPlayer(4.2, 6, 1, 0);
-    stepPlayer(p, { mx: 1, my: 0, act: true }, "chaser", layout);
-    for (let i = 0; i < 10; i++) stepPlayer(p, { mx: 1, my: 0, act: false }, "chaser", layout);
+    stepPlayer(p, { mx: 1, my: 0, act: false, act2: true }, "chaser", layout);
+    for (let i = 0; i < 10; i++) stepPlayer(p, { mx: 1, my: 0, act: false, act2: false }, "chaser", layout);
     expect(p.x).toBeLessThanOrEqual(5 - PLAYER_RADIUS + 1e-6);
   });
 
-  it("alçak engelin üstünden atlar, duvarın üstünden atlayamaz", () => {
+  it("koşarken kutunun üstünden kendiliğinden atlar", () => {
     // Klasik: kutu W = x 2.3..3.1, y 5..7
-    const p = createPlayer(1.7, 6, 1, 0);
-    expect(canVault(p.x, p.y, 1, 0, layout)).toBe(true);
-    stepPlayer(p, { mx: 1, my: 0, act: true }, "evader", layout);
-    expect(p.ak).toBe(2);
-    for (let i = 0; i < 25; i++) stepPlayer(p, { mx: 1, my: 0, act: false }, "evader", layout);
+    const p = createPlayer(1.2, 6, 1, 0);
+    expect(canVault(createPlayer(1.7, 6, 1, 0).x, 6, 1, 0, layout)).toBe(true);
+    let sawVault = false;
+    for (let i = 0; i < 40; i++) {
+      stepPlayer(p, { mx: 1, my: 0, act: false, act2: false }, "evader", layout);
+      if (p.ak === ACT_VAULT || p.ak === ACT_KONG) sawVault = true;
+    }
+    expect(sawVault).toBe(true);
     expect(p.x).toBeGreaterThan(3.1 + PLAYER_RADIUS - 1e-6);
+  });
 
-    const q = createPlayer(4.4, 6, 1, 0);
-    expect(canVault(q.x, q.y, 1, 0, layout)).toBe(false);
+  it("duvara tırmanır ve diğer tarafa geçer", () => {
+    const p = createPlayer(4.4, 6, 1, 0);
+    expect(canVault(p.x, p.y, 1, 0, layout)).toBe(false);
+    stepPlayer(p, { mx: 1, my: 0, act: true, act2: false }, "evader", layout);
+    expect(p.ak).toBe(ACT_CLIMB);
+    for (let i = 0; i < 40; i++) stepPlayer(p, { mx: 1, my: 0, act: false, act2: false }, "evader", layout);
+    expect(p.ak).not.toBe(ACT_CLIMB);
+    expect(p.x).toBeGreaterThan(7 + PLAYER_RADIUS - 1e-6);
+  });
+
+  it("sırtı duvardayken sekerek uzaklaşır", () => {
+    // Duvarın sağına yaslan (duvar 5..7), bakış +x
+    const p = createPlayer(7 + PLAYER_RADIUS + 0.05, 6, 1, 0);
+    stepPlayer(p, { mx: 1, my: 0, act: true, act2: false }, "evader", layout);
+    expect(p.ak).toBe(ACT_KICK);
+    for (let i = 0; i < 6; i++) stepPlayer(p, { mx: 0, my: 0, act: false, act2: false }, "evader", layout);
+    expect(p.x).toBeGreaterThan(8.2);
   });
 
   it("deterministik: aynı girdiler aynı sonucu verir", () => {
     const rnd = seeded(7);
     const inputs: Input[] = [];
-    for (let i = 0; i < 300; i++) inputs.push(quantizeInput(rnd() * 2 - 1, rnd() * 2 - 1, rnd() < 0.05));
+    for (let i = 0; i < 300; i++) inputs.push(quantizeInput(rnd() * 2 - 1, rnd() * 2 - 1, rnd() < 0.05, rnd() < 0.04));
     const a = createPlayer(1, 1, 1, 0);
     const b = createPlayer(1, 1, 1, 0);
     for (const inp of inputs) stepPlayer(a, inp, "evader", layout);

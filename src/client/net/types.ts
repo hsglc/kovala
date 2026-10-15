@@ -27,6 +27,7 @@ export interface GameSource {
   frame(now: number): FrameData;
   setMove(mx: number, my: number): void;
   pressAction(): void;
+  pressAction2(): void;
   switchTeam(): void;
   setChases(n: number): void;
   setLayout(id: string): void;

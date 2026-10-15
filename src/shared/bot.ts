@@ -1,6 +1,6 @@
-import { DASH_COST, PLAYER_RADIUS, QUAD_SIZE, VAULT_COST } from "./constants";
+import { CLIMB_COST, DIVE_COST, JUKE_COST, KICK_COST, PLAYER_RADIUS, QUAD_SIZE } from "./constants";
 import type { QuadLayout } from "./maps";
-import { canVault, type Input, type PlayerState } from "./sim";
+import { ACT_CLIMB, ACT_KICK, parkourPreview, type Input, type PlayerState } from "./sim";
 
 /** Botla antrenman ve testlerde kullanılan basit yapay zekâ. */
 
@@ -130,6 +130,7 @@ export class Bot {
   private t = 0;
   private dir: [number, number] = [0, 0];
   private wantAct = false;
+  private wantAct2 = false;
   private cfg: (typeof LEVELS)[BotLevel];
   private cacheKey = "";
   private cacheField: Float32Array | null = null;
@@ -183,14 +184,19 @@ export class Bot {
       this.wantAct = false;
     }
     let act = this.wantAct;
+    let act2 = this.wantAct2;
     this.wantAct = false;
-    if (act) {
+    this.wantAct2 = false;
+    if (act || act2) {
       // Aksiyon sonunda saha dışında kalacaksa basma.
       const ex = self.x + dx * 2.0;
       const ey = self.y + dy * 2.0;
-      if (ex < 0.4 || ey < 0.4 || ex > QUAD_SIZE - 0.4 || ey > QUAD_SIZE - 0.4) act = false;
+      if (ex < 0.4 || ey < 0.4 || ex > QUAD_SIZE - 0.4 || ey > QUAD_SIZE - 0.4) {
+        act = false;
+        act2 = false;
+      }
     }
-    return { mx: dx * this.cfg.speed, my: dy * this.cfg.speed, act };
+    return { mx: dx * this.cfg.speed, my: dy * this.cfg.speed, act, act2 };
   }
 
   private noisy(dx: number, dy: number): [number, number] {
@@ -224,10 +230,12 @@ export class Bot {
     const l = Math.hypot(best[0], best[1]) || 1;
     this.dir = this.noisy(best[0] / l, best[1] / l);
 
-    if (canVault(self.x, self.y, this.dir[0], this.dir[1], layout) && self.st >= VAULT_COST && self.cd <= 0) {
+    const pk = parkourPreview(self, { mx: this.dir[0], my: this.dir[1], act: false, act2: false }, layout);
+    if (pk === ACT_CLIMB && self.st >= CLIMB_COST && self.cd <= 0 && dist > 3 && this.rnd() < 0.5) {
       this.wantAct = true;
-    } else if (dist < 2.1 && dist > 0.9 && self.st >= DASH_COST + 10 && self.cd <= 0 && this.rnd() < this.cfg.dashChance) {
-      this.wantAct = true;
+    } else if (dist < 1.9 && dist > 0.95 && self.st >= DIVE_COST && self.cd <= 0 && this.rnd() < this.cfg.dashChance) {
+      // Dalış: rakip kaçış yönünde hızlanıyorsa değil, köşeye sıkıştıysa.
+      this.wantAct2 = true;
     }
   }
 
@@ -265,10 +273,13 @@ export class Bot {
     }
     this.dir = this.noisy(best[0], best[1]);
     const dist = Math.hypot(other.x - self.x, other.y - self.y);
-    if (canVault(self.x, self.y, this.dir[0], this.dir[1], layout) && self.st >= VAULT_COST && self.cd <= 0) {
+    const pk = parkourPreview(self, { mx: this.dir[0], my: this.dir[1], act: false, act2: false }, layout);
+    if (pk === ACT_KICK && dist < 2 && self.st >= KICK_COST && self.cd <= 0) {
       this.wantAct = true;
-    } else if (dist < 1.5 && self.st >= DASH_COST && self.cd <= 0 && this.rnd() < this.cfg.dashChance) {
+    } else if (pk === ACT_CLIMB && self.st >= CLIMB_COST && self.cd <= 0 && dist > 2.5 && this.rnd() < 0.35) {
       this.wantAct = true;
+    } else if (dist < 1.6 && self.st >= JUKE_COST && self.cd <= 0 && this.rnd() < this.cfg.dashChance) {
+      this.wantAct2 = true;
     }
   }
 }

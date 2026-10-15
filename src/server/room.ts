@@ -178,7 +178,8 @@ export class Room extends DurableObject<Env> {
       last = seq;
       const mx = Math.max(-1, Math.min(1, Number(t[1]) || 0));
       const my = Math.max(-1, Math.min(1, Number(t[2]) || 0));
-      const input = quantizeInput(mx, my, t[3] === 1);
+      const bits = Number(t[3]) | 0;
+      const input = quantizeInput(mx, my, (bits & 1) === 1, (bits & 2) === 2);
       if (active) q.push({ seq, input, viewTick });
       else this.acks.set(pid, seq);
     }
@@ -197,6 +198,7 @@ export class Room extends DurableObject<Env> {
         while (q.length > MAX_QUEUE) {
           const dropped = q.shift()!;
           if (dropped.input.act) q[0].input = { ...q[0].input, act: true };
+          if (dropped.input.act2) q[0].input = { ...q[0].input, act2: true };
           this.acks.set(id, dropped.seq);
         }
         const it = q.shift()!;

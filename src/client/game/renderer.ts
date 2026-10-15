@@ -1,7 +1,7 @@
-import { DASH_COST, PLAYER_RADIUS, QUAD_SIZE, SPEED_EVADER, STAMINA_MAX } from "../../shared/constants";
+import { JUKE_COST, PLAYER_RADIUS, QUAD_SIZE, SPEED_EVADER, STAMINA_MAX } from "../../shared/constants";
 import type { PublicState } from "../../shared/engine";
 import type { Obstacle, QuadLayout } from "../../shared/maps";
-import { TAG_DISTANCE, type PlayerState } from "../../shared/sim";
+import { ACT_CLIMB, ACT_DIVE, ACT_JUKE, ACT_KICK, ACT_KONG, ACT_STUMBLE, ACT_VAULT, TAG_DISTANCE, chaserReach, type PlayerState } from "../../shared/sim";
 import { TEAM_COLORS, TEAM_DARK, memberName, memberTeam } from "../lib/text";
 import { drawFigure, lookFor, type FigureLook, type FigurePose, type FigureView } from "./figure";
 
@@ -48,6 +48,10 @@ export interface JoyVisual {
   x: number;
   y: number;
   r: number;
+  zoneX: number;
+  zoneY: number;
+  zoneW: number;
+  zoneH: number;
 }
 
 const COLORS = {
@@ -273,8 +277,8 @@ export function drawFrame(
 
   // Zemindeki işaretler: gölge, kendi halkan, yakalama menzili
   for (const d of list) {
-    const vaulting = d.p.ak === 2;
-    const lift = vaulting ? Math.sin(Math.min(1, d.p.at / 0.4) * Math.PI) : 0;
+    const vaulting = d.p.ak === ACT_VAULT || d.p.ak === ACT_KONG || d.p.ak === ACT_CLIMB;
+    const lift = vaulting ? Math.sin(Math.min(1, d.p.at / (d.p.ak === ACT_CLIMB ? 1.1 : 0.4)) * Math.PI) : 0;
     ctx.fillStyle = "rgba(0,0,0,0.38)";
     ctx.beginPath();
     ctx.ellipse(d.px, d.py, PLAYER_RADIUS * s * (1 - lift * 0.3), PLAYER_RADIUS * s * 0.5 * (1 - lift * 0.3), 0, 0, Math.PI * 2);
@@ -285,7 +289,7 @@ export function drawFrame(
       ctx.strokeStyle = "rgba(255, 209, 102, 0.28)";
       ctx.lineWidth = 1.5;
       ctx.beginPath();
-      ctx.arc(d.px, d.py, (TAG_DISTANCE - PLAYER_RADIUS) * s, 0, Math.PI * 2);
+      ctx.arc(d.px, d.py, (TAG_DISTANCE - PLAYER_RADIUS + chaserReach(d.p)) * s, 0, Math.PI * 2);
       ctx.stroke();
       ctx.restore();
     }
@@ -300,7 +304,7 @@ export function drawFrame(
     // Kendi enerjin: ayağının altındaki yay
     if (d.id === selfId && phase === "chase") {
       ctx.lineWidth = 3;
-      ctx.strokeStyle = d.p.st >= DASH_COST ? "#39d98a" : "#f5b83d";
+      ctx.strokeStyle = d.p.st >= JUKE_COST ? "#39d98a" : "#f5b83d";
       ctx.beginPath();
       ctx.ellipse(
         d.px,
@@ -339,13 +343,18 @@ export function drawFrame(
       ctx.globalAlpha = alpha;
       ctx.translate(d.px, d.py);
       ctx.scale(s * FIG_SCALE, s * FIG_SCALE);
+      const ak = d.p.ak;
+      if (ak === ACT_STUMBLE && pose === "run") pose = "stumble";
       const top = drawFigure(ctx, look, {
         view: anim.view,
-        face: reach ? reachFace : anim.face,
+        face: reach || ak === ACT_DIVE ? reachFace : anim.face,
         phase: anim.phase,
         run: phase === "chase" ? anim.run : 0,
-        dashing: d.p.ak === 1,
-        vault: d.p.ak === 2 ? Math.min(1, d.p.at / 0.4) : -1,
+        dashing: ak === ACT_JUKE || ak === ACT_KICK,
+        vault: ak === ACT_VAULT ? Math.min(1, d.p.at / 0.4) : -1,
+        kong: ak === ACT_KONG ? Math.min(1, d.p.at / 0.4) : -1,
+        climb: ak === ACT_CLIMB ? Math.min(1, d.p.at / 1.1) : -1,
+        dive: ak === ACT_DIVE ? Math.min(1, d.p.at / 0.26) : -1,
         reach,
         pose,
         time: now,
@@ -386,7 +395,22 @@ export function drawFrame(
     ctx.fillText((isChaser ? "◆ " : "● ") + label, lx, ty);
   }
 
-  // Sanal joystick
+  // Sanal joystick: bölge daima hafifçe görünür, basılıyken belirginleşir
+  if (!joy.active && state?.phase === "chase") {
+    const cx = joy.zoneX + Math.min(joy.zoneW * 0.5, 110);
+    const cy = joy.zoneY + joy.zoneH * 0.55;
+    ctx.strokeStyle = "rgba(255,255,255,0.1)";
+    ctx.setLineDash([5, 7]);
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(cx, cy, joy.r, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = "rgba(255,255,255,0.12)";
+    ctx.beginPath();
+    ctx.arc(cx, cy, 10, 0, Math.PI * 2);
+    ctx.fill();
+  }
   if (joy.active) {
     ctx.fillStyle = "rgba(255,255,255,0.06)";
     ctx.strokeStyle = "rgba(255,255,255,0.22)";

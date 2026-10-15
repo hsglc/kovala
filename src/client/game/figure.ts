@@ -4,7 +4,7 @@
  */
 
 export type FigureView = "side" | "front" | "back";
-export type FigurePose = "run" | "cheer" | "tired";
+export type FigurePose = "run" | "cheer" | "tired" | "stumble";
 
 export interface FigureLook {
   shirt: string;
@@ -24,8 +24,14 @@ export interface FigureState {
   /** 0..1 koşu yoğunluğu */
   run: number;
   dashing: boolean;
-  /** 0..1 atlama ilerlemesi, atlamıyorsa -1 */
+  /** 0..1 speed vault ilerlemesi, yoksa -1 */
   vault: number;
+  /** 0..1 kong vault (öne çömelerek) */
+  kong: number;
+  /** 0..1 duvar tırmanma */
+  climb: number;
+  /** 0..1 dalış */
+  dive: number;
   /** kovalayan rakibe uzanıyor mu */
   reach: boolean;
   pose: FigurePose;
@@ -93,12 +99,18 @@ const dir = (a: number): [number, number] => [Math.sin(a), Math.cos(a)];
  */
 export function drawFigure(ctx: CanvasRenderingContext2D, look: FigureLook, st: FigureState): number {
   const vaulting = st.vault >= 0;
-  const view: FigureView = vaulting || st.reach ? "side" : st.view;
-  const r = vaulting ? 1 : st.run;
+  const kong = st.kong >= 0;
+  const climb = st.climb >= 0;
+  const dive = st.dive >= 0;
+  const view: FigureView = vaulting || dive || st.reach ? "side" : kong ? "front" : climb ? "back" : st.view;
+  const r = vaulting || kong ? 1 : st.run;
   let lift = 0;
   if (vaulting) lift = Math.sin(Math.min(1, st.vault) * Math.PI) * 0.55;
+  if (kong) lift = Math.sin(Math.min(1, st.kong) * Math.PI) * 0.7;
+  if (climb) lift = Math.sin(Math.min(1, st.climb) * Math.PI) * 0.95;
+  if (dive) lift = Math.sin(Math.min(1, st.dive) * Math.PI) * 0.3;
   if (st.pose === "cheer") lift = Math.abs(Math.sin(st.time / 170)) * 0.14;
-  const bob = st.pose === "run" ? Math.abs(Math.sin(st.phase)) * 0.045 * r : 0;
+  const bob = st.pose === "run" && !climb ? Math.abs(Math.sin(st.phase)) * 0.045 * r : 0;
 
   ctx.save();
   ctx.translate(0, -lift - bob);
@@ -107,7 +119,9 @@ export function drawFigure(ctx: CanvasRenderingContext2D, look: FigureLook, st: 
     ctx.scale(st.face, 1);
     let lean = r * 0.16 + (st.dashing ? 0.32 : 0);
     if (st.pose === "tired") lean = 0.75;
+    if (st.pose === "stumble") lean = 0.55 + Math.sin(st.time / 60) * 0.1;
     if (st.reach) lean = 0.3;
+    if (dive) lean = 1.25; // neredeyse yatay
     const hip: [number, number] = [0, -0.8];
     const shoulder: [number, number] = [hip[0] + Math.sin(lean) * 0.46, hip[1] - Math.cos(lean) * 0.46];
     const headC: [number, number] = [shoulder[0] + Math.sin(lean) * 0.24, shoulder[1] - Math.cos(lean) * 0.24];
@@ -118,7 +132,10 @@ export function drawFigure(ctx: CanvasRenderingContext2D, look: FigureLook, st: 
       if (vaulting) {
         thigh = 1.25;
         bend = -2.0;
-      } else if (st.pose === "tired") {
+      } else if (dive) {
+        thigh = -0.5;
+        bend = 0.2;
+      } else if (st.pose === "tired" || st.pose === "stumble") {
         thigh = 0.35;
         bend = -0.5;
       } else if (st.pose === "cheer") {
@@ -140,9 +157,12 @@ export function drawFigure(ctx: CanvasRenderingContext2D, look: FigureLook, st: 
       if (st.pose === "cheer") {
         a = Math.PI - 0.35 + (near ? 0.25 : -0.1);
         fore = a + 0.15;
-      } else if (st.pose === "tired") {
+      } else if (st.pose === "tired" || st.pose === "stumble") {
         a = 0.95;
         fore = a - 0.6;
+      } else if (dive) {
+        a = 1.5;
+        fore = 1.45;
       } else if (st.reach && near) {
         a = 1.55;
         fore = 1.6;
@@ -186,15 +206,19 @@ export function drawFigure(ctx: CanvasRenderingContext2D, look: FigureLook, st: 
 
   // Ön / arka görünüm
   const back = view === "back";
-  const hipY = -0.8;
-  const shY = -1.27;
-  const headY = -1.5;
+  // Kong: bacaklar göğse çekilir; tırmanma: kollar yukarı, bacaklar duvara basar.
+  const tuck = kong ? Math.sin(Math.min(1, st.kong) * Math.PI) : 0;
+  const hipY = -0.8 + tuck * 0.15;
+  const shY = -1.27 + tuck * 0.1;
+  const headY = -1.5 + tuck * 0.08;
   const legX = 0.085;
   for (const side of [-1, 1] as const) {
     const t = st.phase + (side === 1 ? 0 : Math.PI);
-    const up = st.pose === "run" ? Math.max(0, Math.sin(t)) * 0.22 * r : 0;
-    const knee: [number, number] = [side * (legX + 0.02), hipY + 0.4 - up * 0.6];
-    const foot: [number, number] = [side * (legX + 0.01), -up];
+    let up = st.pose === "run" ? Math.max(0, Math.sin(t)) * 0.22 * r : 0;
+    if (kong) up = 0.45 * tuck;
+    if (climb) up = (side === 1 ? 0.35 : 0.15) + Math.sin(st.time / 120) * 0.05;
+    const knee: [number, number] = [side * (legX + 0.02 + tuck * 0.12), hipY + 0.4 - up * 0.6];
+    const foot: [number, number] = [side * (legX + 0.01 + tuck * 0.08), -up];
     const pts: [number, number][] = [[side * legX, hipY], knee, foot];
     limb(ctx, pts, 0.13, side === 1 ? look.skin : shade(look.skin, 0.9));
     limb(ctx, [pts[0], [knee[0], lerp(hipY, knee[1], 0.55)]], 0.16, look.shorts, false);
@@ -211,7 +235,14 @@ export function drawFigure(ctx: CanvasRenderingContext2D, look: FigureLook, st: 
     if (st.pose === "cheer") {
       elbow = [side * 0.32, shY - 0.2];
       hand = [side * 0.38, shY - 0.45];
-    } else if (st.pose === "tired") {
+    } else if (climb) {
+      elbow = [side * 0.3, shY - 0.25];
+      hand = [side * 0.26, shY - 0.55 + (side === 1 ? Math.sin(st.time / 120) * 0.05 : 0)];
+    } else if (kong) {
+      // Kong: eller öne, kutuya basıyor
+      elbow = [side * 0.28, shY + 0.18];
+      hand = [side * 0.2, shY + 0.55 - tuck * 0.2];
+    } else if (st.pose === "tired" || st.pose === "stumble") {
       elbow = [side * 0.26, shY + 0.25];
       hand = [side * 0.16, hipY + 0.25];
     } else {

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { DASH_COST, VAULT_COST } from "../../shared/constants";
+import { CLIMB_COST, DIVE_COST, JUKE_COST, KICK_COST } from "../../shared/constants";
 import type { PublicState } from "../../shared/engine";
-import { ACT_VAULT, actionPreview } from "../../shared/sim";
+import { ACT_CLIMB, ACT_DIVE, ACT_JUKE, ACT_KICK, ACT_KONG, ACT_NONE, ACT_STUMBLE, ACT_VAULT, parkourPreview } from "../../shared/sim";
 import { TEAM_COLORS, memberName, resultLine, resultTitle, teamName } from "../lib/text";
 import { isMuted, setMuted, sfx, unlockAudio, vibrate } from "../lib/sound";
 import type { GameSource } from "../net/types";
@@ -20,6 +20,8 @@ export function GameScreen({ source, state, onLeave }: Props) {
   const digitRef = useRef<HTMLDivElement>(null);
   const actRef = useRef<HTMLButtonElement>(null);
   const actLabelRef = useRef<HTMLSpanElement>(null);
+  const act2Ref = useRef<HTMLButtonElement>(null);
+  const act2LabelRef = useRef<HTMLSpanElement>(null);
   const pingRef = useRef<HTMLSpanElement>(null);
   const muteRef = useRef<HTMLButtonElement>(null);
   const stateRef = useRef(state);
@@ -47,7 +49,7 @@ export function GameScreen({ source, state, onLeave }: Props) {
     const canvas = canvasRef.current!;
     const ctx = canvas.getContext("2d")!;
     let view = computeView(1, 1, 1);
-    const joy: JoyVisual & { id: number } = { active: false, id: -1, ox: 0, oy: 0, x: 0, y: 0, r: 58 };
+    const joy: JoyVisual & { id: number } = { active: false, id: -1, ox: 0, oy: 0, x: 0, y: 0, r: 56, zoneX: 0, zoneY: 0, zoneW: 0, zoneH: 0 };
     const keys = new Set<string>();
     let move = { mx: 0, my: 0 };
 
@@ -59,6 +61,15 @@ export function GameScreen({ source, state, onLeave }: Props) {
       canvas.style.width = rect.width + "px";
       canvas.style.height = rect.height + "px";
       view = computeView(rect.width, rect.height, dpr);
+      // Joystick bölgesi: ekranın sol yarısı, sahanın altından ekranın dibine (dikeyde); yatayda tüm sol kısım.
+      joy.zoneX = 0;
+      joy.zoneW = rect.width * 0.55;
+      joy.zoneY = view.portrait ? view.qy + view.qs + 8 : 0;
+      joy.zoneH = rect.height - joy.zoneY;
+      if (joy.zoneH < 160) {
+        joy.zoneY = rect.height * 0.45;
+        joy.zoneH = rect.height - joy.zoneY;
+      }
       wrap.dataset.portrait = view.portrait ? "1" : "0";
       wrap.style.setProperty("--quad-bottom", `${view.qy + view.qs}px`);
     };
@@ -97,6 +108,8 @@ export function GameScreen({ source, state, onLeave }: Props) {
       if (t.closest("button")) return;
       if (joy.active) return;
       const [x, y] = local(e);
+      // Sağ taraf tuşlara ayrılmış; sahanın üstüne basınca da joystick açılır (sol yarı).
+      if (x > joy.zoneW && y > joy.zoneY) return;
       joy.active = true;
       joy.id = e.pointerId;
       joy.ox = joy.x = x;
@@ -136,14 +149,16 @@ export function GameScreen({ source, state, onLeave }: Props) {
     wrap.addEventListener("pointerup", onUp);
     wrap.addEventListener("pointercancel", onUp);
 
-    const ACTION_KEYS = ["Space", "ShiftLeft", "ShiftRight", "KeyJ", "KeyK", "Enter"];
+    const ACT2_KEYS = ["Space", "KeyJ", "Enter"];
+    const ACT_KEYS = ["ShiftLeft", "ShiftRight", "KeyK", "KeyE"];
     const onKey = (e: KeyboardEvent) => {
       if (e.repeat) return;
-      if (ACTION_KEYS.includes(e.code)) {
+      if (ACT2_KEYS.includes(e.code) || ACT_KEYS.includes(e.code)) {
         e.preventDefault();
         if (e.type === "keydown") {
           unlockAudio();
-          source.pressAction();
+          if (ACT2_KEYS.includes(e.code)) source.pressAction2();
+          else source.pressAction();
         }
         return;
       }
@@ -168,6 +183,8 @@ export function GameScreen({ source, state, onLeave }: Props) {
     let lastPhase = "";
     let lastLabel = "";
     let lastDisabled = false;
+    let lastLabel2 = "";
+    let lastDisabled2 = false;
     let lastAk = 0;
     let lastPing = -2;
     const loop = (now: number) => {
@@ -200,16 +217,25 @@ export function GameScreen({ source, state, onLeave }: Props) {
         lastPhase = s.phase;
       }
 
-      // Aksiyon butonu
-      const active = s.phase === "chase" && (s.chaserId === source.selfId || s.evaderId === source.selfId);
-      let label = "DEPAR";
+      // Aksiyon tuşları
+      const myRole = s.chaserId === source.selfId ? "chaser" : s.evaderId === source.selfId ? "evader" : null;
+      const active = s.phase === "chase" && !!myRole;
+      let label = "PARKUR";
       let disabled = !active;
+      let label2 = myRole === "chaser" ? "DALIŞ" : "SIÇRA";
+      let disabled2 = !active;
       if (active && f.self) {
-        const kind = actionPreview(f.self, { mx: move.mx, my: move.my, act: false }, layout);
-        label = kind === ACT_VAULT ? "ATLA" : "DEPAR";
-        const cost = kind === ACT_VAULT ? VAULT_COST : DASH_COST;
-        disabled = f.self.st < cost || f.self.cd > 0 || f.self.ak !== 0;
-        if (f.self.ak !== lastAk && f.self.ak !== 0) f.self.ak === ACT_VAULT ? sfx.vault() : sfx.dash();
+        const kind = parkourPreview(f.self, { mx: move.mx, my: move.my, act: false, act2: false }, layout);
+        label = kind === ACT_CLIMB ? "TIRMAN" : kind === ACT_VAULT ? "ATLA" : kind === ACT_KICK ? "SEK" : "PARKUR";
+        const cost = kind === ACT_CLIMB ? CLIMB_COST : kind === ACT_KICK ? KICK_COST : kind === ACT_VAULT ? 0 : 1e9;
+        const busy = f.self.cd > 0 || f.self.ak !== 0;
+        disabled = kind === ACT_NONE || f.self.st < cost || busy;
+        const cost2 = myRole === "chaser" ? DIVE_COST : JUKE_COST;
+        disabled2 = f.self.st < cost2 || busy;
+        if (f.self.ak !== lastAk && f.self.ak !== 0 && f.self.ak !== ACT_STUMBLE) {
+          if (f.self.ak === ACT_VAULT || f.self.ak === ACT_KONG || f.self.ak === ACT_CLIMB) sfx.vault();
+          else sfx.dash();
+        }
         lastAk = f.self.ak;
       }
       if (label !== lastLabel && actLabelRef.current) {
@@ -219,6 +245,14 @@ export function GameScreen({ source, state, onLeave }: Props) {
       if (disabled !== lastDisabled && actRef.current) {
         actRef.current.dataset.disabled = disabled ? "1" : "0";
         lastDisabled = disabled;
+      }
+      if (label2 !== lastLabel2 && act2LabelRef.current) {
+        act2LabelRef.current.textContent = label2;
+        lastLabel2 = label2;
+      }
+      if (disabled2 !== lastDisabled2 && act2Ref.current) {
+        act2Ref.current.dataset.disabled = disabled2 ? "1" : "0";
+        lastDisabled2 = disabled2;
       }
       const ping = source.getPing() ?? -1;
       if (ping !== lastPing && pingRef.current) {
@@ -336,23 +370,43 @@ export function GameScreen({ source, state, onLeave }: Props) {
         <span ref={pingRef} />
       </div>
 
-      <button
-        className="action-btn"
-        ref={actRef}
-        data-disabled="1"
-        onPointerDown={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          unlockAudio();
-          source.pressAction();
-        }}
-        aria-label="Aksiyon"
-      >
-        <span ref={actLabelRef}>DEPAR</span>
-      </button>
+      <div className="action-cluster">
+        <button
+          className="action-btn secondary"
+          ref={actRef}
+          data-disabled="1"
+          onPointerDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            unlockAudio();
+            source.pressAction();
+          }}
+          aria-label="Parkur"
+        >
+          <span ref={actLabelRef}>PARKUR</span>
+        </button>
+        <button
+          className={`action-btn primary ${role === "chaser" ? "chaser" : ""}`}
+          ref={act2Ref}
+          data-disabled="1"
+          onPointerDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            unlockAudio();
+            source.pressAction2();
+          }}
+          aria-label="Rol hamlesi"
+        >
+          <span ref={act2LabelRef}>{role === "chaser" ? "DALIŞ" : "SIÇRA"}</span>
+        </button>
+      </div>
 
       {s.phase === "countdown" && role && (
-        <div className="control-hint">Sürükleyerek koş · {role === "evader" ? "20 sn yakalanma" : "dokun, yakala"}</div>
+        <div className="control-hint">
+          Sol tarafı sürükle: koş · Kutular otomatik atlanır
+          <br />
+          {role === "evader" ? "SIÇRA: ani yön değişimi · TIRMAN/SEK: duvarı kullan" : "DALIŞ: uzun erişim, sonra tökezlersin"}
+        </div>
       )}
     </div>
   );
