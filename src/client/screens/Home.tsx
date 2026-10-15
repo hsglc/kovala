@@ -185,7 +185,8 @@ function Rules() {
     <div className="sheet-body">
       <h3>Kurallar</h3>
       <ul>
-        <li>Her chase 20 saniye: biri kovalar ◆, biri kaçar ●.</li>
+        <li>Saha resmî Quad ölçüsünde: 12 × 12 m, en yüksek engel 1,85 m. Maç 16 chase.</li>
+        <li>Her chase 20 saniye: biri kovalar ◆, biri kaçar ●. Yakalama sadece el ile.</li>
         <li>Kaçan 20 saniye yakalanmazsa takımı 1 puan alır. Yakalamak puan getirmez.</li>
         <li>Chase'i kazanan sahada kalır ve bir sonrakinde kaçan olur; kaybedenin takımı sıradaki oyuncusunu yollar.</li>
         <li>Düz koşarken çizgi seni tutar; hamle yaparken çizgiyi geçersen chase'i kaybedersin.</li>

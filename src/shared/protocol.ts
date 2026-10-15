@@ -10,6 +10,7 @@ export type ClientMsg =
   | { t: "team" }
   | { t: "chases"; n: number }
   | { t: "layout"; id: string }
+  | { t: "rest"; v: string }
   | { t: "start" };
 
 // ---------- Sunucu → İstemci ----------

@@ -31,6 +31,7 @@ export interface GameSource {
   switchTeam(): void;
   setChases(n: number): void;
   setLayout(id: string): void;
+  setRest(v: "official" | "quick"): void;
   start(): void;
   close(): void;
 }

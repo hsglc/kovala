@@ -5,6 +5,8 @@ import {
   MAX_REWIND_TICKS,
   MAX_TEAM_SIZE,
   RESULT_TICKS,
+  REST_OFFICIAL_TICKS,
+  REST_QUICK_TICKS,
 } from "./constants";
 import { LAYOUTS, getLayout, pickSpawnPair, type QuadLayout } from "./maps";
 import { chaserReach, createPlayer, isTag, NEUTRAL_INPUT, stepPlayer, type Input, type PlayerState } from "./sim";
@@ -48,6 +50,7 @@ export interface PublicState {
   members: Member[];
   host: string | null;
   chases: number;
+  rest: "official" | "quick";
   layoutId: string;
   scores: [number, number];
   chaseNo: number;
@@ -82,8 +85,10 @@ export class MatchEngine {
   phase: Phase = "lobby";
   members: Member[] = [];
   host: string | null = null;
-  chases = 10;
-  layoutChoice: string | "random" = "random";
+  chases = 16;
+  /** Chase'ler arası dinlenme: "official" 25 sn, "quick" 5 sn */
+  rest: "official" | "quick" = "quick";
+  layoutChoice: string | "random" = "quad";
   layout: QuadLayout = LAYOUTS[0];
   scores: [number, number] = [0, 0];
   chaseNo = 0;
@@ -183,6 +188,14 @@ export class MatchEngine {
     return true;
   }
 
+  setRest(by: string, rest: string): boolean {
+    if (by !== this.host || this.inMatch()) return false;
+    if (rest !== "official" && rest !== "quick") return false;
+    this.rest = rest;
+    this.bump();
+    return true;
+  }
+
   setLayout(by: string, id: string): boolean {
     if (by !== this.host || this.inMatch()) return false;
     if (id !== "random" && !LAYOUTS.some((l) => l.id === id)) return false;
@@ -252,16 +265,27 @@ export class MatchEngine {
   private setupChase(chaserId: string, evaderId: string) {
     this.chaserId = chaserId;
     this.evaderId = evaderId;
-    const [a, b] = pickSpawnPair(this.layout, this.rnd);
-    const swap = this.rnd() < 0.5;
-    const cPos = swap ? b : a;
-    const ePos = swap ? a : b;
+    let cPos: [number, number];
+    let ePos: [number, number];
+    if (this.layout.plates) {
+      // Resmî başlangıç plakaları; her chase'te taraf değişir
+      const flip = (this.chaseNo + this.sdRound) % 2 === 1;
+      cPos = flip ? this.layout.plates[1] : this.layout.plates[0];
+      ePos = flip ? this.layout.plates[0] : this.layout.plates[1];
+    } else {
+      const [a, b] = pickSpawnPair(this.layout, this.rnd);
+      const swap = this.rnd() < 0.5;
+      cPos = swap ? b : a;
+      ePos = swap ? a : b;
+    }
     this.players.clear();
     this.players.set(chaserId, createPlayer(cPos[0], cPos[1], ePos[0] - cPos[0], ePos[1] - cPos[1]));
     this.players.set(evaderId, createPlayer(ePos[0], ePos[1], ePos[0] - cPos[0], ePos[1] - cPos[1]));
     this.lastInputs.clear();
     this.phase = "countdown";
-    this.phaseEndTick = this.tick + COUNTDOWN_TICKS;
+    // İlk chase'ten önce 3 sn; sonrakilerde dinlenme süresinin kalanı (sonuç ekranı düşülür)
+    const restLeft = (this.rest === "official" ? REST_OFFICIAL_TICKS : REST_QUICK_TICKS) - RESULT_TICKS;
+    this.phaseEndTick = this.tick + (this.history.length === 0 ? COUNTDOWN_TICKS : Math.max(COUNTDOWN_TICKS, restLeft));
     this.bump();
   }
 
@@ -498,6 +522,7 @@ export class MatchEngine {
       members: this.members.map((m) => ({ ...m })),
       host: this.host,
       chases: this.chases,
+      rest: this.rest,
       layoutId: this.inMatch() || this.phase === "finished" ? this.layout.id : this.layoutChoice,
       scores: [...this.scores] as [number, number],
       chaseNo: this.chaseNo,
@@ -520,6 +545,7 @@ export class MatchEngine {
       members: this.members,
       host: this.host,
       chases: this.chases,
+      rest: this.rest,
       layoutChoice: this.layoutChoice,
       phase: this.phase === "finished" ? "finished" : "lobby",
       scores: this.scores,
@@ -534,6 +560,7 @@ export class MatchEngine {
     this.members = data.members.map((m) => ({ ...m, connected: false }));
     this.host = data.host;
     this.chases = data.chases;
+    this.rest = data.rest ?? "quick";
     this.layoutChoice = data.layoutChoice;
     this.phase = data.phase as Phase;
     this.scores = data.scores;

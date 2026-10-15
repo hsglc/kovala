@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CHASE_TICKS, PLAYER_RADIUS, QUAD_SIZE, SPEED_EVADER, TICK_RATE } from "../src/shared/constants";
-import { LAYOUTS } from "../src/shared/maps";
+import { LAYOUTS, getLayout } from "../src/shared/maps";
 import { ACT_CLIMB, ACT_KICK, ACT_VAULT, ACT_KONG, canVault, createPlayer, isTag, quantizeInput, stepPlayer, type Input } from "../src/shared/sim";
 import { MatchEngine } from "../src/shared/engine";
 import { Bot } from "../src/shared/bot";
@@ -39,7 +39,7 @@ describe("haritalar", () => {
 });
 
 describe("hareket", () => {
-  const layout = LAYOUTS[0];
+  const layout = getLayout("klasik");
 
   it("maks hıza ulaşır ve aşmaz", () => {
     const p = createPlayer(1, 11, 1, 0);
@@ -88,7 +88,7 @@ describe("hareket", () => {
     const p = createPlayer(4.4, 6, 1, 0);
     stepPlayer(p, { mx: 1, my: 0, act: true, act2: false }, "evader", layout);
     for (let i = 0; i < 30; i++) stepPlayer(p, { mx: 0, my: 0, act: false, act2: false }, "evader", layout);
-    expect(p.h).toBeCloseTo(1.9, 5);
+    expect(p.h).toBeCloseTo(1.85, 5);
     expect(p.ak).toBe(0);
     const topX = p.x;
     for (let i = 0; i < 5; i++) stepPlayer(p, { mx: 0, my: 0, act: false, act2: false }, "evader", layout);
@@ -142,6 +142,7 @@ describe("maç motoru", () => {
     const e = new MatchEngine(seeded(3));
     e.join("aaaaaaaa", "Ali");
     e.join("bbbbbbbb", "Bora");
+    e.setChases("aaaaaaaa", 10);
     expect(e.members.map((m) => m.team)).toEqual([0, 1]);
     expect(e.start("bbbbbbbb")).toBe(false); // host değil
     expect(e.start("aaaaaaaa")).toBe(true);

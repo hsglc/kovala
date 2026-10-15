@@ -13,6 +13,8 @@ export interface Obstacle {
   y: number;
   w: number;
   h: number;
+  /** Yükseklik (metre). Verilmezse türün varsayılanı: duvar 1,85, kutu 0,7, bar 1,15. */
+  hgt?: number;
 }
 
 export interface QuadLayout {
@@ -20,6 +22,10 @@ export interface QuadLayout {
   name: string;
   obstacles: Obstacle[];
   spawns: [number, number][];
+  /** Resmî başlangıç plakaları: [kovalayan, kaçan]. Varsa spawn seçimi yerine kullanılır. */
+  plates?: [[number, number], [number, number]];
+  /** Saha teması (zemin rengi) */
+  theme?: "night" | "arena";
 }
 
 const SPAWNS: [number, number][] = [
@@ -34,10 +40,41 @@ const SPAWNS: [number, number][] = [
 ];
 
 const w = (x: number, y: number, ww: number, h: number): Obstacle => ({ kind: "wall", x, y, w: ww, h });
-const b = (x: number, y: number, ww: number, h: number): Obstacle => ({ kind: "box", x, y, w: ww, h });
+const b = (x: number, y: number, ww: number, h: number, hgt?: number): Obstacle => ({ kind: "box", x, y, w: ww, h, hgt });
 const r = (x: number, y: number, ww: number, h: number): Obstacle => ({ kind: "bar", x, y, w: ww, h });
 
 export const LAYOUTS: QuadLayout[] = [
+  {
+    // Resmî 12 m Quad'dan esinlenilmiş düzen: ortada 1,85 m kule, iki "kardeş" duvar çifti,
+    // altından kayılan iki platform boşluğu, farklı yükseklikte vault blokları, çapraz başlangıç plakaları.
+    id: "quad",
+    name: "Resmî Quad",
+    theme: "arena",
+    spawns: SPAWNS,
+    plates: [
+      [1.1, 10.9],
+      [10.9, 1.1],
+    ],
+    obstacles: [
+      // Merkez kule
+      w(5.4, 5.4, 1.2, 1.2),
+      // Köşe kuleleri (döngü noktaları)
+      w(2.4, 2.4, 1.0, 1.0),
+      w(8.6, 8.6, 1.0, 1.0),
+      // Uzun tek duvarlar (tic-tac için)
+      w(2.0, 7.9, 0.3, 2.1),
+      w(9.7, 2.0, 0.3, 2.1),
+      // Platform altı kayma boşlukları
+      r(5.1, 2.6, 1.8, 0.45),
+      r(5.1, 8.95, 1.8, 0.45),
+      // Yüksek vault blokları (1,0 m)
+      b(8.5, 2.6, 1.2, 0.6, 1.0),
+      b(2.3, 8.8, 1.2, 0.6, 1.0),
+      // Alçak bloklar (0,7 m, üstüne zıplanır)
+      b(3.0, 5.3, 0.6, 1.4, 0.7),
+      b(8.4, 5.3, 0.6, 1.4, 0.7),
+    ],
+  },
   {
     id: "klasik",
     name: "Klasik",

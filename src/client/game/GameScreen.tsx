@@ -235,8 +235,8 @@ export function GameScreen({ source, state, onLeave }: Props) {
       for (const [id, p] of f.players) if (id !== source.selfId) other = p;
       if (s.phase === "countdown") cam.init = cam.init && s.chaseStartTick === lastChaseTick;
       lastChaseTick = s.chaseStartTick;
-      updateCamera(cam, me, other, dtc);
-      const proj = scene.render(layout, s, f.players, source.selfId, cam, now);
+      void me; void other; void dtc; void cam; void updateCamera;
+      const proj = scene.render(layout, s, f.players, source.selfId, now);
       drawOverlay(ctx, view, layout, s, f.players, proj, source.selfId, joy);
 
       // Saat
@@ -455,9 +455,9 @@ export function GameScreen({ source, state, onLeave }: Props) {
 
       {s.phase === "countdown" && role && (
         <div className="control-hint">
-          Sol tarafı sürükle: koş · Kutular atlanır, barların altından kayılır
+          Solu sürükle: koş
           <br />
-          {role === "evader" ? "SIÇRA: ani yön değişimi · TIRMAN/SEK: duvarı kullan" : "DALIŞ: uzun erişim, sonra tökezlersin"}
+          {role === "evader" ? "SIÇRA: ani yön değişimi" : "DALIŞ: uzun erişim"}
         </div>
       )}
     </div>

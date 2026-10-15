@@ -19,6 +19,7 @@ export interface Look {
   shorts: number;
   skin: number;
   hair: number;
+  number: number;
 }
 
 const SKINS = [0xf1c7a3, 0xd9a77f, 0xb97d55, 0x8d5a3b, 0xf4d2b8, 0xc68e66];
@@ -35,7 +36,7 @@ function hash(s: string) {
 
 export function lookFor(id: string, shirt: number, shorts: number): Look {
   const h = hash(id);
-  return { shirt, shorts, skin: SKINS[h % SKINS.length], hair: HAIRS[(h >>> 8) % HAIRS.length] };
+  return { shirt, shorts, skin: SKINS[h % SKINS.length], hair: HAIRS[(h >>> 8) % HAIRS.length], number: 2 + ((h >>> 16) % 97) };
 }
 
 export type Pose = "run" | "cheer" | "tired";
@@ -97,6 +98,32 @@ export class Figure3D {
     this.torso.castShadow = true;
     this.body.add(this.torso);
 
+    // Forma numarası (sırt ve göğüs)
+    const nc = document.createElement("canvas");
+    nc.width = nc.height = 128;
+    const ng = nc.getContext("2d")!;
+    ng.fillStyle = "#ffffff";
+    ng.font = "italic 800 84px 'Barlow Condensed', system-ui, sans-serif";
+    ng.textAlign = "center";
+    ng.textBaseline = "middle";
+    ng.fillText(String(look.number), 64, 68);
+    const ntex = new THREE.CanvasTexture(nc);
+    ntex.colorSpace = THREE.SRGBColorSpace;
+    const nmat = new THREE.MeshBasicMaterial({ map: ntex, transparent: true, depthWrite: false });
+    for (const side of [1, -1]) {
+      const plate = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.22), nmat);
+      plate.position.set(0, 1.08, side * 0.125);
+      if (side < 0) plate.rotation.y = Math.PI;
+      plate.scale.setScalar(side > 0 ? 0.7 : 1);
+      this.body.add(plate);
+    }
+    // Yaka ve bel bandı (takım koyu tonu)
+    const trim = new THREE.MeshStandardMaterial({ color: look.shorts, roughness: 0.6 });
+    const collar = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.022, 6, 14), trim);
+    collar.rotation.x = Math.PI / 2;
+    collar.position.y = 1.33;
+    this.body.add(collar);
+
     const hips = new THREE.Mesh(new THREE.CapsuleGeometry(0.17, 0.08, 4, 10), shorts);
     hips.scale.set(1, 1, 0.7);
     hips.position.y = 0.82;
@@ -134,6 +161,17 @@ export class Figure3D {
       foot.position.set(0, -0.4, 0.06);
       foot.castShadow = true;
       shin.add(foot);
+      // Takım renginde ayakkabı şeridi + tabanı
+      const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.125, 0.025, 0.2), shirt);
+      stripe.position.set(0, -0.385, 0.06);
+      shin.add(stripe);
+      const sole = new THREE.Mesh(new THREE.BoxGeometry(0.125, 0.02, 0.25), new THREE.MeshStandardMaterial({ color: 0x20242c }));
+      sole.position.set(0, -0.44, 0.06);
+      shin.add(sole);
+      // Diz bandı / tayt hissi
+      const sock = new THREE.Mesh(new THREE.CylinderGeometry(0.064, 0.06, 0.12, 10), new THREE.MeshStandardMaterial({ color: 0xf1f4f9 }));
+      sock.position.y = -0.33;
+      shin.add(sock);
       this.body.add(thigh);
       return [thigh, shin] as const;
     };

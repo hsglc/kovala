@@ -12,6 +12,20 @@ export interface PatchNote {
 
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: "0.6.0",
+    date: "16 Eki 2026",
+    time: "01:35",
+    title: "Resmî Quad haritası, gerçek malzemeler, akıllı kamera",
+    items: [
+      "Yeni harita: Resmî Quad. 12 × 12 m, merkez kule, köşe kuleleri, tic-tac duvarları, platform altı kayma boşlukları, 1,0 ve 0,7 m vault blokları, çapraz başlangıç plakaları.",
+      "Resmî ölçü ve kurallar: en yüksek engel 1,85 m; maç 16 chase; chase'ler arası dinlenme Resmî (25 sn) ya da Hızlı (5 sn).",
+      "Tüm haritalarda engeller resmî Quad gibi: 18 mm kontrplak yüzeyler, galvaniz boru iskele ve kelepçeler, pedli vault kenarları.",
+      "Sporcular: sırt ve göğüste forma numarası, yaka bandı, takım renginde ayakkabı şeridi.",
+      "Kamera: yönü sabit, sen + rakip + gidiş yönün aynı anda kadrajda; HUD ve tuşların altına kimse kalmaz; araya giren engel saydamlaşır.",
+      "Arena: çevrede LED panolar ve ışık direkleri.",
+    ],
+  },
+  {
     version: "0.5.2",
     date: "16 Eki 2026",
     time: "01:05",

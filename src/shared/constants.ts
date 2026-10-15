@@ -64,7 +64,8 @@ export const JUKE_TIME = 0.14;
 export const JUKE_COST = 24;
 
 /** Engel yükseklikleri (metre). Fizik ve çizim aynı değeri kullanır. */
-export const WALL_H = 1.9;
+/** Resmî Quad: en yüksek engel 1,85 m. */
+export const WALL_H = 1.85;
 export const BOX_H = 0.7;
 export const BAR_H = 1.15;
 export const GRAVITY = 24;
@@ -85,5 +86,9 @@ export const JUMP_COST = 10;
 
 export const ACTION_COOLDOWN = 0.25;
 
-export const CHASE_OPTIONS = [10, 16] as const;
+/** Resmî maç 16 chase. */
+export const CHASE_OPTIONS = [16, 10] as const;
+/** Chase'ler arası dinlenme: resmî 25 sn, hızlı mod 5 sn (sonuç gösterimi dahil). */
+export const REST_OFFICIAL_TICKS = 25 * TICK_RATE;
+export const REST_QUICK_TICKS = 5 * TICK_RATE;
 export const MAX_TEAM_SIZE = 6;

@@ -26,7 +26,7 @@ export class LocalGame implements GameSource {
   private act2 = false;
   private paused = false;
 
-  constructor(pid: string, name: string, level: BotLevel, chases = 10) {
+  constructor(pid: string, name: string, level: BotLevel, chases = 16) {
     this.selfId = pid;
     this.bot = new Bot(level);
     this.engine.join(pid, name);
@@ -120,6 +120,11 @@ export class LocalGame implements GameSource {
   switchTeam() {}
   setChases(n: number) {
     this.engine.setChases(this.selfId, n);
+    this.state = this.engine.publicState();
+    this.emit();
+  }
+  setRest(v: "official" | "quick") {
+    this.engine.setRest(this.selfId, v);
     this.state = this.engine.publicState();
     this.emit();
   }

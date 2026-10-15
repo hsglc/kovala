@@ -99,6 +99,21 @@ export function Lobby({ source, state: s, onLeave }: Props) {
           </div>
         </div>
         <div className="setting">
+          <span className="setting-label">Chase arası dinlenme</span>
+          <div className="seg">
+            {(
+              [
+                ["quick", "Hızlı · 5 sn"],
+                ["official", "Resmî · 25 sn"],
+              ] as const
+            ).map(([v, label]) => (
+              <button key={v} disabled={!isHost} className={s.rest === v ? "on" : ""} onClick={() => source.setRest(v)}>
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="setting">
           <span className="setting-label">Saha</span>
           <div className="seg wrap">
             {[{ id: "random", name: "Rastgele" }, ...LAYOUTS].map((l) => (

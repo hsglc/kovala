@@ -130,8 +130,13 @@ function circleOverlapsRect(x: number, y: number, r: number, o: Obstacle): boole
   return dx * dx + dy * dy < r * r;
 }
 
-export function obstacleTop(kind: Obstacle["kind"]): number {
-  return kind === "wall" ? WALL_H : kind === "box" ? BOX_H : 0;
+export function obstacleHeight(o: Obstacle): number {
+  return o.hgt ?? (o.kind === "wall" ? WALL_H : o.kind === "box" ? BOX_H : 1.15);
+}
+
+/** Üstünde durulabilen yükseklik (bar'ın üstünde durulmaz). */
+export function obstacleTop(o: Obstacle): number {
+  return o.kind === "bar" ? 0 : obstacleHeight(o);
 }
 
 /** Oyuncunun merkezinin altındaki zemin yüksekliği (duvar/kutu üstü). Barın üstünde durulmaz. */
@@ -139,7 +144,7 @@ export function groundAt(x: number, y: number, layout: QuadLayout): number {
   let g = 0;
   for (const o of layout.obstacles) {
     if (o.kind === "bar") continue;
-    if (x >= o.x - 0.05 && x <= o.x + o.w + 0.05 && y >= o.y - 0.05 && y <= o.y + o.h + 0.05) g = Math.max(g, obstacleTop(o.kind));
+    if (x >= o.x - 0.05 && x <= o.x + o.w + 0.05 && y >= o.y - 0.05 && y <= o.y + o.h + 0.05) g = Math.max(g, obstacleTop(o));
   }
   return g;
 }
@@ -250,7 +255,7 @@ function resolveCollisions(p: PlayerState, layout: QuadLayout, ignore: "box" | "
       if (ignore === "box" && o.kind === "box") continue;
       if (ignore === "bar" && o.kind === "bar") continue;
       // Engelin üstündeysen (ya da üstünden geçiyorsan) çarpışma yok
-      const top = o.kind === "bar" ? 1.15 : obstacleTop(o.kind);
+      const top = obstacleHeight(o);
       if (p.h >= top - 0.25) continue;
       const cx = Math.max(o.x, Math.min(p.x, o.x + o.w));
       const cy = Math.max(o.y, Math.min(p.y, o.y + o.h));
@@ -456,7 +461,7 @@ export function stepPlayer(p: PlayerState, input: Input, role: Role, layout: Qua
     p.h = Math.min(WALL_H, p.h + (WALL_H / 0.7) * DT);
     p.hv = 0;
   } else if (p.ak === ACT_VAULT || p.ak === ACT_KONG) {
-    p.h = Math.max(g2, Math.sin(Math.min(1, p.at / 0.4) * Math.PI) * (BOX_H + 0.3));
+    p.h = Math.max(g2, Math.sin(Math.min(1, p.at / 0.4) * Math.PI) * (vaultClear(p, layout) + 0.3));
     p.hv = 0;
   } else if (p.ak === ACT_SLIDE) {
     p.h = g2;
@@ -550,6 +555,16 @@ export function stepPlayer(p: PlayerState, input: Input, role: Role, layout: Qua
   }
 
   return { out: !insideQuad(p.x, p.y), started };
+}
+
+/** Atlanan kutunun yüksekliği (vault yayı için). */
+function vaultClear(p: PlayerState, layout: QuadLayout): number {
+  let h = BOX_H;
+  for (const o of layout.obstacles) {
+    if (o.kind !== "box") continue;
+    if (Math.abs(p.x - (o.x + o.w / 2)) < o.w / 2 + 1.2 && Math.abs(p.y - (o.y + o.h / 2)) < o.h / 2 + 1.2) h = Math.max(h, obstacleHeight(o));
+  }
+  return h;
 }
 
 /** Deterministik çeşitlilik: konuma göre speed vault ya da kong. */

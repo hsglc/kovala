@@ -4,6 +4,8 @@ Evade (repo adı: kovala). Tarayıcıda oynanan, online, 20 saniyelik kovalamaca
 
 ## Kurallar
 
+- Resmî Quad ölçüleri: 12 × 12 m saha, en yüksek engel 1,85 m; maç 16 chase, chase arası dinlenme resmî 25 sn (lobide hızlı 5 sn seçeneği).
+
 - Her chase 20 saniye: bir kovalayan (◆), bir kaçan (●).
 - Kaçan 20 saniye yakalanmazsa takımı 1 puan alır. Yakalamak puan getirmez.
 - Chase'i kazanan sahada kalır ve bir sonrakinde kaçan olur; kaybedenin takımı sıradaki oyuncusunu kovalayan olarak yollar.

@@ -119,7 +119,7 @@ async function main() {
   const fa = A.getState()!, fb = B2.getState()!;
   assert(fb.phase === "finished", "iki istemci de maç sonunu gördü");
   assert(fa.scores.join() === fb.scores.join(), `skorlar aynı: ${fa.scores.join("-")}`);
-  assert(fa.history.filter((x) => !x.sd).length === 10, "10 chase oynandı");
+  assert(fa.history.filter((x) => !x.sd).length === 16, "16 chase oynandı");
   console.log(`    maç süresi ${((Date.now() - t0) / 1000).toFixed(0)} sn, kazanan takım ${fa.winner} (${fa.winReason})`);
   for (const c of clients) {
     console.log(`    ${c.selfId}: ping ${c.getPing()} ms, tahmin düzeltmesi ${c.corrections} kez, en büyük ${c.maxCorrection.toFixed(3)} m`);

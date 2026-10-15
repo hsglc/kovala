@@ -1,10 +1,12 @@
 import * as THREE from "three";
-import { BAR_H, BOX_H, PLAYER_RADIUS, QUAD_SIZE, SPEED_EVADER, WALL_H } from "../../../shared/constants";
+import { PLAYER_RADIUS, QUAD_SIZE, SPEED_EVADER } from "../../../shared/constants";
 import type { PublicState } from "../../../shared/engine";
 import type { Obstacle, QuadLayout } from "../../../shared/maps";
 import { ACT_DIVE, ACT_KICK, ACT_JUKE, TAG_DISTANCE, chaserReach, groundAt, type PlayerState } from "../../../shared/sim";
 import { TEAM_COLORS, TEAM_DARK, memberTeam } from "../../lib/text";
 import { Figure3D, lookFor, type Pose } from "./figure3d";
+import { CameraRig } from "./CameraRig";
+import { buildFloor, buildObstacle, makeMaterials, type QuadMaterials } from "./quadBuilder";
 
 /**
  * three.js sahnesi. Saha düzlemi: x → X, y → Z, yukarı → Y.
@@ -43,9 +45,15 @@ export class Scene3D {
   private edgeGlow: THREE.Mesh[] = [];
   private w = 1;
   private h = 1;
-  private camPos = new THREE.Vector3();
-  private camLook = new THREE.Vector3(6, 0, 6);
-  private initialized = false;
+  private rig: CameraRig;
+  private mats: QuadMaterials;
+  private floorGroup: THREE.Group | null = null;
+  private obstacleGroups: THREE.Group[] = [];
+  private faded = new Set<THREE.Group>();
+  private ray = new THREE.Raycaster();
+  private portrait = true;
+  private lastChaseKey = -1;
+  private lastNow = 0;
 
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, powerPreference: "high-performance" });
@@ -54,7 +62,7 @@ export class Scene3D {
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.05;
     this.scene.background = new THREE.Color(0x0a1020);
-    this.scene.fog = new THREE.Fog(0x0a1020, 22, 48);
+    this.scene.fog = new THREE.Fog(0x0a1020, 26, 60);
 
     const hemi = new THREE.HemisphereLight(0xcfe0ff, 0x2a2214, 1.7);
     this.scene.add(hemi);
@@ -72,6 +80,8 @@ export class Scene3D {
     this.scene.add(this.sun.target);
 
     this.scene.add(this.world);
+    this.mats = makeMaterials();
+    this.rig = new CameraRig(this.camera);
     this.buildGround();
 
     this.reachRing = new THREE.Mesh(
@@ -90,6 +100,7 @@ export class Scene3D {
     this.renderer.setPixelRatio(Math.min(dpr, 2));
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
+    this.portrait = h > w * 1.15;
     this.camera.updateProjectionMatrix();
   }
 
@@ -109,39 +120,6 @@ export class Scene3D {
     outer.position.set(QUAD_SIZE / 2, -0.01, QUAD_SIZE / 2);
     outer.receiveShadow = true;
     this.scene.add(outer);
-
-    // Saha zemini: mat, ince ızgara dokusu (canvas texture)
-    const c = document.createElement("canvas");
-    c.width = c.height = 512;
-    const g = c.getContext("2d")!;
-    g.fillStyle = "#26395a";
-    g.fillRect(0, 0, 512, 512);
-    g.strokeStyle = "rgba(170,200,240,0.07)";
-    g.lineWidth = 2;
-    for (let i = 0; i <= 512; i += 512 / QUAD_SIZE) {
-      g.beginPath();
-      g.moveTo(i, 0);
-      g.lineTo(i, 512);
-      g.moveTo(0, i);
-      g.lineTo(512, i);
-      g.stroke();
-    }
-    // merkez işareti
-    g.strokeStyle = "rgba(232,238,247,0.22)";
-    g.lineWidth = 3;
-    g.beginPath();
-    g.arc(256, 256, 60, 0, Math.PI * 2);
-    g.stroke();
-    const tex = new THREE.CanvasTexture(c);
-    tex.colorSpace = THREE.SRGBColorSpace;
-    const floor = new THREE.Mesh(
-      new THREE.PlaneGeometry(QUAD_SIZE, QUAD_SIZE),
-      new THREE.MeshStandardMaterial({ map: tex, roughness: 0.95 }),
-    );
-    floor.rotation.x = -Math.PI / 2;
-    floor.position.set(QUAD_SIZE / 2, 0, QUAD_SIZE / 2);
-    floor.receiveShadow = true;
-    this.scene.add(floor);
 
     // Saha çizgisi (parlak beyaz şerit)
     const lineMat = new THREE.MeshBasicMaterial({ color: 0xe8eef7 });
@@ -169,114 +147,91 @@ export class Scene3D {
       this.edgeGlow.push(m);
     }
 
-    // Tribün hissi: sahanın etrafında alçak bariyer + ışık direkleri
-    const rail = new THREE.MeshStandardMaterial({ color: 0x27354f, roughness: 0.6, metalness: 0.3 });
-    const off = 1.6;
-    for (const [x, z, w, d] of [
-      [QUAD_SIZE / 2, -off, QUAD_SIZE + off * 2, 0.15],
-      [QUAD_SIZE / 2, QUAD_SIZE + off, QUAD_SIZE + off * 2, 0.15],
-      [-off, QUAD_SIZE / 2, 0.15, QUAD_SIZE + off * 2],
-      [QUAD_SIZE + off, QUAD_SIZE / 2, 0.15, QUAD_SIZE + off * 2],
-    ]) {
-      const m = new THREE.Mesh(new THREE.BoxGeometry(w, 0.9, d), rail);
+    // Arena: sahanın çevresinde reklam/LED panoları ve ışık direkleri
+    const board = new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.6, metalness: 0.2 });
+    const led = (col: number) => new THREE.MeshBasicMaterial({ color: col });
+    const off = 1.8;
+    const sides: [number, number, number, number, number][] = [
+      [QUAD_SIZE / 2, -off, QUAD_SIZE + off * 2, 0.12, 0xff5a4f],
+      [QUAD_SIZE / 2, QUAD_SIZE + off, QUAD_SIZE + off * 2, 0.12, 0x35b8ff],
+      [-off, QUAD_SIZE / 2, 0.12, QUAD_SIZE + off * 2, 0xf5b83d],
+      [QUAD_SIZE + off, QUAD_SIZE / 2, 0.12, QUAD_SIZE + off * 2, 0xf5b83d],
+    ];
+    for (const [x, z, w, d, col] of sides) {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(w, 0.9, d), board);
       m.position.set(x, 0.45, z);
-      m.castShadow = true;
       m.receiveShadow = true;
       this.scene.add(m);
+      const strip = new THREE.Mesh(new THREE.BoxGeometry(w + 0.01, 0.08, d + 0.01), led(col));
+      strip.position.set(x, 0.82, z);
+      this.scene.add(strip);
+    }
+    for (const [x, z] of [
+      [-off, -off],
+      [QUAD_SIZE + off, -off],
+      [-off, QUAD_SIZE + off],
+      [QUAD_SIZE + off, QUAD_SIZE + off],
+    ]) {
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 7, 10), this.mats?.steel ?? board);
+      pole.position.set(x, 3.5, z);
+      this.scene.add(pole);
+      const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.3, 0.3), led(0xfff4dd));
+      lamp.position.set(x, 7, z);
+      lamp.lookAt(QUAD_SIZE / 2, 0, QUAD_SIZE / 2);
+      this.scene.add(lamp);
     }
   }
 
   private buildLayout(layout: QuadLayout) {
     this.world.clear();
-    const wallMat = new THREE.MeshStandardMaterial({ color: 0x7f93b8, roughness: 0.5, metalness: 0.15 });
-    const wallPanel = new THREE.MeshStandardMaterial({ color: 0x55688c, roughness: 0.65 });
-    const wallTop = new THREE.MeshStandardMaterial({ color: 0xf5b83d, roughness: 0.5 });
-    const boxMat = new THREE.MeshStandardMaterial({ color: 0xf2b23a, roughness: 0.45 });
-    const boxEdge = new THREE.MeshStandardMaterial({ color: 0x2b2f3a, roughness: 0.6, metalness: 0.4 });
-    const barMat = new THREE.MeshStandardMaterial({ color: 0xd8dee9, roughness: 0.3, metalness: 0.8 });
-    const postMat = new THREE.MeshStandardMaterial({ color: 0x2b3345, roughness: 0.5, metalness: 0.5 });
-
+    this.obstacleGroups = [];
+    this.faded.clear();
+    if (this.floorGroup) this.scene.remove(this.floorGroup);
+    this.floorGroup = buildFloor(layout);
+    this.scene.add(this.floorGroup);
     for (const o of layout.obstacles) {
-      const cx = o.x + o.w / 2;
-      const cz = o.y + o.h / 2;
-      const grp = new THREE.Group();
-      if (o.kind === "wall") {
-        // İskele duvar: dolgu panel + köşe direkleri + üstte sarı tutamak
-        const core = new THREE.Mesh(new THREE.BoxGeometry(o.w, WALL_H, o.h), wallPanel);
-        core.position.y = WALL_H / 2;
-        core.castShadow = core.receiveShadow = true;
-        grp.add(core);
-        const frame = new THREE.Mesh(new THREE.BoxGeometry(o.w + 0.06, 0.12, o.h + 0.06), wallMat);
-        frame.position.y = WALL_H - 0.06;
-        frame.castShadow = true;
-        grp.add(frame);
-        const grip = new THREE.Mesh(new THREE.BoxGeometry(o.w + 0.1, 0.05, o.h + 0.1), wallTop);
-        grip.position.y = WALL_H - 0.01;
-        grp.add(grip);
-        const cap = new THREE.Mesh(new THREE.BoxGeometry(o.w - 0.02, 0.06, o.h - 0.02), wallPanel);
-        cap.position.y = WALL_H + 0.02;
-        cap.receiveShadow = true;
-        grp.add(cap);
-        for (const sx of [-1, 1]) {
-          for (const sz of [-1, 1]) {
-            const post = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, WALL_H, 10), wallMat);
-            post.position.set((sx * o.w) / 2, WALL_H / 2, (sz * o.h) / 2);
-            post.castShadow = true;
-            grp.add(post);
-          }
-        }
-        // yatay kuşaklar
-        for (const yy of [0.6, 1.25]) {
-          const band = new THREE.Mesh(new THREE.BoxGeometry(o.w + 0.04, 0.06, o.h + 0.04), wallMat);
-          band.position.y = yy;
-          grp.add(band);
-        }
-      } else if (o.kind === "box") {
-        // Sünger kutu: yuvarlak kenarlı sarı blok, koyu kenar çerçevesi
-        const core = new THREE.Mesh(new THREE.BoxGeometry(o.w, BOX_H, o.h), boxMat);
-        core.position.y = BOX_H / 2;
-        core.castShadow = core.receiveShadow = true;
-        grp.add(core);
-        const band = new THREE.Mesh(new THREE.BoxGeometry(o.w + 0.03, 0.08, o.h + 0.03), boxEdge);
-        band.position.y = BOX_H * 0.5;
-        grp.add(band);
-        const stripe = new THREE.Mesh(
-          new THREE.PlaneGeometry(o.w * 0.9, o.h * 0.9),
-          new THREE.MeshStandardMaterial({ color: 0xc98a1d, roughness: 0.6 }),
-        );
-        stripe.rotation.x = -Math.PI / 2;
-        stripe.position.y = BOX_H + 0.002;
-        grp.add(stripe);
-      } else {
-        // Korkuluk: iki direk + parlak çelik boru (altından kayılır)
-        const horizontal = o.w >= o.h;
-        const len = horizontal ? o.w : o.h;
-        const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, len, 12), barMat);
-        pipe.rotation.z = horizontal ? Math.PI / 2 : 0;
-        pipe.rotation.x = horizontal ? 0 : Math.PI / 2;
-        pipe.position.y = BAR_H;
-        pipe.castShadow = true;
-        grp.add(pipe);
-        for (const s of [-1, 1]) {
-          const post = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, BAR_H, 10), postMat);
-          post.position.set(horizontal ? (s * len) / 2 : 0, BAR_H / 2, horizontal ? 0 : (s * len) / 2);
-          post.castShadow = true;
-          grp.add(post);
-          const foot = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.18, 0.06, 12), postMat);
-          foot.position.set(post.position.x, 0.03, post.position.z);
-          grp.add(foot);
-        }
-        // zeminde "altından geç" işareti
-        const mark = new THREE.Mesh(
-          new THREE.PlaneGeometry(o.w, o.h),
-          new THREE.MeshBasicMaterial({ color: 0x7fe0ff, transparent: true, opacity: 0.12, depthWrite: false }),
-        );
-        mark.rotation.x = -Math.PI / 2;
-        mark.position.y = 0.013;
-        grp.add(mark);
+      const g = buildObstacle(o, this.mats);
+      // Saydamlaşabilsin diye her engelin malzemeleri kendine ait
+      g.traverse((c) => {
+        const m = c as THREE.Mesh;
+        if (!m.isMesh) return;
+        m.material = Array.isArray(m.material) ? m.material.map((x) => x.clone()) : (m.material as THREE.Material).clone();
+      });
+      this.world.add(g);
+      this.obstacleGroups.push(g);
+    }
+  }
+
+  /** Kamera ile oyuncu arasına giren engeli saydamlaştır. */
+  private updateOcclusion(targets: THREE.Vector3[]) {
+    const hit = new Set<THREE.Group>();
+    for (const t of targets) {
+      const dir = t.clone().sub(this.camera.position);
+      const len = dir.length();
+      this.ray.set(this.camera.position, dir.normalize());
+      this.ray.far = len - 0.3;
+      const res = this.ray.intersectObjects(this.obstacleGroups, true);
+      for (const r of res) {
+        let o: THREE.Object3D | null = r.object;
+        while (o && !this.obstacleGroups.includes(o as THREE.Group)) o = o.parent;
+        if (o) hit.add(o as THREE.Group);
       }
-      grp.position.set(cx, 0, cz);
-      this.world.add(grp);
+    }
+    for (const g of this.obstacleGroups) {
+      const want = hit.has(g) ? 0.28 : 1;
+      g.traverse((c) => {
+        const m = c as THREE.Mesh;
+        if (!m.isMesh) return;
+        for (const mat of Array.isArray(m.material) ? m.material : [m.material]) {
+          const sm = mat as THREE.MeshStandardMaterial;
+          const cur = sm.opacity ?? 1;
+          const next = cur + (want - cur) * 0.25;
+          sm.transparent = next < 0.99;
+          sm.opacity = next;
+          sm.depthWrite = next > 0.9;
+        }
+        m.castShadow = true;
+      });
     }
   }
 
@@ -300,27 +255,33 @@ export class Scene3D {
     state: PublicState | null,
     players: Map<string, PlayerState>,
     selfId: string,
-    cam: { x: number; y: number; zoom: number },
     now: number,
   ): Map<string, Projected> {
     if (layout.id !== this.layoutId) {
       this.layoutId = layout.id;
       this.buildLayout(layout);
     }
-    // Kamera: hedefin arkasından (ekranın altından) yukarı bakar.
-    const z = cam.zoom;
-    const target = new THREE.Vector3(cam.x, 0.6, cam.y - 1.2 + z * 1.4);
-    const desired = new THREE.Vector3(cam.x, 8.6 + z * 9.5, cam.y + 7.0 + z * 6.5);
-    if (!this.initialized) {
-      this.camPos.copy(desired);
-      this.camLook.copy(target);
-      this.initialized = true;
-    } else {
-      this.camPos.lerp(desired, 0.25);
-      this.camLook.lerp(target, 0.25);
+    const dtMs = this.lastNow ? Math.min(100, now - this.lastNow) : 16;
+    this.lastNow = now;
+    const me = players.get(selfId) ?? null;
+    let other: PlayerState | null = null;
+    for (const [id, p] of players) if (id !== selfId) other = p;
+    const chaseKey = state?.chaseStartTick ?? -1;
+    if (chaseKey !== this.lastChaseKey && state?.phase === "countdown") {
+      this.rig.snap();
+      this.lastChaseKey = chaseKey;
     }
-    this.camera.position.copy(this.camPos);
-    this.camera.lookAt(this.camLook);
+    this.rig.update(
+      {
+        me: me ? { x: me.x, y: me.y, h: me.h, vx: me.vx, vy: me.vy } : null,
+        other: other ? { x: other.x, y: other.y, h: other.h } : null,
+        wide: state?.phase !== "chase",
+      },
+      dtMs,
+      this.portrait,
+    );
+    const cam = { x: this.rig.center.x, y: this.rig.center.z };
+    const z = Math.min(1, Math.max(0, (this.rig.dist - 10) / 14));
 
     // Güneş kamerayla gelir (gölge alanı dar ve keskin kalsın)
     this.sun.position.set(cam.x - 5, 11, cam.y - 4);
@@ -426,6 +387,9 @@ export class Scene3D {
       }
     }
 
+    const occ: THREE.Vector3[] = [];
+    for (const p of players.values()) occ.push(new THREE.Vector3(p.x, p.h + 1.0, p.y), new THREE.Vector3(p.x, p.h + 1.6, p.y));
+    this.updateOcclusion(occ);
     this.renderer.render(this.scene, this.camera);
 
     // Etiket konumları (başın üstü)
