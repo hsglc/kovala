@@ -3,6 +3,7 @@ import type { BotLevel } from "../../shared/bot";
 import { ROOM_CODE_ALPHABET, ROOM_CODE_LENGTH } from "../../shared/protocol";
 import { getName, setName } from "../lib/identity";
 import { unlockAudio } from "../lib/sound";
+import { CURRENT_VERSION, PATCH_NOTES } from "../patchnotes";
 
 interface Props {
   offline?: boolean;
@@ -15,11 +16,13 @@ interface Props {
   onPractice: (level: BotLevel) => void;
 }
 
+type Sheet = null | "rules" | "notes";
+
 export function Home({ offline, initialCode, busy, error, onQuick, onCreate, onJoin, onPractice }: Props) {
   const [name, setNameState] = useState(getName());
   const [code, setCode] = useState(initialCode ?? "");
   const [level, setLevel] = useState<BotLevel>("orta");
-  const [showRules, setShowRules] = useState(false);
+  const [sheet, setSheet] = useState<Sheet>(null);
   const [nameError, setNameError] = useState(false);
 
   const ensureName = () => {
@@ -44,12 +47,18 @@ export function Home({ offline, initialCode, busy, error, onQuick, onCreate, onJ
 
   return (
     <div className="page home">
+      <div className="hero-glow" aria-hidden="true" />
       <header className="brand">
-        <h1 className="logo">
-          <span className="streaks" aria-hidden="true" />
-          KOVALA
-        </h1>
-        <p className="tagline">20 saniye. Bir kovalayan, bir kaçan.</p>
+        <div className="brand-row">
+          <h1 className="logo">
+            <span className="streaks" aria-hidden="true" />
+            EVADE
+          </h1>
+          <button className="pill" onClick={() => setSheet("notes")}>
+            v{CURRENT_VERSION}
+          </button>
+        </div>
+        <p className="tagline">20 saniye. Bir kovalayan, bir kaçan. Parkur sahasında.</p>
       </header>
 
       <label className={`field ${nameError ? "error" : ""}`}>
@@ -71,50 +80,59 @@ export function Home({ offline, initialCode, busy, error, onQuick, onCreate, onJ
 
       {initialCode && (
         <div className="invite">
-          <b>{initialCode}</b> odasına davet edildin
+          <span>
+            <b>{initialCode}</b> odasına davet edildin
+          </span>
           <button className="btn primary" disabled={busy} onClick={() => ensureName() && onJoin(initialCode)}>
-            Odaya katıl
+            Katıl
           </button>
         </div>
       )}
 
       {offline && (
         <div className="invite">
-          <span>
-            Bu önizlemede botla antrenman oynanır. Online maç, oyun yayına alınınca açılacak.
-          </span>
+          <span>Bu önizlemede botla antrenman oynanır. Online maç canlı sürümde.</span>
         </div>
       )}
 
       <div className="stack" hidden={offline}>
         <button className="btn primary big" disabled={busy} onClick={() => ensureName() && onQuick()}>
-          Hızlı Maç
-          <small>Rastgele bir rakiple 1'e 1</small>
+          <span className="big-icon">⚡</span>
+          <span>
+            Hızlı Maç
+            <small>Rastgele bir rakiple 1'e 1</small>
+          </span>
         </button>
-        <button className="btn big" disabled={busy} onClick={() => ensureName() && onCreate()}>
-          Oda Kur
-          <small>Arkadaşlarınla, takım başına 6 kişiye kadar</small>
-        </button>
-        <form
-          className="join-row"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (code.length === ROOM_CODE_LENGTH && ensureName()) onJoin(code);
-          }}
-        >
-          <input
-            value={code}
-            placeholder="ODA KODU"
-            inputMode="text"
-            autoCapitalize="characters"
-            autoCorrect="off"
-            spellCheck={false}
-            onChange={(e) => setCode(cleanCode(e.target.value))}
-          />
-          <button className="btn" disabled={busy || code.length !== ROOM_CODE_LENGTH}>
-            Katıl
+        <div className="two">
+          <button className="btn big" disabled={busy} onClick={() => ensureName() && onCreate()}>
+            <span className="big-icon">＋</span>
+            <span>
+              Oda Kur
+              <small>Arkadaşlarınla, 6'ya 6'ya kadar</small>
+            </span>
           </button>
-        </form>
+          <form
+            className="join-card"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (code.length === ROOM_CODE_LENGTH && ensureName()) onJoin(code);
+            }}
+          >
+            <input
+              value={code}
+              placeholder="KOD"
+              inputMode="text"
+              autoCapitalize="characters"
+              autoCorrect="off"
+              spellCheck={false}
+              aria-label="Oda kodu"
+              onChange={(e) => setCode(cleanCode(e.target.value))}
+            />
+            <button className="btn small" disabled={busy || code.length !== ROOM_CODE_LENGTH}>
+              Odaya katıl
+            </button>
+          </form>
+        </div>
       </div>
 
       <section className="practice">
@@ -133,26 +151,85 @@ export function Home({ offline, initialCode, busy, error, onQuick, onCreate, onJ
         </button>
       </section>
 
-      <section className="rules">
-        <button className="link-btn" onClick={() => setShowRules((v) => !v)}>
-          {showRules ? "▾" : "▸"} Nasıl oynanır?
+      <div className="links">
+        <button className="link-btn" onClick={() => setSheet("rules")}>
+          Nasıl oynanır?
         </button>
-        {showRules && (
-          <ul>
-            <li>Her chase 20 saniye: biri kovalar ◆, biri kaçar ●.</li>
-            <li>Kaçan 20 saniye yakalanmazsa takımı 1 puan alır. Yakalamak puan getirmez.</li>
-            <li>Chase'i kazanan sahada kalır ve bir sonrakinde kaçan olur; kaybedenin takımı sıradaki oyuncusunu yollar.</li>
-            <li>Saha çizgisinin dışına basan chase'i kaybeder.</li>
-            <li>Sarı kutular koşarken kendiliğinden atlanır. <b>PARKUR</b> tuşu: duvara <b>TIRMAN</b>, sırtın duvardayken <b>SEK</b>.</li>
-            <li>Kaçan <b>SIÇRA</b> ile ani yön değiştirir; kovalayan <b>DALIŞ</b> ile uzağa uzanır ama sonra tökezler.</li>
-            <li>Düz koşarken çizgi seni tutar; hamle yaparken çizgiyi geçersen chase'i kaybedersin.</li>
-            <li>Eşitlikte sudden death: her takım bir kez kaçar, en uzun dayanan kazanır.</li>
-            <li>Telefonda: sol tarafı sürükleyerek koş, sağdaki tuşlar hamle. Bilgisayarda: WASD/ok tuşları, Boşluk = rol hamlesi, Shift = parkur.</li>
-          </ul>
-        )}
-      </section>
+        <span className="dot-sep">·</span>
+        <button className="link-btn" onClick={() => setSheet("notes")}>
+          Yama notları
+        </button>
+      </div>
 
       <footer className="foot">World Chase Tag'den esinlenilmiştir; resmî bir ürün değildir.</footer>
+
+      {sheet && (
+        <div className="sheet-backdrop" onClick={() => setSheet(null)}>
+          <div className="sheet" onClick={(e) => e.stopPropagation()} role="dialog">
+            <div className="sheet-head">
+              <h2>{sheet === "rules" ? "Nasıl oynanır?" : "Yama notları"}</h2>
+              <button className="icon-btn" onClick={() => setSheet(null)} aria-label="Kapat">
+                ✕
+              </button>
+            </div>
+            {sheet === "rules" ? <Rules /> : <Notes />}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Rules() {
+  return (
+    <div className="sheet-body">
+      <h3>Kurallar</h3>
+      <ul>
+        <li>Her chase 20 saniye: biri kovalar ◆, biri kaçar ●.</li>
+        <li>Kaçan 20 saniye yakalanmazsa takımı 1 puan alır. Yakalamak puan getirmez.</li>
+        <li>Chase'i kazanan sahada kalır ve bir sonrakinde kaçan olur; kaybedenin takımı sıradaki oyuncusunu yollar.</li>
+        <li>Düz koşarken çizgi seni tutar; hamle yaparken çizgiyi geçersen chase'i kaybedersin.</li>
+        <li>Eşitlikte sudden death: her takım bir kez kaçar, en uzun dayanan kazanır.</li>
+      </ul>
+      <h3>Hamleler</h3>
+      <ul>
+        <li>Sarı kutular koşarken kendiliğinden atlanır.</li>
+        <li>
+          <b>PARKUR</b>: duvara doğru <b>TIRMAN</b> (yavaş, tırmanırken yakalanabilirsin), sırtın duvardayken <b>SEK</b>.
+        </li>
+        <li>
+          Kaçan <b>SIÇRA</b> ile ani yön değiştirir; kovalayan <b>DALIŞ</b> ile uzağa uzanır ama sonra tökezler.
+        </li>
+        <li>Kaçan daha çevik döner, kovalayan biraz daha hızlı koşar. Hamleler enerji harcar.</li>
+      </ul>
+      <h3>Kontroller</h3>
+      <ul>
+        <li>Telefon: ekranın sol tarafını sürükleyerek koş; sağdaki tuşlar hamle.</li>
+        <li>Bilgisayar: WASD / ok tuşları, Boşluk = rol hamlesi, Shift = parkur.</li>
+      </ul>
+    </div>
+  );
+}
+
+function Notes() {
+  return (
+    <div className="sheet-body">
+      {PATCH_NOTES.map((n) => (
+        <article className="note" key={n.version}>
+          <div className="note-head">
+            <span className="note-ver">v{n.version}</span>
+            <span className="note-date">
+              {n.date} · {n.time}
+            </span>
+          </div>
+          <h3>{n.title}</h3>
+          <ul>
+            {n.items.map((it, i) => (
+              <li key={i}>{it}</li>
+            ))}
+          </ul>
+        </article>
+      ))}
     </div>
   );
 }

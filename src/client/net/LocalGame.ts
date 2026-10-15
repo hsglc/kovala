@@ -6,7 +6,7 @@ import { clonePlayer, quantizeInput, type PlayerState } from "../../shared/sim";
 import type { ConnStatus, FrameData, GameSource } from "./types";
 
 const TICK_MS = 1000 / TICK_RATE;
-const BOT_ID = "bot-kovala";
+const BOT_ID = "bot-evade";
 
 const BOT_NAMES: Record<BotLevel, string> = { kolay: "Çaylak Bot", orta: "Bot", zor: "Usta Bot" };
 

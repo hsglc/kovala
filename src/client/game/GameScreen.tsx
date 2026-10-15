@@ -5,7 +5,7 @@ import { ACT_CLIMB, ACT_DIVE, ACT_JUKE, ACT_KICK, ACT_KONG, ACT_NONE, ACT_STUMBL
 import { TEAM_COLORS, memberName, resultLine, resultTitle, teamName } from "../lib/text";
 import { isMuted, setMuted, sfx, unlockAudio, vibrate } from "../lib/sound";
 import type { GameSource } from "../net/types";
-import { computeView, drawFrame, type JoyVisual } from "./renderer";
+import { computeView, drawFrame, updateCamera, HUD_TOP, type Camera, type JoyVisual } from "./renderer";
 
 interface Props {
   source: GameSource;
@@ -61,17 +61,13 @@ export function GameScreen({ source, state, onLeave }: Props) {
       canvas.style.width = rect.width + "px";
       canvas.style.height = rect.height + "px";
       view = computeView(rect.width, rect.height, dpr);
-      // Joystick bölgesi: ekranın sol yarısı, sahanın altından ekranın dibine (dikeyde); yatayda tüm sol kısım.
+      // Joystick bölgesi: ekranın sol %58'i, HUD'un altından ekranın dibine.
       joy.zoneX = 0;
-      joy.zoneW = rect.width * 0.55;
-      joy.zoneY = view.portrait ? view.qy + view.qs + 8 : 0;
+      joy.zoneW = rect.width * 0.58;
+      joy.zoneY = HUD_TOP;
       joy.zoneH = rect.height - joy.zoneY;
-      if (joy.zoneH < 160) {
-        joy.zoneY = rect.height * 0.45;
-        joy.zoneH = rect.height - joy.zoneY;
-      }
       wrap.dataset.portrait = view.portrait ? "1" : "0";
-      wrap.style.setProperty("--quad-bottom", `${view.qy + view.qs}px`);
+      wrap.style.setProperty("--quad-bottom", `${rect.height * 0.62}px`);
     };
     resize();
     const ro = new ResizeObserver(resize);
@@ -98,31 +94,19 @@ export function GameScreen({ source, state, onLeave }: Props) {
       source.setMove(mx, my);
     };
 
-    const local = (e: PointerEvent) => {
-      const rect = wrap.getBoundingClientRect();
-      return [e.clientX - rect.left, e.clientY - rect.top] as const;
-    };
-    const onDown = (e: PointerEvent) => {
-      unlockAudio();
-      const t = e.target as HTMLElement;
-      if (t.closest("button")) return;
-      if (joy.active) return;
-      const [x, y] = local(e);
-      // Sağ taraf tuşlara ayrılmış; sahanın üstüne basınca da joystick açılır (sol yarı).
-      if (x > joy.zoneW && y > joy.zoneY) return;
+    // Joystick: dokunmatikte touch olayları (iOS pointer'ı kaydırma sanıp iptal edebiliyor), masaüstünde fare.
+    const rectOf = () => wrap.getBoundingClientRect();
+    const beginJoy = (id: number, x: number, y: number) => {
+      if (joy.active) return false;
+      if (x > joy.zoneW || y < joy.zoneY) return false;
       joy.active = true;
-      joy.id = e.pointerId;
+      joy.id = id;
       joy.ox = joy.x = x;
       joy.oy = joy.y = y;
-      try {
-        wrap.setPointerCapture(e.pointerId);
-      } catch {}
-      e.preventDefault();
       updateMove();
+      return true;
     };
-    const onMove = (e: PointerEvent) => {
-      if (!joy.active || e.pointerId !== joy.id) return;
-      const [x, y] = local(e);
+    const moveJoy = (x: number, y: number) => {
       let dx = x - joy.ox;
       let dy = y - joy.oy;
       const l = Math.hypot(dx, dy);
@@ -138,16 +122,60 @@ export function GameScreen({ source, state, onLeave }: Props) {
       joy.y = joy.oy + dy;
       updateMove();
     };
-    const onUp = (e: PointerEvent) => {
-      if (e.pointerId !== joy.id) return;
+    const endJoy = () => {
       joy.active = false;
       joy.id = -1;
       updateMove();
     };
-    wrap.addEventListener("pointerdown", onDown);
-    wrap.addEventListener("pointermove", onMove);
-    wrap.addEventListener("pointerup", onUp);
-    wrap.addEventListener("pointercancel", onUp);
+    let usingTouch = false;
+    const onTouchStart = (e: TouchEvent) => {
+      usingTouch = true;
+      unlockAudio();
+      const r = rectOf();
+      for (const t of Array.from(e.changedTouches)) {
+        const el = document.elementFromPoint(t.clientX, t.clientY) as HTMLElement | null;
+        if (el?.closest("button")) continue;
+        if (beginJoy(t.identifier, t.clientX - r.left, t.clientY - r.top)) e.preventDefault();
+      }
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      if (!joy.active) return;
+      const r = rectOf();
+      for (const t of Array.from(e.changedTouches)) {
+        if (t.identifier === joy.id) {
+          moveJoy(t.clientX - r.left, t.clientY - r.top);
+          e.preventDefault();
+        }
+      }
+    };
+    const onTouchEnd = (e: TouchEvent) => {
+      for (const t of Array.from(e.changedTouches)) if (t.identifier === joy.id) endJoy();
+    };
+    wrap.addEventListener("touchstart", onTouchStart, { passive: false });
+    wrap.addEventListener("touchmove", onTouchMove, { passive: false });
+    wrap.addEventListener("touchend", onTouchEnd);
+    wrap.addEventListener("touchcancel", onTouchEnd);
+
+    const onMouseDown = (e: MouseEvent) => {
+      if (usingTouch) return;
+      if ((e.target as HTMLElement).closest("button")) return;
+      unlockAudio();
+      const r = rectOf();
+      if (beginJoy(-2, e.clientX - r.left, e.clientY - r.top)) e.preventDefault();
+    };
+    const onMouseMove = (e: MouseEvent) => {
+      if (!joy.active || joy.id !== -2) return;
+      const r = rectOf();
+      moveJoy(e.clientX - r.left, e.clientY - r.top);
+    };
+    const onMouseUp = () => {
+      if (joy.id === -2) endJoy();
+    };
+    wrap.addEventListener("mousedown", onMouseDown);
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+    const noCtx = (e: Event) => e.preventDefault();
+    wrap.addEventListener("contextmenu", noCtx);
 
     const ACT2_KEYS = ["Space", "KeyJ", "Enter"];
     const ACT_KEYS = ["ShiftLeft", "ShiftRight", "KeyK", "KeyE"];
@@ -178,6 +206,8 @@ export function GameScreen({ source, state, onLeave }: Props) {
     window.addEventListener("keyup", onKey);
     window.addEventListener("blur", onBlur);
 
+    const cam: Camera = { x: 6, y: 6, init: false };
+    let lastNow = 0;
     let raf = 0;
     let lastDigit = -1;
     let lastPhase = "";
@@ -187,12 +217,35 @@ export function GameScreen({ source, state, onLeave }: Props) {
     let lastDisabled2 = false;
     let lastAk = 0;
     let lastPing = -2;
+    let lastChaseTick = -1;
     const loop = (now: number) => {
       raf = requestAnimationFrame(loop);
       const s = stateRef.current;
       const f = source.frame(now);
       const layout = source.layout();
-      drawFrame(ctx, view, layout, s, f.players, source.selfId, joy, now);
+      // Kamera hedefi: kendi karakterin; izliyorsan iki oyuncunun ortası; lobide saha merkezi.
+      const dtc = lastNow ? Math.min(100, now - lastNow) : 16;
+      lastNow = now;
+      const me = f.players.get(source.selfId);
+      let tx = 6;
+      let ty = 6;
+      if (me) {
+        tx = me.x;
+        ty = me.y;
+      } else if (f.players.size) {
+        let sx = 0;
+        let sy = 0;
+        for (const p of f.players.values()) {
+          sx += p.x;
+          sy += p.y;
+        }
+        tx = sx / f.players.size;
+        ty = sy / f.players.size;
+      }
+      if (s.phase === "countdown") cam.init = cam.init && s.chaseStartTick === lastChaseTick;
+      lastChaseTick = s.chaseStartTick;
+      updateCamera(cam, tx, ty, dtc, view);
+      drawFrame(ctx, view, layout, s, f.players, source.selfId, joy, now, cam);
 
       // Saat
       let t = 20;
@@ -265,10 +318,14 @@ export function GameScreen({ source, state, onLeave }: Props) {
     return () => {
       cancelAnimationFrame(raf);
       ro.disconnect();
-      wrap.removeEventListener("pointerdown", onDown);
-      wrap.removeEventListener("pointermove", onMove);
-      wrap.removeEventListener("pointerup", onUp);
-      wrap.removeEventListener("pointercancel", onUp);
+      wrap.removeEventListener("touchstart", onTouchStart);
+      wrap.removeEventListener("touchmove", onTouchMove);
+      wrap.removeEventListener("touchend", onTouchEnd);
+      wrap.removeEventListener("touchcancel", onTouchEnd);
+      wrap.removeEventListener("mousedown", onMouseDown);
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+      wrap.removeEventListener("contextmenu", noCtx);
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("keyup", onKey);
       window.removeEventListener("blur", onBlur);

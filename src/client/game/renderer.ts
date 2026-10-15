@@ -10,35 +10,52 @@ export interface View {
   w: number;
   h: number;
   dpr: number;
-  /** sahanın sol-üst köşesi ve boyutu (css piksel) */
-  qx: number;
-  qy: number;
-  qs: number;
+  /** piksel / metre */
+  s: number;
   portrait: boolean;
 }
 
 export const HUD_TOP = 70;
-/** Sahanın üst kenarındaki figürlerin kafası için boşluk. */
-const HEADROOM = 50;
 /** Figürler okunaklı olsun diye dünyaya göre biraz büyük çizilir (çarpışma etkilenmez). */
-const FIG_SCALE = 1.22;
+const FIG_SCALE = 1.15;
+/** Ekranın kısa kenarında görünen saha genişliği (metre). */
+const VIEW_METERS = 7.2;
 
 export function computeView(w: number, h: number, dpr: number): View {
   const portrait = h > w * 1.15;
-  let qs: number;
-  let qx: number;
-  let qy: number;
-  if (portrait) {
-    qs = Math.min(w - 20, h - HUD_TOP - HEADROOM - 190);
-    qx = (w - qs) / 2;
-    qy = HUD_TOP + HEADROOM;
-  } else {
-    qs = Math.min(h - HUD_TOP - HEADROOM * 0.8 - 14, w - 2 * 150);
-    qx = (w - qs) / 2;
-    qy = HUD_TOP + HEADROOM * 0.8 + Math.max(0, (h - HUD_TOP - HEADROOM * 0.8 - 14 - qs) / 2);
+  const short = Math.min(w, h);
+  const s = short / VIEW_METERS;
+  return { w, h, dpr, s, portrait };
+}
+
+/** Kamera: takip edilen noktayı yumuşakça izler. */
+export interface Camera {
+  x: number;
+  y: number;
+  init: boolean;
+}
+
+export function updateCamera(cam: Camera, tx: number, ty: number, dtMs: number, v: View) {
+  // Görünür alan sahadan taşmasın diye hedefi kırp (0.9 m kenar payı bırak).
+  const halfW = v.w / 2 / v.s;
+  const halfH = (v.h - HUD_TOP) / 2 / v.s;
+  const pad = 0.9;
+  const clamp = (val: number, half: number) => {
+    const lo = half - pad;
+    const hi = QUAD_SIZE - half + pad;
+    return lo > hi ? QUAD_SIZE / 2 : Math.max(lo, Math.min(hi, val));
+  };
+  tx = clamp(tx, halfW);
+  ty = clamp(ty, halfH);
+  if (!cam.init) {
+    cam.x = tx;
+    cam.y = ty;
+    cam.init = true;
+    return;
   }
-  qs = Math.max(120, qs);
-  return { w, h, dpr, qx, qy, qs, portrait };
+  const k = 1 - Math.exp(-dtMs / 110);
+  cam.x += (tx - cam.x) * k;
+  cam.y += (ty - cam.y) * k;
 }
 
 export interface JoyVisual {
@@ -197,12 +214,30 @@ export function drawFrame(
   selfId: string,
   joy: JoyVisual,
   now: number,
+  cam: Camera,
 ) {
-  const { dpr, qx, qy, qs } = v;
-  const s = qs / QUAD_SIZE;
+  const { dpr, s } = v;
+  const qs = QUAD_SIZE * s;
+  // Kamera: saha koordinatı → ekran: px = qx + x*s
+  const cy = HUD_TOP + (v.h - HUD_TOP) / 2;
+  const qx = v.w / 2 - cam.x * s;
+  const qy = cy - cam.y * s;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.fillStyle = COLORS.bg;
   ctx.fillRect(0, 0, v.w, v.h);
+  // Saha dışı zemin dokusu
+  ctx.strokeStyle = "rgba(160, 190, 230, 0.03)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let gx = ((qx % s) + s) % s; gx < v.w; gx += s) {
+    ctx.moveTo(gx, 0);
+    ctx.lineTo(gx, v.h);
+  }
+  for (let gy = ((qy % s) + s) % s; gy < v.h; gy += s) {
+    ctx.moveTo(0, gy);
+    ctx.lineTo(v.w, gy);
+  }
+  ctx.stroke();
 
   // ---------- Zemin ----------
   ctx.save();
@@ -383,6 +418,7 @@ export function drawFrame(
   ctx.textAlign = "center";
   ctx.textBaseline = "bottom";
   for (const d of list) {
+    if (d.px < -40 || d.px > v.w + 40 || d.py < HUD_TOP || d.py > v.h + 40) continue;
     const isChaser = d.id === chaserId;
     const label = memberName(state, d.id) + (d.id === selfId ? " (sen)" : "");
     const ty = (headTops.get(d.id) ?? d.py - 1.8 * s) - 3;
@@ -393,6 +429,65 @@ export function drawFrame(
     ctx.fill();
     ctx.fillStyle = isChaser ? "#ffd166" : "#bfe9ff";
     ctx.fillText((isChaser ? "◆ " : "● ") + label, lx, ty);
+  }
+
+  // Ekran dışındaki rakip için kenar oku
+  for (const d of list) {
+    if (d.id === selfId) continue;
+    const m = 26;
+    if (d.px > m && d.px < v.w - m && d.py > HUD_TOP + m && d.py < v.h - m) continue;
+    const ax = Math.max(m, Math.min(v.w - m, d.px));
+    const ay = Math.max(HUD_TOP + m, Math.min(v.h - m, d.py));
+    const ang = Math.atan2(d.py - ay, d.px - ax);
+    ctx.save();
+    ctx.translate(ax, ay);
+    ctx.rotate(ang);
+    ctx.fillStyle = TEAM_COLORS[d.team as 0 | 1];
+    ctx.beginPath();
+    ctx.moveTo(16, 0);
+    ctx.lineTo(-8, -11);
+    ctx.lineTo(-4, 0);
+    ctx.lineTo(-8, 11);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+    const dist = Math.hypot((d.px - (players.get(selfId) ? qx + players.get(selfId)!.x * s : v.w / 2)) / s, (d.py - (players.get(selfId) ? qy + players.get(selfId)!.y * s : cy)) / s);
+    ctx.font = "700 11px system-ui, sans-serif";
+    ctx.fillStyle = "#fff";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(`${dist.toFixed(0)} m`, ax, ay + (ay < v.h / 2 ? 22 : -22));
+  }
+
+  // Mini harita (sağ üst)
+  {
+    const mw = 74;
+    const mx = v.w - mw - 10;
+    const my = HUD_TOP + 2;
+    const ms = mw / QUAD_SIZE;
+    ctx.fillStyle = "rgba(9, 15, 28, 0.78)";
+    roundRect(ctx, mx - 3, my - 3, mw + 6, mw + 6, 6);
+    ctx.fill();
+    ctx.fillStyle = "#1b2a44";
+    ctx.fillRect(mx, my, mw, mw);
+    for (const o of layout.obstacles) {
+      ctx.fillStyle = o.kind === "wall" ? "#56698a" : "#c98a1d";
+      ctx.fillRect(mx + o.x * ms, my + o.y * ms, Math.max(2, o.w * ms), Math.max(2, o.h * ms));
+    }
+    for (const d of list) {
+      ctx.fillStyle = TEAM_COLORS[d.team as 0 | 1];
+      ctx.beginPath();
+      ctx.arc(mx + d.p.x * ms, my + d.p.y * ms, d.id === selfId ? 4 : 3, 0, Math.PI * 2);
+      ctx.fill();
+      if (d.id === selfId) {
+        ctx.strokeStyle = "#fff";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
+    }
+    ctx.strokeStyle = "rgba(255,255,255,0.5)";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(mx + 0.5, my + 0.5, mw - 1, mw - 1);
   }
 
   // Sanal joystick: bölge daima hafifçe görünür, basılıyken belirginleşir

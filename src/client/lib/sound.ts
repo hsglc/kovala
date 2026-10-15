@@ -2,7 +2,7 @@ let ctx: AudioContext | null = null;
 let muted = false;
 
 try {
-  muted = localStorage.getItem("kovala:muted") === "1";
+  muted = localStorage.getItem("evade:muted") === "1";
 } catch {}
 
 /** Tarayıcılar sesi ilk dokunuştan sonra açar. */
@@ -26,7 +26,7 @@ export function isMuted() {
 export function setMuted(m: boolean) {
   muted = m;
   try {
-    localStorage.setItem("kovala:muted", m ? "1" : "0");
+    localStorage.setItem("evade:muted", m ? "1" : "0");
   } catch {}
 }
 

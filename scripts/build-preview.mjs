@@ -49,7 +49,7 @@ for (const f of res.outputFiles) {
 }
 js = js.replace(/<\/script/gi, "<\\/script");
 
-const html = `<title>Kovala</title>
+const html = `<title>Evade</title>
 <meta name="theme-color" content="#0b1220">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

@@ -26,7 +26,7 @@ export function Lobby({ source, state: s, onLeave }: Props) {
     const url = `${location.origin}/?oda=${code}`;
     try {
       if (navigator.share) {
-        await navigator.share({ title: "Kovala", text: `Kovala odama gel! Kod: ${code}`, url });
+        await navigator.share({ title: "Evade", text: `Evade odama gel! Kod: ${code}`, url });
         return;
       }
     } catch {

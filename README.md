@@ -1,6 +1,6 @@
-# Kovala
+# Evade
 
-Tarayıcıda oynanan, online, 20 saniyelik kovalamaca chase'leri. World Chase Tag formatından esinlenildi (resmî bir ürün değildir).
+Evade (repo adı: kovala). Tarayıcıda oynanan, online, 20 saniyelik kovalamaca chase'leri. World Chase Tag formatından esinlenildi (resmî bir ürün değildir).
 
 ## Kurallar
 

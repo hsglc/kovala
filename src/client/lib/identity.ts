@@ -1,5 +1,5 @@
-const PID_KEY = "kovala:pid";
-const NAME_KEY = "kovala:name";
+const PID_KEY = "evade:pid";
+const NAME_KEY = "evade:name";
 
 function safeGet(key: string): string | null {
   try {
