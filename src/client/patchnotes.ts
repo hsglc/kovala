@@ -12,6 +12,13 @@ export interface PatchNote {
 
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: "0.4.1",
+    date: "15 Eki 2026",
+    time: "23:44",
+    title: "Yeni logo ve önbellek düzeltmesi",
+    items: ["Engelin üstünden uçan koşucu logosu.", "Ana sayfa hero alanı yenilendi.", "Yeni sürümün telefonda eski önbellekten gösterilmesi engellendi."],
+  },
+  {
     version: "0.4.0",
     date: "15 Eki 2026",
     time: "23:52",

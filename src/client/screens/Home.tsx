@@ -50,15 +50,15 @@ export function Home({ offline, initialCode, busy, error, onQuick, onCreate, onJ
       <div className="hero-glow" aria-hidden="true" />
       <header className="brand">
         <div className="brand-row">
-          <h1 className="logo">
-            <span className="streaks" aria-hidden="true" />
-            EVADE
-          </h1>
+          <img className="logo-mark" src="/favicon.svg" alt="" width="64" height="64" />
+          <h1 className="logo">EVADE</h1>
           <button className="pill" onClick={() => setSheet("notes")}>
             v{CURRENT_VERSION}
           </button>
         </div>
-        <p className="tagline">20 saniye. Bir kovalayan, bir kaçan. Parkur sahasında.</p>
+        <p className="tagline">
+          <b>20 saniye.</b> Bir kovalayan, bir kaçan. Parkur sahasında.
+        </p>
       </header>
 
       <label className={`field ${nameError ? "error" : ""}`}>

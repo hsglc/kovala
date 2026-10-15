@@ -1,8 +1,40 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="14" fill="#0b1220"/>
-  <rect x="9" y="9" width="46" height="46" rx="4" fill="none" stroke="#e8eef7" stroke-width="3"/>
-  <rect x="27" y="27" width="10" height="10" rx="2" fill="#56698a"/>
-  <circle cx="20" cy="44" r="7" fill="#ff5a4f"/>
-  <circle cx="44" cy="20" r="7" fill="#35b8ff"/>
-  <path d="M10 46h5M9 41h4" stroke="#f5b83d" stroke-width="2.5" stroke-linecap="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1a2440"/>
+      <stop offset="1" stop-color="#0a0f1d"/>
+    </linearGradient>
+    <linearGradient id="hot" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ff5a4f"/>
+      <stop offset="1" stop-color="#f5b83d"/>
+    </linearGradient>
+    <linearGradient id="cool" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#35b8ff"/>
+      <stop offset="1" stop-color="#7fe0ff"/>
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="30" fill="url(#bg)"/>
+  <!-- saha çizgisi -->
+  <rect x="16" y="16" width="96" height="96" rx="10" fill="none" stroke="rgba(232,238,247,0.18)" stroke-width="3"/>
+  <!-- alçak engel -->
+  <rect x="50" y="72" width="40" height="14" rx="3" fill="#f5b83d"/>
+  <rect x="50" y="84" width="40" height="6" rx="2" fill="#b97f16"/>
+  <!-- hız izleri (kovalayan) -->
+  <rect x="14" y="60" width="26" height="6" rx="3" fill="url(#hot)" opacity="0.9"/>
+  <rect x="8" y="72" width="22" height="6" rx="3" fill="url(#hot)" opacity="0.6"/>
+  <rect x="20" y="84" width="16" height="6" rx="3" fill="url(#hot)" opacity="0.35"/>
+  <!-- kaçan: engelin üstünden uçan figür -->
+  <g fill="url(#cool)">
+    <circle cx="86" cy="36" r="9"/>
+    <!-- gövde -->
+    <path d="M60 60 L78 46 L88 50 L84 62 Z"/>
+    <!-- öne uzanan kol -->
+    <path d="M86 50 L104 44 L106 50 L90 58 Z"/>
+    <!-- arkaya uzanan kol -->
+    <path d="M72 50 L56 42 L53 48 L70 58 Z"/>
+    <!-- öne atılan bacak -->
+    <path d="M82 60 L100 64 L112 56 L114 62 L100 72 L78 68 Z"/>
+    <!-- arkada katlanan bacak -->
+    <path d="M64 58 L48 62 L44 76 L50 78 L54 68 L70 66 Z"/>
+  </g>
 </svg>

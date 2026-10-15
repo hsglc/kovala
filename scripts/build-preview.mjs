@@ -47,7 +47,9 @@ for (const f of res.outputFiles) {
   if (f.path.endsWith(".js")) js = f.text;
   if (f.path.endsWith(".css")) css = f.text;
 }
-js = js.replace(/<\/script/gi, "<\\/script");
+const svg = readFileSync("public/favicon.svg", "utf8");
+const svgUri = "data:image/svg+xml," + encodeURIComponent(svg);
+js = js.replace(/"\/favicon\.svg"/g, JSON.stringify(svgUri)).replace(/<\/script/gi, "<\\/script");
 
 const html = `<title>Evade</title>
 <meta name="theme-color" content="#0b1220">
@@ -63,4 +65,3 @@ const html = `<title>Evade</title>
 mkdirSync(out.split("/").slice(0, -1).join("/") || ".", { recursive: true });
 writeFileSync(out, html);
 console.log(out, (html.length / 1024).toFixed(0) + " KB");
-void readFileSync;
