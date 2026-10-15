@@ -16,14 +16,19 @@ type Screen =
   | { k: "room"; code: string; quick: boolean }
   | { k: "practice"; level: BotLevel };
 
+/** Önizleme derlemesinde (artifact) sunucu yok: sadece botla antrenman. */
+const OFFLINE = import.meta.env.VITE_OFFLINE === "1";
+
 const wsBase = () => `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}`;
 
 function inviteFromUrl(): string | null {
+  if (OFFLINE) return null;
   const c = new URLSearchParams(location.search).get("oda")?.toUpperCase() ?? null;
   return c && isValidRoomCode(c) ? c : null;
 }
 
 function setUrlRoom(code: string | null) {
+  if (OFFLINE) return;
   const url = new URL(location.href);
   if (code) url.searchParams.set("oda", code);
   else url.searchParams.delete("oda");
@@ -52,6 +57,7 @@ export function App() {
     case "home":
       return (
         <Home
+          offline={OFFLINE}
           initialCode={invite ?? undefined}
           busy={busy}
           error={screen.error}

@@ -5,6 +5,7 @@ import { getName, setName } from "../lib/identity";
 import { unlockAudio } from "../lib/sound";
 
 interface Props {
+  offline?: boolean;
   initialCode?: string;
   busy?: boolean;
   error?: string | null;
@@ -14,7 +15,7 @@ interface Props {
   onPractice: (level: BotLevel) => void;
 }
 
-export function Home({ initialCode, busy, error, onQuick, onCreate, onJoin, onPractice }: Props) {
+export function Home({ offline, initialCode, busy, error, onQuick, onCreate, onJoin, onPractice }: Props) {
   const [name, setNameState] = useState(getName());
   const [code, setCode] = useState(initialCode ?? "");
   const [level, setLevel] = useState<BotLevel>("orta");
@@ -77,7 +78,15 @@ export function Home({ initialCode, busy, error, onQuick, onCreate, onJoin, onPr
         </div>
       )}
 
-      <div className="stack">
+      {offline && (
+        <div className="invite">
+          <span>
+            Bu önizlemede botla antrenman oynanır. Online maç, oyun yayına alınınca açılacak.
+          </span>
+        </div>
+      )}
+
+      <div className="stack" hidden={offline}>
         <button className="btn primary big" disabled={busy} onClick={() => ensureName() && onQuick()}>
           Hızlı Maç
           <small>Rastgele bir rakiple 1'e 1</small>

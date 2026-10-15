@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { DASH_COST, VAULT_COST } from "../../shared/constants";
 import type { PublicState } from "../../shared/engine";
 import { ACT_VAULT, actionPreview } from "../../shared/sim";
@@ -250,8 +250,16 @@ export function GameScreen({ source, state, onLeave }: Props) {
   const chaseLabel = s.sd ? "SUDDEN DEATH" : `CHASE ${Math.min(s.chaseNo + 1, s.chases)}/${s.chases}`;
   const last = s.last;
 
+  // Tarayıcı onay penceresi yerine sayfa içi iki dokunuşlu onay.
+  const [confirmLeave, setConfirmLeave] = useState(false);
+  useEffect(() => {
+    if (!confirmLeave) return;
+    const t = setTimeout(() => setConfirmLeave(false), 2500);
+    return () => clearTimeout(t);
+  }, [confirmLeave]);
   const leave = () => {
-    if (window.confirm("Maçtan çıkmak istediğine emin misin?")) onLeave();
+    if (confirmLeave) onLeave();
+    else setConfirmLeave(true);
   };
 
   return (
@@ -259,7 +267,7 @@ export function GameScreen({ source, state, onLeave }: Props) {
       <canvas ref={canvasRef} className="game-canvas" />
 
       <div className="hud-top">
-        <button className="icon-btn" onClick={leave} aria-label="Maçtan çık">
+        <button className={`icon-btn ${confirmLeave ? "confirm" : ""}`} onClick={leave} aria-label="Maçtan çık">
           ✕
         </button>
         <div className="scorebug">
@@ -321,6 +329,8 @@ export function GameScreen({ source, state, onLeave }: Props) {
       )}
 
       {s.phase === "chase" && !role && <div className="spectating">İzliyorsun · sıran gelince sahaya gireceksin</div>}
+
+      {confirmLeave && <div className="leave-hint">Çıkmak için ✕'e tekrar dokun</div>}
 
       <div className="hud-corner">
         <span ref={pingRef} />
