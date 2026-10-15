@@ -13,8 +13,8 @@ export type ClientMsg =
   | { t: "start" };
 
 // ---------- Sunucu → İstemci ----------
-/** [id, x, y, vx, vy, st, ak, at, dx, dy, cd, fx, fy] */
-export type PlayerTuple = [string, number, number, number, number, number, number, number, number, number, number, number, number];
+/** [id, x, y, vx, vy, st, ak, at, dx, dy, cd, fx, fy, h, hv] */
+export type PlayerTuple = [string, number, number, number, number, number, number, number, number, number, number, number, number, number, number];
 
 export type ServerMsg =
   | { t: "welcome"; you: string; code: string; k: number }
@@ -25,13 +25,13 @@ export type ServerMsg =
 const r4 = (n: number) => Math.round(n * 10000) / 10000;
 
 export function packPlayer(id: string, p: PlayerState): PlayerTuple {
-  return [id, r4(p.x), r4(p.y), r4(p.vx), r4(p.vy), r4(p.st), p.ak, r4(p.at), r4(p.dx), r4(p.dy), r4(p.cd), r4(p.fx), r4(p.fy)];
+  return [id, r4(p.x), r4(p.y), r4(p.vx), r4(p.vy), r4(p.st), p.ak, r4(p.at), r4(p.dx), r4(p.dy), r4(p.cd), r4(p.fx), r4(p.fy), r4(p.h), r4(p.hv)];
 }
 
 export function unpackPlayer(t: PlayerTuple): { id: string; p: PlayerState } {
   return {
     id: t[0],
-    p: { x: t[1], y: t[2], vx: t[3], vy: t[4], st: t[5], ak: t[6], at: t[7], dx: t[8], dy: t[9], cd: t[10], fx: t[11], fy: t[12] },
+    p: { x: t[1], y: t[2], vx: t[3], vy: t[4], st: t[5], ak: t[6], at: t[7], dx: t[8], dy: t[9], cd: t[10], fx: t[11], fy: t[12], h: t[13] ?? 0, hv: t[14] ?? 0 },
   };
 }
 

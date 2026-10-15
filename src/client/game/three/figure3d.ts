@@ -49,6 +49,12 @@ export interface FigureAnim {
   mood: Pose;
   /** yön (radyan, saha düzleminde) */
   heading: number;
+  /** fizikten gelen yükseklik (duvar/kutu üstü, zıplama) */
+  h: number;
+  /** dikey hız (havada inerken/çıkarken poz için) */
+  hv: number;
+  /** yerden kopuk mu (serbest düşüş / sıçrama havası) */
+  airborne: boolean;
 }
 
 function limb(len: number, radius: number, mat: THREE.Material): THREE.Group {
@@ -191,7 +197,7 @@ export class Figure3D {
     } else if (ak === ACT_VAULT) {
       const k = Math.min(1, t / 0.4);
       const h = Math.sin(k * Math.PI);
-      lift = h * 0.55;
+      lift = 0;
       lean = 0.5;
       roll = 0.5 * h;
       thighL = 1.2;
@@ -205,7 +211,7 @@ export class Figure3D {
     } else if (ak === ACT_KONG) {
       const k = Math.min(1, t / 0.4);
       const h = Math.sin(k * Math.PI);
-      lift = h * 0.7;
+      lift = 0;
       lean = 0.9;
       thighL = thighR = 1.9 * h + 0.2;
       shinL = shinR = -2.1 * h - 0.2;
@@ -213,9 +219,9 @@ export class Figure3D {
       foreL = foreR = -0.2;
       armOut = 0.35;
     } else if (ak === ACT_CLIMB) {
-      const k = Math.min(1, t / 1.1);
-      lift = Math.sin(k * Math.PI) * 1.0;
-      lean = 0.2;
+      // Duvara tutunup kendini yukarı çekme: gövde duvara yaslı, kollar yukarıda tutunuyor
+      lift = 0;
+      lean = -0.15;
       armL = Math.PI - 0.4 + Math.sin(a.now / 120) * 0.15;
       armR = Math.PI - 0.6 - Math.sin(a.now / 120) * 0.15;
       foreL = foreR = -0.6;
@@ -253,10 +259,9 @@ export class Figure3D {
       foreL = -0.3;
       foreR = -0.6;
       headTilt = 0.3;
-    } else if (ak === ACT_JUMP) {
-      const k = Math.min(1, t / 0.42);
-      lift = Math.sin(k * Math.PI) * 0.75;
-      lean = 0.3;
+    } else if (ak === ACT_JUMP || a.airborne) {
+      lift = 0;
+      lean = a.hv > 0 ? 0.3 : 0.1;
       thighL = 1.3;
       thighR = 0.3;
       shinL = -1.8;
@@ -267,7 +272,7 @@ export class Figure3D {
     } else if (ak === ACT_KICK) {
       // Tic-tac: duvara basıp fırlama; bacak yana açık, kollar dengede, hafif yan yatış
       const k = Math.min(1, t / 0.3);
-      lift = Math.sin(k * Math.PI) * 0.6;
+      lift = 0;
       lean = 0.35;
       roll = -0.35 * (1 - k);
       thighL = 1.3 * (1 - k) + 0.3;
@@ -284,7 +289,7 @@ export class Figure3D {
       lift = 0.05;
     }
 
-    this.body.position.y = lift;
+    this.body.position.y = lift + a.h;
     this.body.rotation.x = lean;
     this.body.rotation.z = roll;
     this.head.rotation.x = -lean * 0.7 + headTilt;
@@ -298,6 +303,7 @@ export class Figure3D {
     this.armR.rotation.z = -armOut;
     this.foreL.rotation.x = foreL;
     this.foreR.rotation.x = foreR;
-    this.ring.position.y = 0.02;
+    this.ring.position.y = 0.02 + (a.h > 0.05 ? 0 : 0);
+    this.ring.scale.setScalar(a.h > 0.3 ? 0.8 : 1);
   }
 }

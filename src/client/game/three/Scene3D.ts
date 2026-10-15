@@ -1,8 +1,8 @@
 import * as THREE from "three";
-import { PLAYER_RADIUS, QUAD_SIZE, SPEED_EVADER } from "../../../shared/constants";
+import { BAR_H, BOX_H, PLAYER_RADIUS, QUAD_SIZE, SPEED_EVADER, WALL_H } from "../../../shared/constants";
 import type { PublicState } from "../../../shared/engine";
 import type { Obstacle, QuadLayout } from "../../../shared/maps";
-import { ACT_DIVE, ACT_KICK, ACT_JUKE, TAG_DISTANCE, chaserReach, type PlayerState } from "../../../shared/sim";
+import { ACT_DIVE, ACT_KICK, ACT_JUKE, TAG_DISTANCE, chaserReach, groundAt, type PlayerState } from "../../../shared/sim";
 import { TEAM_COLORS, TEAM_DARK, memberTeam } from "../../lib/text";
 import { Figure3D, lookFor, type Pose } from "./figure3d";
 
@@ -11,9 +11,7 @@ import { Figure3D, lookFor, type Pose } from "./figure3d";
  * Kamera karakterin arkasından/üstünden eğik bakar; ekranda yukarı = sahada -y.
  */
 
-const WALL_H = 1.9;
-const BOX_H = 0.7;
-const BAR_H = 1.15;
+
 
 interface FigEntry {
   fig: Figure3D;
@@ -372,7 +370,20 @@ export class Scene3D {
         mood = id === winnerId ? "cheer" : "tired";
       }
       e.fig.root.position.set(p.x, 0, p.y);
-      e.fig.update({ phase: e.phase, run: phase === "chase" ? e.run : 0, pose: p.ak, at: p.at, now, mood, heading: e.heading });
+      const gnd = groundAt(p.x, p.y, layout);
+      const airborne = p.ak === 0 && p.h > gnd + 0.05;
+      e.fig.update({
+        phase: e.phase,
+        run: phase === "chase" ? e.run : 0,
+        pose: p.ak,
+        at: p.at,
+        now,
+        mood,
+        heading: e.heading,
+        h: p.h,
+        hv: p.hv,
+        airborne,
+      });
       if (id === chaserId && phase === "chase") {
         const rr = TAG_DISTANCE - PLAYER_RADIUS + chaserReach(p);
         this.reachRing.visible = true;
@@ -421,9 +432,7 @@ export class Scene3D {
     const out = new Map<string, Projected>();
     const v = new THREE.Vector3();
     for (const [id, p] of players) {
-      const e = this.figures.get(id);
-      const lift = e ? e.fig.root.position.y : 0;
-      v.set(p.x, 1.95 + lift, p.y).project(this.camera);
+      v.set(p.x, 1.95 + p.h, p.y).project(this.camera);
       const sx = ((v.x + 1) / 2) * this.w;
       const sy = ((1 - v.y) / 2) * this.h;
       out.set(id, { x: sx, y: sy, on: v.z < 1 && sx > -40 && sx < this.w + 40 && sy > -40 && sy < this.h + 40 });

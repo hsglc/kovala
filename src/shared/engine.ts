@@ -348,12 +348,12 @@ export class MatchEngine {
     }
 
     const reach = chaserReach(cp);
-    let tagged = isTag(cp.x, cp.y, ep.x, ep.y, reach);
+    let tagged = isTag(cp.x, cp.y, ep.x, ep.y, reach, cp.h, ep.h);
     if (!tagged && ci?.viewTick !== undefined) {
       // Lag kompanzasyonu: kovalayan rakibi ekranında nerede gördüyse oraya göre de kontrol et.
       const vt = Math.max(this.tick - MAX_REWIND_TICKS, Math.min(this.tick, Math.round(ci.viewTick)));
       const h = this.evaderHist.find((e) => e.tick === vt);
-      if (h) tagged = isTag(cp.x, cp.y, h.x, h.y, reach);
+      if (h) tagged = isTag(cp.x, cp.y, h.x, h.y, reach, cp.h, ep.h);
     }
     if (tagged) {
       events.push(this.endChase("chaser", "tag", elapsed));

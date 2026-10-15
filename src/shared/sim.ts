@@ -15,7 +15,12 @@ import {
   JUKE_TIME,
   JUMP_COST,
   JUMP_SPEED,
-  JUMP_TIME,
+  JUMP_V,
+  GRAVITY,
+  WALL_H,
+  BOX_H,
+  TOP_DRAIN,
+  TAG_MAX_DH,
   KICK_COST,
   KICK_RANGE,
   KICK_SPEED,
@@ -84,11 +89,14 @@ export interface PlayerState {
   /** bakış yönü */
   fx: number;
   fy: number;
+  /** yükseklik ve dikey hız (duvar/kutu üstü, zıplama, düşme) */
+  h: number;
+  hv: number;
 }
 
 export function createPlayer(x: number, y: number, faceX: number, faceY: number): PlayerState {
   const l = Math.hypot(faceX, faceY) || 1;
-  return { x, y, vx: 0, vy: 0, st: STAMINA_MAX, ak: 0, at: 0, dx: 0, dy: 0, cd: 0, fx: faceX / l, fy: faceY / l };
+  return { x, y, vx: 0, vy: 0, st: STAMINA_MAX, ak: 0, at: 0, dx: 0, dy: 0, cd: 0, fx: faceX / l, fy: faceY / l, h: 0, hv: 0 };
 }
 
 export function clonePlayer(p: PlayerState): PlayerState {
@@ -120,6 +128,20 @@ function circleOverlapsRect(x: number, y: number, r: number, o: Obstacle): boole
   const dx = x - cx;
   const dy = y - cy;
   return dx * dx + dy * dy < r * r;
+}
+
+export function obstacleTop(kind: Obstacle["kind"]): number {
+  return kind === "wall" ? WALL_H : kind === "box" ? BOX_H : 0;
+}
+
+/** Oyuncunun merkezinin altındaki zemin yüksekliği (duvar/kutu üstü). Barın üstünde durulmaz. */
+export function groundAt(x: number, y: number, layout: QuadLayout): number {
+  let g = 0;
+  for (const o of layout.obstacles) {
+    if (o.kind === "bar") continue;
+    if (x >= o.x - 0.05 && x <= o.x + o.w + 0.05 && y >= o.y - 0.05 && y <= o.y + o.h + 0.05) g = Math.max(g, obstacleTop(o.kind));
+  }
+  return g;
 }
 
 export function overlapsAny(x: number, y: number, layout: QuadLayout, kind?: Obstacle["kind"]): boolean {
@@ -227,6 +249,9 @@ function resolveCollisions(p: PlayerState, layout: QuadLayout, ignore: "box" | "
     for (const o of layout.obstacles) {
       if (ignore === "box" && o.kind === "box") continue;
       if (ignore === "bar" && o.kind === "bar") continue;
+      // Engelin üstündeysen (ya da üstünden geçiyorsan) çarpışma yok
+      const top = o.kind === "bar" ? 1.15 : obstacleTop(o.kind);
+      if (p.h >= top - 0.25) continue;
       const cx = Math.max(o.x, Math.min(p.x, o.x + o.w));
       const cy = Math.max(o.y, Math.min(p.y, o.y + o.h));
       let nx = p.x - cx;
@@ -311,14 +336,21 @@ export function stepPlayer(p: PlayerState, input: Input, role: Role, layout: Qua
       }
     } else if (input.act) {
       const kind = parkourPreview(p, input, layout);
-      if (kind === ACT_CLIMB && p.st >= CLIMB_COST) begin(p, ACT_CLIMB, dx, dy, CLIMB_COST);
+      if (kind === ACT_CLIMB && p.st >= CLIMB_COST) {
+        begin(p, ACT_CLIMB, dx, dy, CLIMB_COST);
+        p.hv = 0;
+      }
       else if (kind === ACT_VAULT) begin(p, vaultStyle(p), dx, dy, 0);
       else if (kind === ACT_SLIDE) begin(p, ACT_SLIDE, dx, dy, 0);
       else if (kind === ACT_KICK && p.st >= KICK_COST) {
         const n = nearWall(p.x, p.y, layout) ?? obstacleNormalAhead(p, dx, dy, layout);
         const jd = wallJumpDir(dx, dy, n);
         begin(p, ACT_KICK, jd[0], jd[1], KICK_COST);
-      } else if (kind === ACT_JUMP && p.st >= JUMP_COST) begin(p, ACT_JUMP, dx, dy, JUMP_COST);
+        p.hv = 3.2;
+      } else if (kind === ACT_JUMP && p.st >= JUMP_COST) {
+        begin(p, ACT_JUMP, dx, dy, JUMP_COST);
+        p.hv = JUMP_V;
+      }
     }
     if (p.ak !== 0) started = p.ak;
   }
@@ -336,6 +368,19 @@ export function stepPlayer(p: PlayerState, input: Input, role: Role, layout: Qua
     }
   }
 
+  const ground = groundAt(p.x, p.y, layout);
+  const onTop = p.ak === 0 && ground > 0.5 && p.h >= ground - 0.02;
+  const airborne = p.ak === 0 && p.h > ground + 0.02;
+  if (onTop) {
+    // Tepede durmak enerji yakar; biterse aşağı atlarsın.
+    p.st -= TOP_DRAIN * DT;
+    if (p.st <= 0) {
+      p.st = 0;
+      begin(p, ACT_JUMP, p.fx, p.fy, 0);
+      p.hv = 2.5;
+    }
+  }
+
   // ---- Hız ----
   switch (p.ak) {
     case ACT_VAULT:
@@ -343,10 +388,13 @@ export function stepPlayer(p: PlayerState, input: Input, role: Role, layout: Qua
       p.vx = p.dx * VAULT_SPEED;
       p.vy = p.dy * VAULT_SPEED;
       break;
-    case ACT_CLIMB:
-      p.vx = p.dx * CLIMB_SPEED;
-      p.vy = p.dy * CLIMB_SPEED;
+    case ACT_CLIMB: {
+      // Önce yerinde yukarı çekil (yatayda neredeyse dur), tepeye varınca üstüne adım at.
+      const k = p.h >= WALL_H - 1e-6 ? CLIMB_SPEED : 0.25;
+      p.vx = p.dx * k;
+      p.vy = p.dy * k;
       break;
+    }
     case ACT_KICK:
       p.vx = p.dx * KICK_SPEED;
       p.vy = p.dy * KICK_SPEED;
@@ -378,31 +426,50 @@ export function stepPlayer(p: PlayerState, input: Input, role: Role, layout: Qua
       break;
     }
     default: {
-      const k = p.ak === ACT_STUMBLE ? 0.25 : 1;
+      const k = p.ak === ACT_STUMBLE ? 0.25 : onTop ? 0.7 : airborne ? 1 : 1;
       const tx = input.mx * maxSpeed * k;
       const ty = input.my * maxSpeed * k;
       let ddx = tx - p.vx;
       let ddy = ty - p.vy;
       const dl = Math.hypot(ddx, ddy);
-      const maxDv = accel * DT * (p.ak === ACT_STUMBLE ? 0.6 : 1);
+      const maxDv = accel * DT * (p.ak === ACT_STUMBLE ? 0.6 : airborne ? 0.3 : 1);
       if (dl > maxDv) {
         ddx = (ddx / dl) * maxDv;
         ddy = (ddy / dl) * maxDv;
       }
       p.vx += ddx;
       p.vy += ddy;
-      if (p.ak === 0) p.st = Math.min(STAMINA_MAX, p.st + STAMINA_REGEN * DT);
+      if (p.ak === 0 && !onTop) p.st = Math.min(STAMINA_MAX, p.st + STAMINA_REGEN * DT);
     }
   }
 
   // ---- Hareket + çarpışma (iki alt adım) ----
-  const ignore =
-    p.ak === ACT_VAULT || p.ak === ACT_KONG || p.ak === ACT_JUMP ? "box" : p.ak === ACT_SLIDE ? "bar" : p.ak === ACT_CLIMB ? "all" : null;
+  const ignore = p.ak === ACT_VAULT || p.ak === ACT_KONG ? "box" : p.ak === ACT_SLIDE ? "bar" : p.ak === ACT_CLIMB ? "all" : null;
   for (let s = 0; s < 2; s++) {
     p.x += (p.vx * DT) / 2;
     p.y += (p.vy * DT) / 2;
     resolveCollisions(p, layout, ignore);
   }
+  // ---- Dikey fizik ----
+  const g2 = groundAt(p.x, p.y, layout);
+  if (p.ak === ACT_CLIMB) {
+    p.h = Math.min(WALL_H, p.h + (WALL_H / 0.7) * DT);
+    p.hv = 0;
+  } else if (p.ak === ACT_VAULT || p.ak === ACT_KONG) {
+    p.h = Math.max(g2, Math.sin(Math.min(1, p.at / 0.4) * Math.PI) * (BOX_H + 0.3));
+    p.hv = 0;
+  } else if (p.ak === ACT_SLIDE) {
+    p.h = g2;
+    p.hv = 0;
+  } else {
+    p.hv -= GRAVITY * DT;
+    p.h += p.hv * DT;
+    if (p.h <= g2) {
+      p.h = g2;
+      p.hv = 0;
+    }
+  }
+
   // Düz koşarken çizgi yumuşak bir duvardır; sadece hamleler seni dışarı taşıyabilir.
   if (p.ak === 0 || p.ak === ACT_STUMBLE) {
     if (p.x < 0) { p.x = 0; if (p.vx < 0) p.vx = 0; }
@@ -431,10 +498,15 @@ export function stepPlayer(p: PlayerState, input: Input, role: Role, layout: Qua
         break;
       }
       case ACT_CLIMB: {
-        const clear = !overlapsAny(p.x, p.y, layout);
-        if ((p.at >= 0.35 && clear) || p.at >= CLIMB_MAX_TIME - 1e-9) {
-          end(0.6);
-          if (!clear) resolveCollisions(p, layout, null);
+        // Tepeye vardıysan orada dur; süre dolduysa bırak (yerçekimi indirir).
+        if (p.h >= WALL_H - 1e-6 && groundAt(p.x, p.y, layout) >= WALL_H) {
+          p.ak = 0;
+          p.cd = 0.1;
+          p.vx = 0;
+          p.vy = 0;
+        } else if (p.at >= CLIMB_MAX_TIME - 1e-9) {
+          end(0.4);
+          p.hv = 0;
         }
         break;
       }
@@ -450,10 +522,10 @@ export function stepPlayer(p: PlayerState, input: Input, role: Role, layout: Qua
         break;
       }
       case ACT_JUMP: {
-        if (p.at >= JUMP_TIME - 1e-9) {
-          const clear = !overlapsAny(p.x, p.y, layout, "box");
+        // Yere (ya da bir engelin üstüne) inince biter
+        if (p.at >= 0.1 && p.hv <= 0 && p.h <= groundAt(p.x, p.y, layout) + 1e-6) {
           end(0.9, 0.05);
-          if (!clear) resolveCollisions(p, layout, null);
+          if (overlapsAny(p.x, p.y, layout, "box") && p.h < BOX_H - 0.25) resolveCollisions(p, layout, null);
         }
         break;
       }
@@ -488,7 +560,8 @@ function vaultStyle(p: PlayerState): number {
 export const TAG_DISTANCE = PLAYER_RADIUS * 2 + TAG_REACH;
 
 /** Kovalayan dalıştaysa erişimi uzar. */
-export function isTag(ax: number, ay: number, bx: number, by: number, extraReach = 0): boolean {
+export function isTag(ax: number, ay: number, bx: number, by: number, extraReach = 0, ah = 0, bh = 0): boolean {
+  if (Math.abs(ah - bh) > TAG_MAX_DH) return false;
   const dx = ax - bx;
   const dy = ay - by;
   const d = TAG_DISTANCE + extraReach;

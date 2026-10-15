@@ -195,7 +195,7 @@ function Rules() {
       <ul>
         <li>Sarı kutular koşarken kendiliğinden atlanır; çelik barların altından kendiliğinden kayılır.</li>
         <li>
-          <b>PARKUR</b> tuşu bağlama göre: duvara doğru <b>TIRMAN</b>, duvara açıyla koşarken <b>DUVAR</b> (sıçrayıp yansırsın), açık alanda <b>ZIPLA</b> (kutuların
+          <b>PARKUR</b> tuşu bağlama göre: duvara dik ve yavaş gelince <b>TIRMAN</b> (tepeye çıkarsın; yerdeki kovalayan seni yakalayamaz ama enerjin hızla biter), duvara açıyla koşarken <b>DUVAR</b> (sıçrayıp yansırsın), açık alanda <b>ZIPLA</b> (kutuların
           üstünden geçer), kutu önünde <b>ATLA</b>, bar önünde <b>KAY</b>.
         </li>
         <li>

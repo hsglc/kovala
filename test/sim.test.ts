@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { CHASE_TICKS, PLAYER_RADIUS, QUAD_SIZE, SPEED_EVADER, TICK_RATE } from "../src/shared/constants";
 import { LAYOUTS } from "../src/shared/maps";
-import { ACT_CLIMB, ACT_KICK, ACT_VAULT, ACT_KONG, canVault, createPlayer, quantizeInput, stepPlayer, type Input } from "../src/shared/sim";
+import { ACT_CLIMB, ACT_KICK, ACT_VAULT, ACT_KONG, canVault, createPlayer, isTag, quantizeInput, stepPlayer, type Input } from "../src/shared/sim";
 import { MatchEngine } from "../src/shared/engine";
 import { Bot } from "../src/shared/bot";
 
@@ -79,9 +79,41 @@ describe("hareket", () => {
     expect(canVault(p.x, p.y, 1, 0, layout)).toBe(false);
     stepPlayer(p, { mx: 1, my: 0, act: true, act2: false }, "evader", layout);
     expect(p.ak).toBe(ACT_CLIMB);
-    for (let i = 0; i < 40; i++) stepPlayer(p, { mx: 1, my: 0, act: false, act2: false }, "evader", layout);
+    for (let i = 0; i < 80; i++) stepPlayer(p, { mx: 1, my: 0, act: false, act2: false }, "evader", layout);
     expect(p.ak).not.toBe(ACT_CLIMB);
     expect(p.x).toBeGreaterThan(7 + PLAYER_RADIUS - 1e-6);
+  });
+
+  it("duvarın tepesine çıkar, orada durur, kenardan atlayınca iner", () => {
+    const p = createPlayer(4.4, 6, 1, 0);
+    stepPlayer(p, { mx: 1, my: 0, act: true, act2: false }, "evader", layout);
+    for (let i = 0; i < 30; i++) stepPlayer(p, { mx: 0, my: 0, act: false, act2: false }, "evader", layout);
+    expect(p.h).toBeCloseTo(1.9, 5);
+    expect(p.ak).toBe(0);
+    const topX = p.x;
+    for (let i = 0; i < 5; i++) stepPlayer(p, { mx: 0, my: 0, act: false, act2: false }, "evader", layout);
+    expect(p.x).toBeCloseTo(topX, 5); // tepede durur
+    // Yerdeki kovalayan yakalayamaz
+    expect(isTag(p.x, p.y, p.x + 0.3, p.y, 0, p.h, 0)).toBe(false);
+    // Kenardan yürüyünce düşer
+    for (let i = 0; i < 60; i++) stepPlayer(p, { mx: 1, my: 0, act: false, act2: false }, "evader", layout);
+    expect(p.h).toBe(0);
+    expect(p.x).toBeGreaterThan(7.3);
+  });
+
+  it("zıplayınca kutunun üstüne konabilir", () => {
+    // Klasik kutu: x 2.3..3.1, y 5..7
+    const p = createPlayer(1.0, 6, 1, 0);
+    stepPlayer(p, { mx: 1, my: 0, act: true, act2: false }, "evader", layout);
+    let maxH = 0;
+    let onBox = false;
+    for (let i = 0; i < 40; i++) {
+      stepPlayer(p, { mx: 0, my: 0, act: false, act2: false }, "evader", layout);
+      maxH = Math.max(maxH, p.h);
+      if (p.ak === 0 && p.h > 0.6 && p.x > 2.3 && p.x < 3.1) onBox = true;
+    }
+    expect(maxH).toBeGreaterThan(0.6);
+    expect(onBox).toBe(true);
   });
 
   it("sırtı duvardayken sekerek uzaklaşır", () => {

@@ -12,6 +12,18 @@ export interface PatchNote {
 
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: "0.5.2",
+    date: "16 Eki 2026",
+    time: "01:05",
+    title: "Gerçek yükseklik: duvarın tepesine çık",
+    items: [
+      "TIRMAN artık seni duvarın tepesine çıkarır; orada durabilir, yürüyebilir ve kenardan atlayabilirsin.",
+      "Yerdeki kovalayan tepedekini yakalayamaz (1 m'den fazla yükseklik farkı). Tepede enerji hızla biter; biterse düşersin.",
+      "Zıplama yerçekimiyle çalışır: kutuların üstüne konabilirsin, duvardan aşağı atlayabilirsin.",
+      "Duvarın içinden geçme sorunu giderildi: önce yerinde yukarı çekilir, sonra tepeye adım atarsın.",
+    ],
+  },
+  {
     version: "0.5.1",
     date: "16 Eki 2026",
     time: "00:48",

@@ -40,8 +40,8 @@ export const VAULT_PROBE = 0.55;
 export const VAULT_AUTO_SPEED = 2.2;
 
 /** Duvar tırmanma: yavaş ama duvarı aşar; tırmanırken yakalanabilirsin. */
-export const CLIMB_SPEED = 2.3;
-export const CLIMB_MAX_TIME = 1.1;
+export const CLIMB_SPEED = 2.0;
+export const CLIMB_MAX_TIME = 1.6;
 export const CLIMB_COST = 30;
 
 /** Duvar sıçraması (tic-tac): duvara açıyla koşup ayağını basıp yansıyarak fırlama. */
@@ -63,6 +63,16 @@ export const JUKE_SPEED = 9.6;
 export const JUKE_TIME = 0.14;
 export const JUKE_COST = 24;
 
+/** Engel yükseklikleri (metre). Fizik ve çizim aynı değeri kullanır. */
+export const WALL_H = 1.9;
+export const BOX_H = 0.7;
+export const BAR_H = 1.15;
+export const GRAVITY = 24;
+/** Duvar tepesinde durmak enerji yakar; biterse düşersin. */
+export const TOP_DRAIN = 34;
+/** Yükseklik farkı bundan fazlaysa yakalanamaz. */
+export const TAG_MAX_DH = 1.0;
+
 /** Kayma: barın altından, hız korunur. */
 export const SLIDE_SPEED = 6.0;
 export const SLIDE_MIN_TIME = 0.3;
@@ -70,7 +80,7 @@ export const SLIDE_MAX_TIME = 0.8;
 
 /** Zıplama: kısa havada kalma; kutuların üstünden geçer. */
 export const JUMP_SPEED = 5.9;
-export const JUMP_TIME = 0.42;
+export const JUMP_V = 6.0;
 export const JUMP_COST = 10;
 
 export const ACTION_COOLDOWN = 0.25;
