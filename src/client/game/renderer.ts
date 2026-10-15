@@ -1,59 +1,39 @@
-import { JUKE_COST, PLAYER_RADIUS, QUAD_SIZE, SPEED_EVADER, STAMINA_MAX } from "../../shared/constants";
+import { JUKE_COST, QUAD_SIZE, STAMINA_MAX } from "../../shared/constants";
 import type { PublicState } from "../../shared/engine";
-import type { Obstacle, QuadLayout } from "../../shared/maps";
-import { ACT_CLIMB, ACT_DIVE, ACT_JUKE, ACT_KICK, ACT_KONG, ACT_STUMBLE, ACT_VAULT, TAG_DISTANCE, chaserReach, type PlayerState } from "../../shared/sim";
-import { TEAM_COLORS, TEAM_DARK, memberName, memberTeam } from "../lib/text";
-import { drawFigure, lookFor, type FigureLook, type FigurePose, type FigureView } from "./figure";
+import type { QuadLayout } from "../../shared/maps";
+import type { PlayerState } from "../../shared/sim";
+import { TEAM_COLORS, memberName, memberTeam } from "../lib/text";
+import type { Projected } from "./three/Scene3D";
 
 export interface View {
-  /** css piksel */
   w: number;
   h: number;
   dpr: number;
-  /** piksel / metre */
-  s: number;
   portrait: boolean;
 }
 
 export const HUD_TOP = 70;
-/** Figürler okunaklı olsun diye dünyaya göre biraz büyük çizilir (çarpışma etkilenmez). */
-const FIG_SCALE = 1.15;
-/** Ekranın kısa kenarında görünen saha genişliği (metre). */
-const VIEW_METERS = 7.2;
 
 export function computeView(w: number, h: number, dpr: number): View {
-  const portrait = h > w * 1.15;
-  const short = Math.min(w, h);
-  const s = short / VIEW_METERS;
-  return { w, h, dpr, s, portrait };
+  return { w, h, dpr, portrait: h > w * 1.15 };
 }
 
-/** Kamera: takip edilen noktayı yumuşakça izler. */
 export interface Camera {
   x: number;
   y: number;
   init: boolean;
 }
 
-export function updateCamera(cam: Camera, tx: number, ty: number, dtMs: number, v: View) {
-  // Görünür alan sahadan taşmasın diye hedefi kırp (0.9 m kenar payı bırak).
-  const halfW = v.w / 2 / v.s;
-  const halfH = (v.h - HUD_TOP) / 2 / v.s;
-  const pad = 0.9;
-  const clamp = (val: number, half: number) => {
-    const lo = half - pad;
-    const hi = QUAD_SIZE - half + pad;
-    return lo > hi ? QUAD_SIZE / 2 : Math.max(lo, Math.min(hi, val));
-  };
-  tx = clamp(tx, halfW);
-  ty = clamp(ty, halfH);
+export function updateCamera(cam: Camera, tx: number, ty: number, dtMs: number) {
+  tx = Math.max(-1, Math.min(QUAD_SIZE + 1, tx));
+  ty = Math.max(-1, Math.min(QUAD_SIZE + 1, ty));
   if (!cam.init) {
     cam.x = tx;
     cam.y = ty;
     cam.init = true;
     return;
   }
-  const k = 1 - Math.exp(-dtMs / 110);
+  const k = 1 - Math.exp(-dtMs / 120);
   cam.x += (tx - cam.x) * k;
   cam.y += (ty - cam.y) * k;
 }
@@ -71,69 +51,6 @@ export interface JoyVisual {
   zoneH: number;
 }
 
-const COLORS = {
-  bg: "#0b1220",
-  floor: "#17243a",
-  grid: "rgba(160, 190, 230, 0.06)",
-  line: "#e8eef7",
-  wallTop: "#5a6d8e",
-  wallTopHi: "#7084a8",
-  wallFront: "#33415a",
-  wallFrontDark: "#27334a",
-  boxTop: "#f7bd45",
-  boxFront: "#c98a1d",
-  shadow: "rgba(0, 0, 0, 0.32)",
-};
-
-/** Görsel yükseklikler (metre). Fizik etkilenmez; sadece 3/4 bakış için. */
-const WALL_H = 0.95;
-const BOX_H = 0.42;
-
-// ---------- Animasyon durumu ----------
-
-interface Anim {
-  phase: number;
-  lx: number;
-  ly: number;
-  face: 1 | -1;
-  view: FigureView;
-  run: number;
-  last: number;
-}
-const anims = new Map<string, Anim>();
-const looks = new Map<string, FigureLook>();
-
-function animFor(id: string, p: PlayerState, now: number): Anim {
-  let a = anims.get(id);
-  if (!a) {
-    a = { phase: 0, lx: p.x, ly: p.y, face: p.fx >= 0 ? 1 : -1, view: "side", run: 0, last: now };
-    anims.set(id, a);
-  }
-  const dt = Math.max(1, now - a.last) / 1000;
-  a.last = now;
-  let d = Math.hypot(p.x - a.lx, p.y - a.ly);
-  if (d > 1.5) d = 0; // yeni chase'te ışınlanma
-  a.lx = p.x;
-  a.ly = p.y;
-  const speed = Math.min(9, d / dt);
-  const target = Math.min(1, speed / SPEED_EVADER);
-  a.run += (target - a.run) * Math.min(1, dt * 10);
-  a.phase += (d / 1.3) * Math.PI * 2;
-  if (Math.abs(p.fx) > 0.3) a.face = p.fx > 0 ? 1 : -1;
-  a.view = Math.abs(p.fy) > Math.abs(p.fx) * 1.5 ? (p.fy < 0 ? "back" : "front") : "side";
-  return a;
-}
-
-function lookForPlayer(id: string, team: number): FigureLook {
-  const key = `${id}:${team}`;
-  let l = looks.get(key);
-  if (!l) {
-    l = lookFor(id, TEAM_COLORS[team as 0 | 1], TEAM_DARK[team as 0 | 1]);
-    looks.set(key, l);
-  }
-  return l;
-}
-
 function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
   const rr = Math.max(0, Math.min(r, w / 2, h / 2));
   ctx.beginPath();
@@ -145,285 +62,34 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
   ctx.closePath();
 }
 
-function drawObstacle(ctx: CanvasRenderingContext2D, o: Obstacle, qx: number, qy: number, s: number) {
-  const H = (o.kind === "wall" ? WALL_H : BOX_H) * s;
-  const x = qx + o.x * s;
-  const y = qy + o.y * s;
-  const w = o.w * s;
-  const h = o.h * s;
-  // ön yüz (güney cephesi)
-  ctx.fillStyle = o.kind === "wall" ? COLORS.wallFront : COLORS.boxFront;
-  ctx.fillRect(x, y + h - H, w, H);
-  if (o.kind === "wall") {
-    ctx.strokeStyle = COLORS.wallFrontDark;
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    for (let bx = x + s * 0.5; bx < x + w - 2; bx += s * 0.5) {
-      ctx.moveTo(bx, y + h - H + 2);
-      ctx.lineTo(bx, y + h);
-    }
-    ctx.stroke();
-  } else {
-    ctx.fillStyle = "rgba(0,0,0,0.12)";
-    ctx.fillRect(x, y + h - H * 0.35, w, H * 0.35);
-  }
-  // üst yüz
-  const ty = y - H;
-  ctx.fillStyle = o.kind === "wall" ? COLORS.wallTop : COLORS.boxTop;
-  roundRect(ctx, x, ty, w, h, 2);
-  ctx.fill();
-  if (o.kind === "wall") {
-    ctx.fillStyle = COLORS.wallTopHi;
-    roundRect(ctx, x + 2, ty + 2, w - 4, Math.max(2, h * 0.25), 2);
-    ctx.fill();
-  } else {
-    // atlanabilir olduğunu belirten çizgiler
-    ctx.save();
-    roundRect(ctx, x, ty, w, h, 2);
-    ctx.clip();
-    ctx.strokeStyle = "rgba(120, 70, 0, 0.3)";
-    ctx.lineWidth = Math.max(1.5, s * 0.06);
-    ctx.beginPath();
-    const step = s * 0.3;
-    for (let d = -h; d < w + h; d += step) {
-      ctx.moveTo(x + d, ty + h);
-      ctx.lineTo(x + d + h, ty);
-    }
-    ctx.stroke();
-    ctx.restore();
-  }
-  ctx.strokeStyle = "rgba(5, 9, 18, 0.55)";
-  ctx.lineWidth = 1;
-  ctx.strokeRect(x + 0.5, ty + 0.5, w - 1, h + H - 1);
-}
-
-interface PlayerDraw {
-  id: string;
-  p: PlayerState;
-  team: number;
-  px: number;
-  py: number;
-}
-
-export function drawFrame(
+/** 3B sahnenin üstüne çizilen şeffaf katman. */
+export function drawOverlay(
   ctx: CanvasRenderingContext2D,
   v: View,
   layout: QuadLayout,
   state: PublicState | null,
   players: Map<string, PlayerState>,
+  proj: Map<string, Projected>,
   selfId: string,
   joy: JoyVisual,
-  now: number,
-  cam: Camera,
 ) {
-  const { dpr, s } = v;
-  const qs = QUAD_SIZE * s;
-  // Kamera: saha koordinatı → ekran: px = qx + x*s
-  const cy = HUD_TOP + (v.h - HUD_TOP) / 2;
-  const qx = v.w / 2 - cam.x * s;
-  const qy = cy - cam.y * s;
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.fillStyle = COLORS.bg;
-  ctx.fillRect(0, 0, v.w, v.h);
-  // Saha dışı zemin dokusu
-  ctx.strokeStyle = "rgba(160, 190, 230, 0.03)";
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  for (let gx = ((qx % s) + s) % s; gx < v.w; gx += s) {
-    ctx.moveTo(gx, 0);
-    ctx.lineTo(gx, v.h);
-  }
-  for (let gy = ((qy % s) + s) % s; gy < v.h; gy += s) {
-    ctx.moveTo(0, gy);
-    ctx.lineTo(v.w, gy);
-  }
-  ctx.stroke();
-
-  // ---------- Zemin ----------
-  ctx.save();
-  ctx.shadowColor = "rgba(0,0,0,0.5)";
-  ctx.shadowBlur = 30;
-  ctx.fillStyle = COLORS.floor;
-  roundRect(ctx, qx - 8, qy - 8, qs + 16, qs + 16, 10);
-  ctx.fill();
-  ctx.restore();
-
-  ctx.strokeStyle = COLORS.grid;
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  for (let i = 1; i < QUAD_SIZE; i++) {
-    ctx.moveTo(qx + i * s, qy);
-    ctx.lineTo(qx + i * s, qy + qs);
-    ctx.moveTo(qx, qy + i * s);
-    ctx.lineTo(qx + qs, qy + i * s);
-  }
-  ctx.stroke();
-
-  ctx.strokeStyle = COLORS.line;
-  ctx.lineWidth = Math.max(2, s * 0.08);
-  ctx.strokeRect(qx, qy, qs, qs);
-
+  ctx.setTransform(v.dpr, 0, 0, v.dpr, 0, 0);
+  ctx.clearRect(0, 0, v.w, v.h);
   const chaserId = state?.chaserId;
-  const evaderId = state?.evaderId;
   const phase = state?.phase;
-  const list: PlayerDraw[] = [];
-  for (const [id, p] of players) {
-    list.push({ id, p, team: memberTeam(state, id) ?? 0, px: qx + p.x * s, py: qy + p.y * s });
-  }
 
-  // Saha çizgisine yaklaşan oyuncu için uyarı parıltısı
-  for (const d of list) {
-    const m = Math.min(d.p.x, d.p.y, QUAD_SIZE - d.p.x, QUAD_SIZE - d.p.y);
-    if (m < 0.9 && phase === "chase") {
-      const a = Math.min(1, (0.9 - m) / 0.6);
-      ctx.save();
-      ctx.strokeStyle = `rgba(255, 90, 79, ${0.85 * a})`;
-      ctx.lineWidth = Math.max(3, s * 0.12);
-      ctx.beginPath();
-      const L = s * 1.6;
-      if (d.p.x < 0.9) {
-        ctx.moveTo(qx, d.py - L);
-        ctx.lineTo(qx, d.py + L);
-      }
-      if (QUAD_SIZE - d.p.x < 0.9) {
-        ctx.moveTo(qx + qs, d.py - L);
-        ctx.lineTo(qx + qs, d.py + L);
-      }
-      if (d.p.y < 0.9) {
-        ctx.moveTo(d.px - L, qy);
-        ctx.lineTo(d.px + L, qy);
-      }
-      if (QUAD_SIZE - d.p.y < 0.9) {
-        ctx.moveTo(d.px - L, qy + qs);
-        ctx.lineTo(d.px + L, qy + qs);
-      }
-      ctx.stroke();
-      ctx.restore();
-    }
-  }
-
-  // Engel gölgeleri
-  ctx.fillStyle = COLORS.shadow;
-  for (const o of layout.obstacles) {
-    const off = o.kind === "wall" ? 0.28 : 0.14;
-    roundRect(ctx, qx + (o.x + off) * s, qy + (o.y + off * 0.5) * s, o.w * s, o.h * s, 3);
-    ctx.fill();
-  }
-
-  // Zemindeki işaretler: gölge, kendi halkan, yakalama menzili
-  for (const d of list) {
-    const vaulting = d.p.ak === ACT_VAULT || d.p.ak === ACT_KONG || d.p.ak === ACT_CLIMB;
-    const lift = vaulting ? Math.sin(Math.min(1, d.p.at / (d.p.ak === ACT_CLIMB ? 1.1 : 0.4)) * Math.PI) : 0;
-    ctx.fillStyle = "rgba(0,0,0,0.38)";
-    ctx.beginPath();
-    ctx.ellipse(d.px, d.py, PLAYER_RADIUS * s * (1 - lift * 0.3), PLAYER_RADIUS * s * 0.5 * (1 - lift * 0.3), 0, 0, Math.PI * 2);
-    ctx.fill();
-    if (d.id === chaserId && phase === "chase") {
-      ctx.save();
-      ctx.setLineDash([4, 5]);
-      ctx.strokeStyle = "rgba(255, 209, 102, 0.28)";
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.arc(d.px, d.py, (TAG_DISTANCE - PLAYER_RADIUS + chaserReach(d.p)) * s, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.restore();
-    }
-    const ringColor = d.id === selfId ? "#ffffff" : TEAM_COLORS[d.team as 0 | 1];
-    ctx.strokeStyle = ringColor;
-    ctx.globalAlpha = d.id === selfId ? 0.9 : 0.55;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.ellipse(d.px, d.py, PLAYER_RADIUS * s * 1.25, PLAYER_RADIUS * s * 0.62, 0, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.globalAlpha = 1;
-    // Kendi enerjin: ayağının altındaki yay
-    if (d.id === selfId && phase === "chase") {
-      ctx.lineWidth = 3;
-      ctx.strokeStyle = d.p.st >= JUKE_COST ? "#39d98a" : "#f5b83d";
-      ctx.beginPath();
-      ctx.ellipse(
-        d.px,
-        d.py,
-        PLAYER_RADIUS * s * 1.25 + 4,
-        PLAYER_RADIUS * s * 0.62 + 3,
-        0,
-        Math.PI * 0.5 - (Math.PI * d.p.st) / STAMINA_MAX,
-        Math.PI * 0.5 + (Math.PI * d.p.st) / STAMINA_MAX,
-      );
-      ctx.stroke();
-    }
-  }
-
-  // ---------- Derinliğe göre sıralı çizim (engeller + figürler) ----------
-  type Item = { key: number; draw: () => void };
-  const items: Item[] = [];
-  for (const o of layout.obstacles) {
-    items.push({ key: o.y + o.h, draw: () => drawObstacle(ctx, o, qx, qy, s) });
-  }
-  const headTops = new Map<string, number>();
-  const figureFns = new Map<string, (alpha: number) => void>();
-  for (const d of list) {
-    const anim = animFor(d.id, d.p, now);
-    const look = lookForPlayer(d.id, d.team);
-    let pose: FigurePose = "run";
-    if (phase === "result" && state?.last) {
-      const winnerId = state.last.winner === "chaser" ? state.last.chaser : state.last.evader;
-      pose = d.id === winnerId ? "cheer" : "tired";
-    }
-    const other = d.id === chaserId ? players.get(evaderId ?? "") : undefined;
-    const reach = !!other && phase === "chase" && Math.hypot(other.x - d.p.x, other.y - d.p.y) < 1.3;
-    const reachFace: 1 | -1 = other && other.x < d.p.x ? -1 : 1;
-    const draw = (alpha: number) => {
-      ctx.save();
-      ctx.globalAlpha = alpha;
-      ctx.translate(d.px, d.py);
-      ctx.scale(s * FIG_SCALE, s * FIG_SCALE);
-      const ak = d.p.ak;
-      if (ak === ACT_STUMBLE && pose === "run") pose = "stumble";
-      const top = drawFigure(ctx, look, {
-        view: anim.view,
-        face: reach || ak === ACT_DIVE ? reachFace : anim.face,
-        phase: anim.phase,
-        run: phase === "chase" ? anim.run : 0,
-        dashing: ak === ACT_JUKE || ak === ACT_KICK,
-        vault: ak === ACT_VAULT ? Math.min(1, d.p.at / 0.4) : -1,
-        kong: ak === ACT_KONG ? Math.min(1, d.p.at / 0.4) : -1,
-        climb: ak === ACT_CLIMB ? Math.min(1, d.p.at / 1.1) : -1,
-        dive: ak === ACT_DIVE ? Math.min(1, d.p.at / 0.26) : -1,
-        reach,
-        pose,
-        time: now,
-      });
-      ctx.restore();
-      headTops.set(d.id, d.py + top * s * FIG_SCALE);
-    };
-    figureFns.set(d.id, draw);
-    items.push({ key: d.p.y, draw: () => draw(1) });
-  }
-  items.sort((a, b) => a.key - b.key);
-  for (const it of items) it.draw();
-
-  // Engelin arkasında kalan figürü hayalet olarak göster
-  for (const d of list) {
-    const hidden = layout.obstacles.some((o) => {
-      if (o.y + o.h <= d.p.y) return false;
-      const H = o.kind === "wall" ? WALL_H : BOX_H;
-      return d.p.x + 0.4 > o.x && d.p.x - 0.4 < o.x + o.w && o.y - H < d.p.y;
-    });
-    if (hidden) figureFns.get(d.id)!(0.35);
-  }
-
-  // İsim etiketleri (her zaman en üstte)
+  // İsim etiketleri
   ctx.font = "600 12px 'Barlow Condensed', system-ui, sans-serif";
   ctx.textAlign = "center";
   ctx.textBaseline = "bottom";
-  for (const d of list) {
-    if (d.px < -40 || d.px > v.w + 40 || d.py < HUD_TOP || d.py > v.h + 40) continue;
-    const isChaser = d.id === chaserId;
-    const label = memberName(state, d.id) + (d.id === selfId ? " (sen)" : "");
-    const ty = (headTops.get(d.id) ?? d.py - 1.8 * s) - 3;
+  for (const [id] of players) {
+    const pr = proj.get(id);
+    if (!pr || !pr.on) continue;
+    const isChaser = id === chaserId;
+    const label = memberName(state, id) + (id === selfId ? " (sen)" : "");
     const tw = ctx.measureText(label).width + 22;
-    const lx = Math.max(tw / 2 + 4, Math.min(v.w - tw / 2 - 4, d.px));
+    const lx = Math.max(tw / 2 + 4, Math.min(v.w - tw / 2 - 4, pr.x));
+    const ty = pr.y;
     ctx.fillStyle = "rgba(8, 14, 26, 0.75)";
     roundRect(ctx, lx - tw / 2, ty - 16, tw, 17, 8);
     ctx.fill();
@@ -431,18 +97,36 @@ export function drawFrame(
     ctx.fillText((isChaser ? "◆ " : "● ") + label, lx, ty);
   }
 
+  // Kendi enerjin: etiketin altında ince çubuk
+  const me = players.get(selfId);
+  const mp = proj.get(selfId);
+  if (me && mp && mp.on && phase === "chase") {
+    const bw = 44;
+    const bx = mp.x - bw / 2;
+    const by = mp.y + 3;
+    ctx.fillStyle = "rgba(255,255,255,0.15)";
+    roundRect(ctx, bx, by, bw, 4, 2);
+    ctx.fill();
+    ctx.fillStyle = me.st >= JUKE_COST ? "#39d98a" : "#f5b83d";
+    roundRect(ctx, bx, by, (bw * me.st) / STAMINA_MAX, 4, 2);
+    ctx.fill();
+  }
+
   // Ekran dışındaki rakip için kenar oku
-  for (const d of list) {
-    if (d.id === selfId) continue;
-    const m = 26;
-    if (d.px > m && d.px < v.w - m && d.py > HUD_TOP + m && d.py < v.h - m) continue;
-    const ax = Math.max(m, Math.min(v.w - m, d.px));
-    const ay = Math.max(HUD_TOP + m, Math.min(v.h - m, d.py));
-    const ang = Math.atan2(d.py - ay, d.px - ax);
+  for (const [id, p] of players) {
+    if (id === selfId) continue;
+    const pr = proj.get(id);
+    if (!pr) continue;
+    const m = 28;
+    if (pr.on && pr.x > m && pr.x < v.w - m && pr.y > HUD_TOP + m && pr.y < v.h - m) continue;
+    const ax = Math.max(m, Math.min(v.w - m, pr.x));
+    const ay = Math.max(HUD_TOP + m, Math.min(v.h - m, pr.y));
+    const ang = Math.atan2(pr.y - ay, pr.x - ax);
+    const team = memberTeam(state, id) ?? 0;
     ctx.save();
     ctx.translate(ax, ay);
     ctx.rotate(ang);
-    ctx.fillStyle = TEAM_COLORS[d.team as 0 | 1];
+    ctx.fillStyle = TEAM_COLORS[team];
     ctx.beginPath();
     ctx.moveTo(16, 0);
     ctx.lineTo(-8, -11);
@@ -451,35 +135,38 @@ export function drawFrame(
     ctx.closePath();
     ctx.fill();
     ctx.restore();
-    const dist = Math.hypot((d.px - (players.get(selfId) ? qx + players.get(selfId)!.x * s : v.w / 2)) / s, (d.py - (players.get(selfId) ? qy + players.get(selfId)!.y * s : cy)) / s);
-    ctx.font = "700 11px system-ui, sans-serif";
-    ctx.fillStyle = "#fff";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(`${dist.toFixed(0)} m`, ax, ay + (ay < v.h / 2 ? 22 : -22));
+    if (me) {
+      const dist = Math.hypot(p.x - me.x, p.y - me.y);
+      ctx.font = "700 11px system-ui, sans-serif";
+      ctx.fillStyle = "#fff";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(`${dist.toFixed(0)} m`, ax, ay + (ay < v.h / 2 ? 22 : -22));
+    }
   }
 
   // Mini harita (sağ üst)
   {
-    const mw = 74;
+    const mw = 72;
     const mx = v.w - mw - 10;
     const my = HUD_TOP + 2;
     const ms = mw / QUAD_SIZE;
-    ctx.fillStyle = "rgba(9, 15, 28, 0.78)";
+    ctx.fillStyle = "rgba(9, 15, 28, 0.72)";
     roundRect(ctx, mx - 3, my - 3, mw + 6, mw + 6, 6);
     ctx.fill();
     ctx.fillStyle = "#1b2a44";
     ctx.fillRect(mx, my, mw, mw);
     for (const o of layout.obstacles) {
-      ctx.fillStyle = o.kind === "wall" ? "#56698a" : "#c98a1d";
+      ctx.fillStyle = o.kind === "wall" ? "#5b6d8f" : o.kind === "box" ? "#c98a1d" : "#7fe0ff";
       ctx.fillRect(mx + o.x * ms, my + o.y * ms, Math.max(2, o.w * ms), Math.max(2, o.h * ms));
     }
-    for (const d of list) {
-      ctx.fillStyle = TEAM_COLORS[d.team as 0 | 1];
+    for (const [id, p] of players) {
+      const team = memberTeam(state, id) ?? 0;
+      ctx.fillStyle = TEAM_COLORS[team];
       ctx.beginPath();
-      ctx.arc(mx + d.p.x * ms, my + d.p.y * ms, d.id === selfId ? 4 : 3, 0, Math.PI * 2);
+      ctx.arc(mx + p.x * ms, my + p.y * ms, id === selfId ? 4 : 3, 0, Math.PI * 2);
       ctx.fill();
-      if (d.id === selfId) {
+      if (id === selfId) {
         ctx.strokeStyle = "#fff";
         ctx.lineWidth = 1.5;
         ctx.stroke();
@@ -490,31 +177,31 @@ export function drawFrame(
     ctx.strokeRect(mx + 0.5, my + 0.5, mw - 1, mw - 1);
   }
 
-  // Sanal joystick: bölge daima hafifçe görünür, basılıyken belirginleşir
-  if (!joy.active && state?.phase === "chase") {
+  // Joystick
+  if (!joy.active && phase === "chase") {
     const cx = joy.zoneX + Math.min(joy.zoneW * 0.5, 110);
-    const cy = joy.zoneY + joy.zoneH * 0.55;
-    ctx.strokeStyle = "rgba(255,255,255,0.1)";
+    const cy = joy.zoneY + joy.zoneH * 0.62;
+    ctx.strokeStyle = "rgba(255,255,255,0.12)";
     ctx.setLineDash([5, 7]);
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.arc(cx, cy, joy.r, 0, Math.PI * 2);
     ctx.stroke();
     ctx.setLineDash([]);
-    ctx.fillStyle = "rgba(255,255,255,0.12)";
+    ctx.fillStyle = "rgba(255,255,255,0.14)";
     ctx.beginPath();
     ctx.arc(cx, cy, 10, 0, Math.PI * 2);
     ctx.fill();
   }
   if (joy.active) {
-    ctx.fillStyle = "rgba(255,255,255,0.06)";
-    ctx.strokeStyle = "rgba(255,255,255,0.22)";
+    ctx.fillStyle = "rgba(255,255,255,0.07)";
+    ctx.strokeStyle = "rgba(255,255,255,0.28)";
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.arc(joy.ox, joy.oy, joy.r, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
-    ctx.fillStyle = "rgba(255,255,255,0.55)";
+    ctx.fillStyle = "rgba(255,255,255,0.6)";
     ctx.beginPath();
     ctx.arc(joy.x, joy.y, joy.r * 0.42, 0, Math.PI * 2);
     ctx.fill();

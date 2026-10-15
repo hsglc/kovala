@@ -1,11 +1,12 @@
 import { OUT_MARGIN, QUAD_SIZE } from "./constants";
 
 /**
- * wall: yüksek engel, geçilemez.
- * box : alçak engel, aksiyon tuşuyla üstünden atlanır (vault).
+ * wall: yüksek engel; tırmanılır, geçilemez.
+ * box : alçak kutu; koşarken üstünden atlanır (vault) ya da zıplanır.
+ * bar : yüksekte korkuluk; altından kayılır (slide), üstünden geçilemez.
  * x,y sol-üst köşe; w,h metre.
  */
-export type ObstacleKind = "wall" | "box";
+export type ObstacleKind = "wall" | "box" | "bar";
 export interface Obstacle {
   kind: ObstacleKind;
   x: number;
@@ -34,6 +35,7 @@ const SPAWNS: [number, number][] = [
 
 const w = (x: number, y: number, ww: number, h: number): Obstacle => ({ kind: "wall", x, y, w: ww, h });
 const b = (x: number, y: number, ww: number, h: number): Obstacle => ({ kind: "box", x, y, w: ww, h });
+const r = (x: number, y: number, ww: number, h: number): Obstacle => ({ kind: "bar", x, y, w: ww, h });
 
 export const LAYOUTS: QuadLayout[] = [
   {
@@ -46,8 +48,8 @@ export const LAYOUTS: QuadLayout[] = [
       w(9.65, 2, 0.35, 1.6),
       w(8.4, 9.65, 1.6, 0.35),
       w(2, 8.4, 0.35, 1.6),
-      b(5, 2.3, 2, 0.8),
-      b(5, 8.9, 2, 0.8),
+      r(5, 2.5, 2, 0.4),
+      r(5, 9.1, 2, 0.4),
       b(2.3, 5, 0.8, 2),
       b(8.9, 5, 0.8, 2),
     ],
@@ -66,8 +68,8 @@ export const LAYOUTS: QuadLayout[] = [
       w(2.4, 8.2, 1.4, 1.4),
       b(5.2, 3.6, 1.6, 0.7),
       b(5.2, 7.7, 1.6, 0.7),
-      b(3.6, 5.2, 0.7, 1.6),
-      b(7.7, 5.2, 0.7, 1.6),
+      r(3.75, 5.2, 0.4, 1.6),
+      r(7.85, 5.2, 0.4, 1.6),
     ],
   },
   {
@@ -80,10 +82,10 @@ export const LAYOUTS: QuadLayout[] = [
       w(2.7, 8.2, 1.1, 1.1),
       w(8.2, 8.2, 1.1, 1.1),
       w(5.65, 5.65, 0.7, 0.7),
-      b(5.1, 2.6, 1.8, 0.7),
+      r(5.1, 2.75, 1.8, 0.4),
       b(5.1, 8.7, 1.8, 0.7),
       b(2.6, 5.1, 0.7, 1.8),
-      b(8.7, 5.1, 0.7, 1.8),
+      r(8.85, 5.1, 0.4, 1.8),
     ],
   },
 ];

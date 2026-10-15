@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { CLIMB_COST, DIVE_COST, JUKE_COST, KICK_COST } from "../../shared/constants";
+import { CLIMB_COST, DIVE_COST, JUKE_COST, JUMP_COST, KICK_COST } from "../../shared/constants";
 import type { PublicState } from "../../shared/engine";
-import { ACT_CLIMB, ACT_DIVE, ACT_JUKE, ACT_KICK, ACT_KONG, ACT_NONE, ACT_STUMBLE, ACT_VAULT, parkourPreview } from "../../shared/sim";
+import { ACT_CLIMB, ACT_JUMP, ACT_KICK, ACT_KONG, ACT_SLIDE, ACT_STUMBLE, ACT_VAULT, parkourPreview } from "../../shared/sim";
 import { TEAM_COLORS, memberName, resultLine, resultTitle, teamName } from "../lib/text";
 import { isMuted, setMuted, sfx, unlockAudio, vibrate } from "../lib/sound";
 import type { GameSource } from "../net/types";
-import { computeView, drawFrame, updateCamera, HUD_TOP, type Camera, type JoyVisual } from "./renderer";
+import { computeView, drawOverlay, updateCamera, HUD_TOP, type Camera, type JoyVisual } from "./renderer";
+import { Scene3D } from "./three/Scene3D";
 
 interface Props {
   source: GameSource;
@@ -16,6 +17,7 @@ interface Props {
 export function GameScreen({ source, state, onLeave }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const glRef = useRef<HTMLCanvasElement>(null);
   const timeRef = useRef<HTMLDivElement>(null);
   const digitRef = useRef<HTMLDivElement>(null);
   const actRef = useRef<HTMLButtonElement>(null);
@@ -48,6 +50,7 @@ export function GameScreen({ source, state, onLeave }: Props) {
     const wrap = wrapRef.current!;
     const canvas = canvasRef.current!;
     const ctx = canvas.getContext("2d")!;
+    const scene = new Scene3D(glRef.current!);
     let view = computeView(1, 1, 1);
     const joy: JoyVisual & { id: number } = { active: false, id: -1, ox: 0, oy: 0, x: 0, y: 0, r: 56, zoneX: 0, zoneY: 0, zoneW: 0, zoneH: 0 };
     const keys = new Set<string>();
@@ -61,6 +64,7 @@ export function GameScreen({ source, state, onLeave }: Props) {
       canvas.style.width = rect.width + "px";
       canvas.style.height = rect.height + "px";
       view = computeView(rect.width, rect.height, dpr);
+      scene.resize(rect.width, rect.height, dpr);
       // Joystick bölgesi: ekranın sol %58'i, HUD'un altından ekranın dibine.
       joy.zoneX = 0;
       joy.zoneW = rect.width * 0.58;
@@ -244,8 +248,9 @@ export function GameScreen({ source, state, onLeave }: Props) {
       }
       if (s.phase === "countdown") cam.init = cam.init && s.chaseStartTick === lastChaseTick;
       lastChaseTick = s.chaseStartTick;
-      updateCamera(cam, tx, ty, dtc, view);
-      drawFrame(ctx, view, layout, s, f.players, source.selfId, joy, now, cam);
+      updateCamera(cam, tx, ty, dtc);
+      const proj = scene.render(layout, s, f.players, source.selfId, cam, now);
+      drawOverlay(ctx, view, layout, s, f.players, proj, source.selfId, joy);
 
       // Saat
       let t = 20;
@@ -279,14 +284,15 @@ export function GameScreen({ source, state, onLeave }: Props) {
       let disabled2 = !active;
       if (active && f.self) {
         const kind = parkourPreview(f.self, { mx: move.mx, my: move.my, act: false, act2: false }, layout);
-        label = kind === ACT_CLIMB ? "TIRMAN" : kind === ACT_VAULT ? "ATLA" : kind === ACT_KICK ? "SEK" : "PARKUR";
-        const cost = kind === ACT_CLIMB ? CLIMB_COST : kind === ACT_KICK ? KICK_COST : kind === ACT_VAULT ? 0 : 1e9;
+        label =
+          kind === ACT_CLIMB ? "TIRMAN" : kind === ACT_VAULT ? "ATLA" : kind === ACT_SLIDE ? "KAY" : kind === ACT_KICK ? "SEK" : "ZIPLA";
+        const cost = kind === ACT_CLIMB ? CLIMB_COST : kind === ACT_KICK ? KICK_COST : kind === ACT_JUMP ? JUMP_COST : 0;
         const busy = f.self.cd > 0 || f.self.ak !== 0;
-        disabled = kind === ACT_NONE || f.self.st < cost || busy;
+        disabled = f.self.st < cost || busy;
         const cost2 = myRole === "chaser" ? DIVE_COST : JUKE_COST;
         disabled2 = f.self.st < cost2 || busy;
         if (f.self.ak !== lastAk && f.self.ak !== 0 && f.self.ak !== ACT_STUMBLE) {
-          if (f.self.ak === ACT_VAULT || f.self.ak === ACT_KONG || f.self.ak === ACT_CLIMB) sfx.vault();
+          if (f.self.ak === ACT_VAULT || f.self.ak === ACT_KONG || f.self.ak === ACT_CLIMB || f.self.ak === ACT_JUMP || f.self.ak === ACT_SLIDE) sfx.vault();
           else sfx.dash();
         }
         lastAk = f.self.ak;
@@ -318,6 +324,7 @@ export function GameScreen({ source, state, onLeave }: Props) {
     return () => {
       cancelAnimationFrame(raf);
       ro.disconnect();
+      scene.dispose();
       wrap.removeEventListener("touchstart", onTouchStart);
       wrap.removeEventListener("touchmove", onTouchMove);
       wrap.removeEventListener("touchend", onTouchEnd);
@@ -355,7 +362,8 @@ export function GameScreen({ source, state, onLeave }: Props) {
 
   return (
     <div className="game" ref={wrapRef}>
-      <canvas ref={canvasRef} className="game-canvas" />
+      <canvas ref={glRef} className="game-canvas" />
+      <canvas ref={canvasRef} className="game-canvas overlay" />
 
       <div className="hud-top">
         <button className={`icon-btn ${confirmLeave ? "confirm" : ""}`} onClick={leave} aria-label="Maçtan çık">
@@ -460,7 +468,7 @@ export function GameScreen({ source, state, onLeave }: Props) {
 
       {s.phase === "countdown" && role && (
         <div className="control-hint">
-          Sol tarafı sürükle: koş · Kutular otomatik atlanır
+          Sol tarafı sürükle: koş · Kutular atlanır, barların altından kayılır
           <br />
           {role === "evader" ? "SIÇRA: ani yön değişimi · TIRMAN/SEK: duvarı kullan" : "DALIŞ: uzun erişim, sonra tökezlersin"}
         </div>

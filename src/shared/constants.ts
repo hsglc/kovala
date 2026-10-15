@@ -62,6 +62,16 @@ export const JUKE_SPEED = 9.6;
 export const JUKE_TIME = 0.14;
 export const JUKE_COST = 24;
 
+/** Kayma: barın altından, hız korunur. */
+export const SLIDE_SPEED = 6.0;
+export const SLIDE_MIN_TIME = 0.3;
+export const SLIDE_MAX_TIME = 0.8;
+
+/** Zıplama: kısa havada kalma; kutuların üstünden geçer. */
+export const JUMP_SPEED = 5.9;
+export const JUMP_TIME = 0.42;
+export const JUMP_COST = 10;
+
 export const ACTION_COOLDOWN = 0.25;
 
 export const CHASE_OPTIONS = [10, 16] as const;

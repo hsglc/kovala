@@ -13,12 +13,18 @@ import {
   JUKE_COST,
   JUKE_SPEED,
   JUKE_TIME,
+  JUMP_COST,
+  JUMP_SPEED,
+  JUMP_TIME,
   KICK_COST,
   KICK_RANGE,
   KICK_SPEED,
   KICK_TIME,
   PLAYER_RADIUS,
   QUAD_SIZE,
+  SLIDE_MAX_TIME,
+  SLIDE_MIN_TIME,
+  SLIDE_SPEED,
   SPEED_CHASER,
   SPEED_EVADER,
   STAMINA_MAX,
@@ -54,6 +60,8 @@ export const ACT_KICK = 4;
 export const ACT_DIVE = 5;
 export const ACT_STUMBLE = 6;
 export const ACT_JUKE = 7;
+export const ACT_SLIDE = 8;
+export const ACT_JUMP = 9;
 
 export type Role = "chaser" | "evader";
 
@@ -167,20 +175,22 @@ export function parkourPreview(p: PlayerState, input: Input, layout: QuadLayout)
   const ahead = obstacleAhead(p.x, p.y, dx, dy, layout, VAULT_PROBE + 0.25);
   if (ahead === "wall") return ACT_CLIMB;
   if (ahead === "box") return ACT_VAULT;
+  if (ahead === "bar") return ACT_SLIDE;
   if (wallBehind(p.x, p.y, dx, dy, layout)) return ACT_KICK;
-  return ACT_NONE;
+  return ACT_JUMP;
 }
 
 export function roleAction(role: Role): number {
   return role === "chaser" ? ACT_DIVE : ACT_JUKE;
 }
 
-function resolveCollisions(p: PlayerState, layout: QuadLayout, ignore: "box" | "all" | null) {
+function resolveCollisions(p: PlayerState, layout: QuadLayout, ignore: "box" | "bar" | "all" | null) {
   if (ignore === "all") return;
   const r = PLAYER_RADIUS;
   for (let iter = 0; iter < 2; iter++) {
     for (const o of layout.obstacles) {
       if (ignore === "box" && o.kind === "box") continue;
+      if (ignore === "bar" && o.kind === "bar") continue;
       const cx = Math.max(o.x, Math.min(p.x, o.x + o.w));
       const cy = Math.max(o.y, Math.min(p.y, o.y + o.h));
       let nx = p.x - cx;
@@ -267,10 +277,11 @@ export function stepPlayer(p: PlayerState, input: Input, role: Role, layout: Qua
       const kind = parkourPreview(p, input, layout);
       if (kind === ACT_CLIMB && p.st >= CLIMB_COST) begin(p, ACT_CLIMB, dx, dy, CLIMB_COST);
       else if (kind === ACT_VAULT) begin(p, vaultStyle(p), dx, dy, 0);
+      else if (kind === ACT_SLIDE) begin(p, ACT_SLIDE, dx, dy, 0);
       else if (kind === ACT_KICK && p.st >= KICK_COST) {
         const n = wallBehind(p.x, p.y, dx, dy, layout)!;
         begin(p, ACT_KICK, n[0], n[1], KICK_COST);
-      }
+      } else if (kind === ACT_JUMP && p.st >= JUMP_COST) begin(p, ACT_JUMP, dx, dy, JUMP_COST);
     }
     if (p.ak !== 0) started = p.ak;
   }
@@ -278,8 +289,12 @@ export function stepPlayer(p: PlayerState, input: Input, role: Role, layout: Qua
   if (p.ak === 0 && speed >= VAULT_AUTO_SPEED && il > 0.05) {
     const vx = p.vx / speed;
     const vy = p.vy / speed;
-    if (obstacleAhead(p.x, p.y, vx, vy, layout, 0.3) === "box") {
+    const ahead = obstacleAhead(p.x, p.y, vx, vy, layout, 0.3);
+    if (ahead === "box") {
       begin(p, vaultStyle(p), vx, vy, 0);
+      started = p.ak;
+    } else if (ahead === "bar") {
+      begin(p, ACT_SLIDE, vx, vy, 0);
       started = p.ak;
     }
   }
@@ -307,6 +322,24 @@ export function stepPlayer(p: PlayerState, input: Input, role: Role, layout: Qua
       p.vx = p.dx * JUKE_SPEED;
       p.vy = p.dy * JUKE_SPEED;
       break;
+    case ACT_SLIDE:
+      p.vx = p.dx * SLIDE_SPEED;
+      p.vy = p.dy * SLIDE_SPEED;
+      break;
+    case ACT_JUMP: {
+      // Havada hafif yön kontrolü
+      const jl = Math.hypot(input.mx, input.my);
+      if (jl > 0.05) {
+        p.dx += (input.mx / jl - p.dx) * 0.08;
+        p.dy += (input.my / jl - p.dy) * 0.08;
+        const l = Math.hypot(p.dx, p.dy) || 1;
+        p.dx /= l;
+        p.dy /= l;
+      }
+      p.vx = p.dx * JUMP_SPEED;
+      p.vy = p.dy * JUMP_SPEED;
+      break;
+    }
     default: {
       const k = p.ak === ACT_STUMBLE ? 0.25 : 1;
       const tx = input.mx * maxSpeed * k;
@@ -326,7 +359,8 @@ export function stepPlayer(p: PlayerState, input: Input, role: Role, layout: Qua
   }
 
   // ---- Hareket + çarpışma (iki alt adım) ----
-  const ignore = p.ak === ACT_VAULT || p.ak === ACT_KONG ? "box" : p.ak === ACT_CLIMB ? "all" : null;
+  const ignore =
+    p.ak === ACT_VAULT || p.ak === ACT_KONG || p.ak === ACT_JUMP ? "box" : p.ak === ACT_SLIDE ? "bar" : p.ak === ACT_CLIMB ? "all" : null;
   for (let s = 0; s < 2; s++) {
     p.x += (p.vx * DT) / 2;
     p.y += (p.vy * DT) / 2;
@@ -370,6 +404,22 @@ export function stepPlayer(p: PlayerState, input: Input, role: Role, layout: Qua
       case ACT_KICK:
         if (p.at >= KICK_TIME - 1e-9) end(1, 0.1);
         break;
+      case ACT_SLIDE: {
+        const clear = !overlapsAny(p.x, p.y, layout, "bar");
+        if ((p.at >= SLIDE_MIN_TIME - 1e-9 && clear) || p.at >= SLIDE_MAX_TIME - 1e-9) {
+          end(1, 0);
+          if (!clear) resolveCollisions(p, layout, null);
+        }
+        break;
+      }
+      case ACT_JUMP: {
+        if (p.at >= JUMP_TIME - 1e-9) {
+          const clear = !overlapsAny(p.x, p.y, layout, "box");
+          end(0.9, 0.05);
+          if (!clear) resolveCollisions(p, layout, null);
+        }
+        break;
+      }
       case ACT_JUKE:
         if (p.at >= JUKE_TIME - 1e-9) end(1);
         break;

@@ -193,9 +193,10 @@ function Rules() {
       </ul>
       <h3>Hamleler</h3>
       <ul>
-        <li>Sarı kutular koşarken kendiliğinden atlanır.</li>
+        <li>Sarı kutular koşarken kendiliğinden atlanır; çelik barların altından kendiliğinden kayılır.</li>
         <li>
-          <b>PARKUR</b>: duvara doğru <b>TIRMAN</b> (yavaş, tırmanırken yakalanabilirsin), sırtın duvardayken <b>SEK</b>.
+          <b>PARKUR</b> tuşu bağlama göre: duvara doğru <b>TIRMAN</b>, sırtın duvardayken <b>SEK</b>, açık alanda <b>ZIPLA</b> (kutuların
+          üstünden geçer), kutu önünde <b>ATLA</b>, bar önünde <b>KAY</b>.
         </li>
         <li>
           Kaçan <b>SIÇRA</b> ile ani yön değiştirir; kovalayan <b>DALIŞ</b> ile uzağa uzanır ama sonra tökezler.

@@ -12,6 +12,18 @@ export interface PatchNote {
 
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: "0.5.0",
+    date: "16 Eki 2026",
+    time: "00:20",
+    title: "3B grafikler: three.js sahnesi",
+    items: [
+      "Oyun içi grafikler three.js'e taşındı: perspektif takip kamerası, gerçek gölgeler, eklemli 3B koşucular.",
+      "Engeller yeniden tasarlandı: iskele duvarlar (sarı tutamaklı), sünger kutular, çelik korkuluk barları.",
+      "Yeni hamleler: barların altından KAY, açık alanda ZIPLA (kutuların üstünden geçer).",
+      "Her figür için koşu, atlama, kong, tırmanma, kayma, dalış, tökezleme, sevinme ve yorulma animasyonları.",
+    ],
+  },
+  {
     version: "0.4.1",
     date: "15 Eki 2026",
     time: "23:44",
