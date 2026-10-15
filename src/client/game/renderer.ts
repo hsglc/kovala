@@ -21,21 +21,47 @@ export function computeView(w: number, h: number, dpr: number): View {
 export interface Camera {
   x: number;
   y: number;
+  /** 0..1: ne kadar açılacağı (iki oyuncu uzaksa artar) */
+  zoom: number;
   init: boolean;
 }
 
-export function updateCamera(cam: Camera, tx: number, ty: number, dtMs: number) {
+/**
+ * Kamera hedefi: kendi karakterin, rakibe doğru kaydırılmış; ikisi uzaksa kamera yükselir.
+ * Böylece chase başında ve kovalama sırasında rakip hep kadrajda.
+ */
+export function updateCamera(cam: Camera, me: { x: number; y: number } | null, other: { x: number; y: number } | null, dtMs: number) {
+  let tx = QUAD_SIZE / 2;
+  let ty = QUAD_SIZE / 2;
+  let zoom = 0.3;
+  if (me && other) {
+    const d = Math.hypot(other.x - me.x, other.y - me.y);
+    const w = Math.min(0.36, 0.18 + d * 0.02);
+    const off = Math.min(2.2, d * w);
+    tx = me.x + ((other.x - me.x) / (d || 1)) * off;
+    ty = me.y + ((other.y - me.y) / (d || 1)) * off;
+    zoom = Math.max(0, Math.min(1, (d - 3) / 9));
+  } else if (me) {
+    tx = me.x;
+    ty = me.y;
+    zoom = 0;
+  } else if (other) {
+    tx = other.x;
+    ty = other.y;
+  }
   tx = Math.max(-1, Math.min(QUAD_SIZE + 1, tx));
   ty = Math.max(-1, Math.min(QUAD_SIZE + 1, ty));
   if (!cam.init) {
     cam.x = tx;
     cam.y = ty;
+    cam.zoom = zoom;
     cam.init = true;
     return;
   }
-  const k = 1 - Math.exp(-dtMs / 120);
+  const k = 1 - Math.exp(-dtMs / 140);
   cam.x += (tx - cam.x) * k;
   cam.y += (ty - cam.y) * k;
+  cam.zoom += (zoom - cam.zoom) * (1 - Math.exp(-dtMs / 260));
 }
 
 export interface JoyVisual {

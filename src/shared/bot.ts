@@ -1,6 +1,6 @@
 import { CLIMB_COST, DIVE_COST, JUKE_COST, KICK_COST, PLAYER_RADIUS, QUAD_SIZE } from "./constants";
 import type { QuadLayout } from "./maps";
-import { ACT_CLIMB, ACT_KICK, parkourPreview, type Input, type PlayerState } from "./sim";
+import { ACT_CLIMB, ACT_KICK, nearWall, parkourPreview, wallJumpDir, type Input, type PlayerState } from "./sim";
 
 /** Botla antrenman ve testlerde kullanılan basit yapay zekâ. */
 
@@ -275,7 +275,14 @@ export class Bot {
     const dist = Math.hypot(other.x - self.x, other.y - self.y);
     const pk = parkourPreview(self, { mx: this.dir[0], my: this.dir[1], act: false, act2: false }, layout);
     if (pk === ACT_KICK && dist < 2 && self.st >= KICK_COST && self.cd <= 0) {
-      this.wantAct = true;
+      // Sıçrama saha içinde bitsin
+      const n = nearWall(self.x, self.y, layout);
+      if (n) {
+        const jd = wallJumpDir(this.dir[0], this.dir[1], n);
+        const lx = self.x + jd[0] * 3;
+        const ly = self.y + jd[1] * 3;
+        if (lx > 0.6 && ly > 0.6 && lx < QUAD_SIZE - 0.6 && ly < QUAD_SIZE - 0.6) this.wantAct = true;
+      }
     } else if (pk === ACT_CLIMB && self.st >= CLIMB_COST && self.cd <= 0 && dist > 2.5 && this.rnd() < 0.35) {
       this.wantAct = true;
     } else if (dist < 1.6 && self.st >= JUKE_COST && self.cd <= 0 && this.rnd() < this.cfg.dashChance) {

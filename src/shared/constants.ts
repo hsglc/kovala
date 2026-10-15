@@ -44,11 +44,12 @@ export const CLIMB_SPEED = 2.3;
 export const CLIMB_MAX_TIME = 1.1;
 export const CLIMB_COST = 30;
 
-/** Duvardan sekme: sırtın duvara yakınken ters yöne patlama. */
-export const KICK_SPEED = 9.5;
-export const KICK_TIME = 0.16;
-export const KICK_COST = 12;
-export const KICK_RANGE = 0.55;
+/** Duvar sıçraması (tic-tac): duvara açıyla koşup ayağını basıp yansıyarak fırlama. */
+export const KICK_SPEED = 8.2;
+export const KICK_TIME = 0.3;
+export const KICK_COST = 14;
+/** Duvara bu mesafedeyken sıçranabilir. */
+export const KICK_RANGE = 0.75;
 
 /** Kovalayanın dalışı: uzun erişim, sonra tökezleme. */
 export const DIVE_SPEED = 9.8;

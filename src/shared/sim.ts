@@ -148,24 +148,45 @@ export function canVault(x: number, y: number, dirX: number, dirY: number, layou
   return obstacleAhead(x, y, dirX, dirY, layout) === "box";
 }
 
-/** Sırtımıza yakın bir duvar var mı (sekmek için)? Duvarın normalini döndürür. */
-export function wallBehind(x: number, y: number, dirX: number, dirY: number, layout: QuadLayout): [number, number] | null {
-  const px = x - dirX * KICK_RANGE;
-  const py = y - dirY * KICK_RANGE;
+/**
+ * Yakındaki duvarın normalini döndürür (duvar sıçraması için). Oyuncu KICK_RANGE içinde
+ * bir duvara bakıyorsa ya da ona yaslanmışsa normal, yoksa null.
+ */
+export function nearWall(x: number, y: number, layout: QuadLayout): [number, number] | null {
+  let best: [number, number] | null = null;
+  let bestD = KICK_RANGE;
   for (const o of layout.obstacles) {
     if (o.kind !== "wall") continue;
-    if (!pointInRect(px, py, o, 0.05)) continue;
     const cx = Math.max(o.x, Math.min(x, o.x + o.w));
     const cy = Math.max(o.y, Math.min(y, o.y + o.h));
-    let nx = x - cx;
-    let ny = y - cy;
-    const l = Math.hypot(nx, ny) || 1;
-    nx /= l;
-    ny /= l;
-    return [nx, ny];
+    const nx = x - cx;
+    const ny = y - cy;
+    const d = Math.hypot(nx, ny);
+    if (d < bestD) {
+      bestD = d;
+      const l = d || 1;
+      // Köşe değil kenar normali: baskın ekseni al
+      best = Math.abs(nx) >= Math.abs(ny) ? [Math.sign(nx / l) || 1, 0] : [0, Math.sign(ny / l) || 1];
+    }
   }
-  return null;
+  return best;
 }
+
+/** Duvar sıçraması yönü: gidiş yönünün duvar normaline göre yansıması, biraz normale doğru açılmış. */
+export function wallJumpDir(dx: number, dy: number, n: [number, number]): [number, number] {
+  const dot = dx * n[0] + dy * n[1];
+  // Duvara doğru gidiyorsan yansıt; duvardan uzaklaşıyorsan yönü koru.
+  let rx = dot < 0 ? dx - 2 * dot * n[0] : dx;
+  let ry = dot < 0 ? dy - 2 * dot * n[1] : dy;
+  // Duvara dik gelindiyse tam geri, aksi halde yansıma; her durumda duvardan uzaklaş
+  rx += n[0] * 0.6;
+  ry += n[1] * 0.6;
+  const l = Math.hypot(rx, ry) || 1;
+  return [rx / l, ry / l];
+}
+
+/** Geriye uyumluluk: eski isim. */
+export const wallBehind = (x: number, y: number, _dx: number, _dy: number, layout: QuadLayout) => nearWall(x, y, layout);
 
 /** PARKUR tuşu şu an ne yapar? (UI etiketi ve sim için aynı mantık) */
 export function parkourPreview(p: PlayerState, input: Input, layout: QuadLayout): number {
@@ -173,11 +194,26 @@ export function parkourPreview(p: PlayerState, input: Input, layout: QuadLayout)
   const dx = l > 0.05 ? input.mx / l : p.fx;
   const dy = l > 0.05 ? input.my / l : p.fy;
   const ahead = obstacleAhead(p.x, p.y, dx, dy, layout, VAULT_PROBE + 0.25);
-  if (ahead === "wall") return ACT_CLIMB;
+  const n = nearWall(p.x, p.y, layout);
+  if (ahead === "wall") {
+    // Duvara dik ve yavaş yaklaşıyorsan tırman; açıyla/hızla geliyorsan sıçra (tic-tac).
+    const speed = Math.hypot(p.vx, p.vy);
+    const into = n ? -(dx * n[0] + dy * n[1]) : 1;
+    if (into > 0.85 && speed < 3.5) return ACT_CLIMB;
+    return ACT_KICK;
+  }
   if (ahead === "box") return ACT_VAULT;
   if (ahead === "bar") return ACT_SLIDE;
-  if (wallBehind(p.x, p.y, dx, dy, layout)) return ACT_KICK;
+  if (n) return ACT_KICK;
   return ACT_JUMP;
+}
+
+/** Önümüzdeki duvarın normali (sıçrama için), bulunamazsa gidişin tersi. */
+function obstacleNormalAhead(p: PlayerState, dx: number, dy: number, layout: QuadLayout): [number, number] {
+  const px = p.x + dx * 0.6;
+  const py = p.y + dy * 0.6;
+  const n = nearWall(px, py, layout);
+  return n ?? [-dx, -dy];
 }
 
 export function roleAction(role: Role): number {
@@ -279,8 +315,9 @@ export function stepPlayer(p: PlayerState, input: Input, role: Role, layout: Qua
       else if (kind === ACT_VAULT) begin(p, vaultStyle(p), dx, dy, 0);
       else if (kind === ACT_SLIDE) begin(p, ACT_SLIDE, dx, dy, 0);
       else if (kind === ACT_KICK && p.st >= KICK_COST) {
-        const n = wallBehind(p.x, p.y, dx, dy, layout)!;
-        begin(p, ACT_KICK, n[0], n[1], KICK_COST);
+        const n = nearWall(p.x, p.y, layout) ?? obstacleNormalAhead(p, dx, dy, layout);
+        const jd = wallJumpDir(dx, dy, n);
+        begin(p, ACT_KICK, jd[0], jd[1], KICK_COST);
       } else if (kind === ACT_JUMP && p.st >= JUMP_COST) begin(p, ACT_JUMP, dx, dy, JUMP_COST);
     }
     if (p.ak !== 0) started = p.ak;

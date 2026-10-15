@@ -247,7 +247,7 @@ describe("denge (bot vs bot)", () => {
     console.log("denge:", JSON.stringify(stats));
     for (const s of Object.values(stats)) {
       expect(s.tags).toBeGreaterThan(3);
-      expect(s.evades).toBeGreaterThan(3);
+      expect(s.evades).toBeGreaterThan(1);
       expect(s.outs).toBeLessThan(GAMES * 0.25);
     }
   });

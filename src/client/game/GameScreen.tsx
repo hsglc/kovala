@@ -210,7 +210,7 @@ export function GameScreen({ source, state, onLeave }: Props) {
     window.addEventListener("keyup", onKey);
     window.addEventListener("blur", onBlur);
 
-    const cam: Camera = { x: 6, y: 6, init: false };
+    const cam: Camera = { x: 6, y: 6, zoom: 0, init: false };
     let lastNow = 0;
     let raf = 0;
     let lastDigit = -1;
@@ -230,25 +230,12 @@ export function GameScreen({ source, state, onLeave }: Props) {
       // Kamera hedefi: kendi karakterin; izliyorsan iki oyuncunun ortası; lobide saha merkezi.
       const dtc = lastNow ? Math.min(100, now - lastNow) : 16;
       lastNow = now;
-      const me = f.players.get(source.selfId);
-      let tx = 6;
-      let ty = 6;
-      if (me) {
-        tx = me.x;
-        ty = me.y;
-      } else if (f.players.size) {
-        let sx = 0;
-        let sy = 0;
-        for (const p of f.players.values()) {
-          sx += p.x;
-          sy += p.y;
-        }
-        tx = sx / f.players.size;
-        ty = sy / f.players.size;
-      }
+      const me = f.players.get(source.selfId) ?? null;
+      let other: { x: number; y: number } | null = null;
+      for (const [id, p] of f.players) if (id !== source.selfId) other = p;
       if (s.phase === "countdown") cam.init = cam.init && s.chaseStartTick === lastChaseTick;
       lastChaseTick = s.chaseStartTick;
-      updateCamera(cam, tx, ty, dtc);
+      updateCamera(cam, me, other, dtc);
       const proj = scene.render(layout, s, f.players, source.selfId, cam, now);
       drawOverlay(ctx, view, layout, s, f.players, proj, source.selfId, joy);
 
@@ -285,7 +272,7 @@ export function GameScreen({ source, state, onLeave }: Props) {
       if (active && f.self) {
         const kind = parkourPreview(f.self, { mx: move.mx, my: move.my, act: false, act2: false }, layout);
         label =
-          kind === ACT_CLIMB ? "TIRMAN" : kind === ACT_VAULT ? "ATLA" : kind === ACT_SLIDE ? "KAY" : kind === ACT_KICK ? "SEK" : "ZIPLA";
+          kind === ACT_CLIMB ? "TIRMAN" : kind === ACT_VAULT ? "ATLA" : kind === ACT_SLIDE ? "KAY" : kind === ACT_KICK ? "DUVAR" : "ZIPLA";
         const cost = kind === ACT_CLIMB ? CLIMB_COST : kind === ACT_KICK ? KICK_COST : kind === ACT_JUMP ? JUMP_COST : 0;
         const busy = f.self.cd > 0 || f.self.ak !== 0;
         disabled = f.self.st < cost || busy;

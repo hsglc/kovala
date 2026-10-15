@@ -264,7 +264,22 @@ export class Figure3D {
       armL = 0.9;
       armR = -0.3;
       foreL = foreR = -0.9;
-    } else if (ak === ACT_JUKE || ak === ACT_KICK) {
+    } else if (ak === ACT_KICK) {
+      // Tic-tac: duvara basıp fırlama; bacak yana açık, kollar dengede, hafif yan yatış
+      const k = Math.min(1, t / 0.3);
+      lift = Math.sin(k * Math.PI) * 0.6;
+      lean = 0.35;
+      roll = -0.35 * (1 - k);
+      thighL = 1.3 * (1 - k) + 0.3;
+      thighR = -0.2;
+      shinL = -1.4;
+      shinR = -0.4;
+      armL = 1.2;
+      armR = -0.8;
+      foreL = -0.4;
+      foreR = -0.3;
+      armOut = 0.6;
+    } else if (ak === ACT_JUKE) {
       lean = 0.55;
       lift = 0.05;
     }

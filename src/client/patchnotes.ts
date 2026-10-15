@@ -12,6 +12,18 @@ export interface PatchNote {
 
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: "0.5.1",
+    date: "16 Eki 2026",
+    time: "00:48",
+    title: "Rakibi kadraja alan kamera, duvar sıçraması",
+    items: [
+      "Kamera artık her iki oyuncuyu kadraja alır: chase başında rakibi görürsün, uzaklaştıkça kamera yükselir.",
+      "Duvar sıçraması (tic-tac) yeniden yapıldı: duvara açıyla koşup DUVAR tuşuna basınca ayağını basıp yansıyarak fırlarsın. Dik ve yavaş gelirsen TIRMAN.",
+      "Duvar üstleri koyu, sadece kenarda sarı tutamak şeridi; kutularla karışmıyor.",
+      "Arayüz: skorbord, lobi ve sonuç kartında parlama ve cam efektleri, son 5 saniyede nabız atan sayaç.",
+    ],
+  },
+  {
     version: "0.5.0",
     date: "16 Eki 2026",
     time: "00:20",

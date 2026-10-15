@@ -56,7 +56,7 @@ export class Scene3D {
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.05;
     this.scene.background = new THREE.Color(0x0a1020);
-    this.scene.fog = new THREE.Fog(0x0a1020, 16, 34);
+    this.scene.fog = new THREE.Fog(0x0a1020, 22, 48);
 
     const hemi = new THREE.HemisphereLight(0xcfe0ff, 0x2a2214, 1.7);
     this.scene.add(hemi);
@@ -212,9 +212,13 @@ export class Scene3D {
         frame.position.y = WALL_H - 0.06;
         frame.castShadow = true;
         grp.add(frame);
-        const grip = new THREE.Mesh(new THREE.BoxGeometry(o.w + 0.08, 0.05, o.h + 0.08), wallTop);
-        grip.position.y = WALL_H + 0.02;
+        const grip = new THREE.Mesh(new THREE.BoxGeometry(o.w + 0.1, 0.05, o.h + 0.1), wallTop);
+        grip.position.y = WALL_H - 0.01;
         grp.add(grip);
+        const cap = new THREE.Mesh(new THREE.BoxGeometry(o.w - 0.02, 0.06, o.h - 0.02), wallPanel);
+        cap.position.y = WALL_H + 0.02;
+        cap.receiveShadow = true;
+        grp.add(cap);
         for (const sx of [-1, 1]) {
           for (const sz of [-1, 1]) {
             const post = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, WALL_H, 10), wallMat);
@@ -298,7 +302,7 @@ export class Scene3D {
     state: PublicState | null,
     players: Map<string, PlayerState>,
     selfId: string,
-    cam: { x: number; y: number },
+    cam: { x: number; y: number; zoom: number },
     now: number,
   ): Map<string, Projected> {
     if (layout.id !== this.layoutId) {
@@ -306,8 +310,9 @@ export class Scene3D {
       this.buildLayout(layout);
     }
     // Kamera: hedefin arkasından (ekranın altından) yukarı bakar.
-    const target = new THREE.Vector3(cam.x, 0.6, cam.y - 1.6);
-    const desired = new THREE.Vector3(cam.x, 8.6, cam.y + 7.0);
+    const z = cam.zoom;
+    const target = new THREE.Vector3(cam.x, 0.6, cam.y - 1.2 + z * 1.4);
+    const desired = new THREE.Vector3(cam.x, 8.6 + z * 9.5, cam.y + 7.0 + z * 6.5);
     if (!this.initialized) {
       this.camPos.copy(desired);
       this.camLook.copy(target);
@@ -323,10 +328,11 @@ export class Scene3D {
     this.sun.position.set(cam.x - 5, 11, cam.y - 4);
     this.sun.target.position.set(cam.x, 0, cam.y);
     const sc = this.sun.shadow.camera;
-    sc.left = -9;
-    sc.right = 9;
-    sc.top = 9;
-    sc.bottom = -9;
+    const sr = 9 + z * 6;
+    sc.left = -sr;
+    sc.right = sr;
+    sc.top = sr;
+    sc.bottom = -sr;
     sc.updateProjectionMatrix();
 
     // Figürler

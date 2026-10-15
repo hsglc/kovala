@@ -1270,3 +1270,124 @@ body:has(.game) {
 [hidden] {
   display: none !important;
 }
+
+/* ---------- Modernleştirme turu ---------- */
+
+.page.lobby {
+  gap: 14px;
+}
+
+.lobby-head .link-btn {
+  align-self: flex-start;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  color: var(--text);
+  font-size: 14px;
+}
+
+.room-code .code {
+  background: linear-gradient(90deg, #fff, #ffd9d4);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.team-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.team-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 100%;
+  height: 80px;
+  background: radial-gradient(240px 80px at 10% 0%, color-mix(in srgb, var(--c) 28%, transparent), transparent 70%);
+  pointer-events: none;
+}
+
+.team-card li {
+  padding: 6px 8px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.seg {
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.seg button.on {
+  background: linear-gradient(180deg, #2a3b5e, #1c2942);
+  color: #fff;
+}
+
+.lobby-actions .btn.primary.big {
+  font-size: 28px;
+  letter-spacing: 0.04em;
+  box-shadow: 0 14px 40px -14px rgba(255, 90, 79, 0.9);
+}
+
+.sb-team b {
+  text-shadow: 0 0 18px color-mix(in srgb, var(--c) 60%, transparent);
+}
+
+.sb-time {
+  background: linear-gradient(180deg, #fff, #c9d6ea);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.sb-time[data-low="1"] {
+  background: linear-gradient(180deg, #ffd166, #f5b83d);
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: pulse 0.5s ease-in-out infinite alternate;
+}
+
+@keyframes pulse {
+  to {
+    transform: scale(1.06);
+  }
+}
+
+.result-card {
+  box-shadow: 0 20px 60px -30px color-mix(in srgb, var(--c) 70%, transparent);
+}
+
+.result-score span:not(.sep) {
+  text-shadow: 0 0 22px currentColor;
+}
+
+.searching h2 {
+  background: linear-gradient(90deg, #fff, #ffd9d4);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.banner-title {
+  background: linear-gradient(180deg, #fff 20%, currentColor);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.banner-line {
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.spectating,
+.leave-hint,
+.toast {
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.action-btn span {
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.25);
+}
