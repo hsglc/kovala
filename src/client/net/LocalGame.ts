@@ -29,12 +29,13 @@ export class LocalGame implements GameSource {
   private act2 = false;
   private paused = false;
 
-  constructor(pid: string, name: string, level: BotLevel, chases = 16) {
+  constructor(pid: string, name: string, level: BotLevel, chases = 16, layoutId = "random") {
     this.selfId = pid;
     this.bot = new Bot(level);
     this.engine.join(pid, name, getFit());
     this.engine.join(BOT_ID, BOT_NAMES[level], BOT_FITS[level]);
     this.engine.setChases(pid, chases);
+    this.engine.layoutChoice = layoutId;
     this.engine.start(pid);
     this.state = this.engine.publicState();
   }

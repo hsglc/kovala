@@ -28,6 +28,10 @@ export interface QuadLayout {
   spawns: [number, number][];
   /** Resmî başlangıç plakaları: [kovalayan, kaçan]. Varsa spawn seçimi yerine kullanılır. */
   plates?: [[number, number], [number, number]];
+  /** Zorluk: 1 kolay (açık, az karar), 2 orta, 3 zor (sık engel, tırmanma ve duvar hamlesi ister) */
+  level: 1 | 2 | 3;
+  /** Lobide kısa açıklama */
+  blurb: string;
   /** Saha teması (zemin rengi) */
   theme?: "night" | "arena";
 }
@@ -48,12 +52,51 @@ const b = (x: number, y: number, ww: number, h: number, hgt?: number): Obstacle 
 const r = (x: number, y: number, ww: number, h: number): Obstacle => ({ kind: "bar", x, y, w: ww, h });
 const m = (o: Obstacle, mod: QuadModule): Obstacle => ({ ...o, mod });
 
-export const LAYOUTS: QuadLayout[] = [
+const ALL_LAYOUTS: QuadLayout[] = [
+  {
+    // Kolay: açık saha, sadece kendiliğinden geçilen alçak engeller
+    id: "isinma",
+    name: "Isınma",
+    level: 1,
+    blurb: "Açık saha, alçak bloklar; hamleleri öğrenmek için",
+    theme: "arena",
+    spawns: SPAWNS,
+    obstacles: [
+      m(b(3.0, 3.0, 1.4, 0.6, 0.7), "lazyboy"),
+      m(b(7.6, 8.4, 1.4, 0.6, 0.7), "lazyboy"),
+      m(b(8.4, 2.8, 0.6, 1.4, 1.0), "tiltedcube"),
+      m(b(3.0, 7.8, 0.6, 1.4, 1.0), "tiltedcube"),
+      m(r(5.1, 5.75, 1.8, 0.45), "loadingbay"),
+      // Etrafında dönülecek iki kule
+      m(w(2.4, 5.4, 1.2, 1.2), "mountain"),
+      m(w(8.4, 5.4, 1.2, 1.2), "mountain"),
+    ],
+  },
+  {
+    // Kolay: tek kule etrafında döngü, iki kayma platformu
+    id: "avlu",
+    name: "Açık Avlu",
+    level: 1,
+    blurb: "Büyük merkez kule ve dört küçük kule; sadece koş ve dön",
+    theme: "arena",
+    spawns: SPAWNS,
+    obstacles: [
+      m(w(5.1, 5.1, 1.8, 1.8), "mountain"),
+      m(w(2.9, 2.9, 0.9, 0.9), "sisters"),
+      m(w(8.2, 2.9, 0.9, 0.9), "sisters"),
+      m(w(2.9, 8.2, 0.9, 0.9), "sisters"),
+      m(w(8.2, 8.2, 0.9, 0.9), "sisters"),
+      m(b(5.4, 1.9, 1.2, 0.5, 0.7), "lazyboy"),
+      m(b(5.4, 9.6, 1.2, 0.5, 0.7), "lazyboy"),
+    ],
+  },
   {
     // Resmî 12 m Quad'dan esinlenilmiş düzen: ortada 1,85 m kule, iki "kardeş" duvar çifti,
     // altından kayılan iki platform boşluğu, farklı yükseklikte vault blokları, çapraz başlangıç plakaları.
     id: "quad",
     name: "Resmî Quad",
+    level: 2,
+    blurb: "Gerçek WCT modülleri: Mountain, Sisters, Ridge, Loading Bay",
     theme: "arena",
     spawns: SPAWNS,
     plates: [
@@ -83,6 +126,8 @@ export const LAYOUTS: QuadLayout[] = [
   {
     id: "klasik",
     name: "Klasik",
+    level: 2,
+    blurb: "Merkez kule, köşe duvarları, iki kayma barı",
     spawns: SPAWNS,
     obstacles: [
       w(5, 5, 2, 2),
@@ -99,6 +144,8 @@ export const LAYOUTS: QuadLayout[] = [
   {
     id: "labirent",
     name: "Labirent",
+    level: 3,
+    blurb: "L duvarlar ve köşe kuleleri; kör noktalar çok",
     spawns: SPAWNS,
     obstacles: [
       w(3, 3, 2.2, 0.35),
@@ -117,6 +164,8 @@ export const LAYOUTS: QuadLayout[] = [
   {
     id: "sutunlar",
     name: "Dört Sütun",
+    level: 2,
+    blurb: "Dört kule etrafında döngüler",
     spawns: SPAWNS,
     obstacles: [
       w(2.7, 2.7, 1.1, 1.1),
@@ -130,7 +179,62 @@ export const LAYOUTS: QuadLayout[] = [
       r(8.85, 5.1, 0.4, 1.8),
     ],
   },
+  {
+    // Zor: 3×3 kule ızgarası; aralar bar, blok ya da ikiz kule. Her köşede karar.
+    id: "kafes",
+    name: "Kafes",
+    level: 3,
+    blurb: "Dokuz kule ızgarası; aralar bar, blok ve dar yarıklarla dolu",
+    theme: "arena",
+    spawns: SPAWNS,
+    obstacles: [
+      m(w(2.4, 2.4, 0.8, 0.8), "sisters"),
+      m(w(5.6, 2.4, 0.8, 0.8), "sisters"),
+      m(w(8.8, 2.4, 0.8, 0.8), "sisters"),
+      m(w(2.4, 5.6, 0.8, 0.8), "sisters"),
+      m(w(5.5, 5.5, 1.0, 1.0), "mountain"),
+      m(w(8.8, 5.6, 0.8, 0.8), "sisters"),
+      m(w(2.4, 8.8, 0.8, 0.8), "sisters"),
+      m(w(5.6, 8.8, 0.8, 0.8), "sisters"),
+      m(w(8.8, 8.8, 0.8, 0.8), "sisters"),
+      // Kule araları: kayılır ya da atlanır, hiçbiri yolu kapatmaz
+      m(r(3.65, 2.55, 1.5, 0.45), "loadingbay"),
+      m(b(7.05, 2.6, 1.2, 0.4, 0.7), "lazyboy"),
+      m(r(8.95, 3.65, 0.45, 1.5), "loadingbay"),
+      m(b(2.6, 7.05, 0.4, 1.2, 0.7), "lazyboy"),
+      m(r(2.55, 3.65, 0.45, 1.5), "loadingbay"),
+      m(b(9.0, 7.05, 0.4, 1.2, 1.0), "tiltedcube"),
+      m(b(3.75, 9.0, 1.2, 0.4, 1.0), "tiltedcube"),
+      m(r(6.85, 8.95, 1.5, 0.45), "loadingbay"),
+    ],
+  },
+  {
+    // Zor: üç uzun tic-tac duvarı yılan gibi koridorlar açar; kısa yol duvarın üstünden.
+    id: "yilan",
+    name: "Yılan Yolu",
+    level: 3,
+    blurb: "Uzun duvarlar arasında zikzak koridorlar; kestirme duvarın üstünden",
+    theme: "arena",
+    spawns: SPAWNS,
+    obstacles: [
+      m(w(2.4, 3.1, 4.6, 0.3), "ridge"),
+      m(w(5.0, 5.85, 4.6, 0.3), "ridge"),
+      m(w(2.4, 8.6, 4.6, 0.3), "ridge"),
+      // Koridor içi engeller
+      m(r(8.4, 3.05, 1.8, 0.45), "loadingbay"),
+      m(b(2.6, 5.6, 1.2, 0.6, 1.0), "tiltedcube"),
+      m(r(8.4, 8.55, 1.8, 0.45), "loadingbay"),
+      m(b(5.4, 1.6, 1.2, 0.5, 0.7), "lazyboy"),
+      m(b(5.4, 9.9, 1.2, 0.5, 0.7), "lazyboy"),
+      m(w(9.9, 4.2, 0.8, 0.8), "sisters"),
+    ],
+  },
 ];
+
+/** Kolaydan zora sıralı. */
+export const LAYOUTS: QuadLayout[] = [...ALL_LAYOUTS].sort((a, b) => a.level - b.level);
+
+export const LEVEL_LABEL: Record<1 | 2 | 3, string> = { 1: "Kolay", 2: "Orta", 3: "Zor" };
 
 export function getLayout(id: string): QuadLayout {
   return LAYOUTS.find((l) => l.id === id) ?? LAYOUTS[0];

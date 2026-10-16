@@ -9,7 +9,7 @@ const sc = new THREE.Scene(); sc.background = new THREE.Color(0x0d1220);
 sc.add(new THREE.HemisphereLight(0xdde8ff, 0x202028, 1.2));
 const d = new THREE.DirectionalLight(0xffffff, 2.2); d.position.set(4, 10, 6); d.castShadow = true;
 d.shadow.mapSize.set(2048,2048); Object.assign(d.shadow.camera,{left:-8,right:8,top:8,bottom:-8}); d.target.position.set(6,0,6); sc.add(d, d.target);
-const L = getLayout("quad"); const mats = makeMaterials();
+const L = getLayout(new URLSearchParams(location.search).get("l") || "quad"); const mats = makeMaterials();
 sc.add(buildFloor(L)); for (const o of L.obstacles) sc.add(buildObstacle(o, mats));
 const cam = new THREE.PerspectiveCamera(40, innerWidth/innerHeight, 0.1, 100);
 const p = new URLSearchParams(location.search);

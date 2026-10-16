@@ -12,6 +12,21 @@ export interface PatchNote {
 
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: "0.10.0",
+    date: "16 Eki 2026",
+    time: "10:00",
+    title: "Kolaydan zora 4 yeni saha",
+    items: [
+      "Sahalar artık zorluk seviyeli: yeşil Kolay, sarı Orta, kırmızı Zor. Lobide her sahanın kısa açıklaması var.",
+      "Kolay · Isınma: açık saha, alçak bloklar ve iki kule; hamleleri öğrenmek için.",
+      "Kolay · Açık Avlu: büyük merkez kule ve dört küçük kule; sadece koş ve dön.",
+      "Zor · Kafes: dokuz kuleli ızgara, aralar kayma platformları ve bloklarla dolu.",
+      "Zor · Yılan Yolu: uzun tic-tac duvarları arasında zikzak koridorlar; kestirme duvarın üstünden.",
+      "Labirent artık Zor; Resmî Quad, Klasik ve Dört Sütun Orta.",
+      "Botla antrenmanda sahayı sen seçebilirsin (seçimin hatırlanır).",
+    ],
+  },
+  {
     version: "0.9.1",
     date: "16 Eki 2026",
     time: "09:45",

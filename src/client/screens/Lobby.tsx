@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { CHASE_OPTIONS } from "../../shared/constants";
 import type { PublicState, Team } from "../../shared/engine";
-import { LAYOUTS } from "../../shared/maps";
+import { LAYOUTS, LEVEL_LABEL } from "../../shared/maps";
 import { TEAM_COLORS, memberName, secs, sortedTeam, teamName } from "../lib/text";
 import { unlockAudio } from "../lib/sound";
 import type { GameSource } from "../net/types";
@@ -115,15 +115,26 @@ export function Lobby({ source, state: s, onLeave }: Props) {
         </div>
         <div className="setting">
           <span className="setting-label">Saha</span>
-          <div className="seg wrap">
-            {[{ id: "random", name: "Rastgele" }, ...LAYOUTS].map((l) => (
+          <div className="map-list">
+            {[{ id: "random", name: "Rastgele", level: 0 as const, blurb: "Her maç farklı bir saha" }, ...LAYOUTS].map((l) => (
               <button
                 key={l.id}
                 disabled={!isHost || finished}
-                className={s.layoutId === l.id ? "on" : ""}
+                className={`map-card ${s.layoutId === l.id ? "on" : ""}`}
                 onClick={() => source.setLayout(l.id)}
               >
-                {l.name}
+                <span className="map-top">
+                  <b>{l.name}</b>
+                  {l.level > 0 && (
+                    <span className={`lvl lvl-${l.level}`}>
+                      <i />
+                      <i />
+                      <i />
+                      {LEVEL_LABEL[l.level as 1 | 2 | 3]}
+                    </span>
+                  )}
+                </span>
+                <small>{l.blurb}</small>
               </button>
             ))}
           </div>

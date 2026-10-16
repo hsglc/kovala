@@ -16,7 +16,7 @@ type Screen =
   | { k: "quick" }
   | { k: "wardrobe" }
   | { k: "room"; code: string; quick: boolean }
-  | { k: "practice"; level: BotLevel };
+  | { k: "practice"; level: BotLevel; map?: string };
 
 /** Önizleme derlemesinde (artifact) sunucu yok: sadece botla antrenman. */
 const OFFLINE = import.meta.env.VITE_OFFLINE === "1";
@@ -77,7 +77,7 @@ export function App() {
             }
           }}
           onJoin={(code) => setScreen({ k: "room", code, quick: false })}
-          onPractice={(level) => setScreen({ k: "practice", level })}
+          onPractice={(level, map) => setScreen({ k: "practice", level, map })}
           onWardrobe={() => setScreen({ k: "wardrobe" })}
         />
       );
@@ -97,7 +97,7 @@ export function App() {
     case "room":
       return <OnlineRoom key={screen.code} code={screen.code} quick={screen.quick} onLeave={home} />;
     case "practice":
-      return <Practice key={screen.level} level={screen.level} onLeave={() => home()} />;
+      return <Practice key={screen.level + (screen.map ?? "")} level={screen.level} map={screen.map} onLeave={() => home()} />;
   }
 }
 
@@ -146,13 +146,13 @@ function OnlineRoom({ code, quick, onLeave }: { code: string; quick: boolean; on
   );
 }
 
-function Practice({ level, onLeave }: { level: BotLevel; onLeave: () => void }) {
+function Practice({ level, map, onLeave }: { level: BotLevel; map?: string; onLeave: () => void }) {
   const [source, setSource] = useState<LocalGame | null>(null);
   useEffect(() => {
-    const g = new LocalGame(getPid(), getName() || "Sen", level);
+    const g = new LocalGame(getPid(), getName() || "Sen", level, 16, map ?? "random");
     setSource(g);
     return () => g.close();
-  }, [level]);
+  }, [level, map]);
   const state = useSourceState(source);
   if (!source || !state) return null;
   const inMatch = state.phase === "countdown" || state.phase === "chase" || state.phase === "result";

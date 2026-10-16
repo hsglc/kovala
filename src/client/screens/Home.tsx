@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { BotLevel } from "../../shared/bot";
 import { ROOM_CODE_ALPHABET, ROOM_CODE_LENGTH } from "../../shared/protocol";
+import { LAYOUTS, LEVEL_LABEL } from "../../shared/maps";
 import { fitItem, REGIONS } from "../../shared/outfit";
 import { getFit, getName, setName } from "../lib/identity";
 import { unlockAudio } from "../lib/sound";
@@ -14,7 +15,7 @@ interface Props {
   onQuick: () => void;
   onCreate: () => void;
   onJoin: (code: string) => void;
-  onPractice: (level: BotLevel) => void;
+  onPractice: (level: BotLevel, map: string) => void;
   onWardrobe: () => void;
 }
 
@@ -24,6 +25,19 @@ export function Home({ offline, initialCode, busy, error, onQuick, onCreate, onJ
   const [name, setNameState] = useState(getName());
   const [code, setCode] = useState(initialCode ?? "");
   const [level, setLevel] = useState<BotLevel>("orta");
+  const [pmap, setPmap] = useState<string>(() => {
+    try {
+      return localStorage.getItem("evade:pmap") || "random";
+    } catch {
+      return "random";
+    }
+  });
+  const choosePmap = (id: string) => {
+    setPmap(id);
+    try {
+      localStorage.setItem("evade:pmap", id);
+    } catch {}
+  };
   const [sheet, setSheet] = useState<Sheet>(null);
   const [nameError, setNameError] = useState(false);
 
@@ -159,7 +173,18 @@ export function Home({ offline, initialCode, busy, error, onQuick, onCreate, onJ
             ))}
           </div>
         </div>
-        <button className="btn wide" onClick={() => ensureName() && onPractice(level)}>
+        <div className="pmap-cap">
+          Saha <span className="pdot lvl-1" /> kolay <span className="pdot lvl-2" /> orta <span className="pdot lvl-3" /> zor
+        </div>
+        <div className="pmap-row" role="listbox" aria-label="Saha">
+          {[{ id: "random", name: "Rastgele", level: 0 }, ...LAYOUTS].map((l) => (
+            <button key={l.id} className={`pmap ${pmap === l.id ? "on" : ""}`} onClick={() => choosePmap(l.id)}>
+              {l.level > 0 && <span className={`pdot lvl-${l.level}`} title={LEVEL_LABEL[l.level as 1 | 2 | 3]} />}
+              {l.name}
+            </button>
+          ))}
+        </div>
+        <button className="btn wide" onClick={() => ensureName() && onPractice(level, pmap)}>
           Antrenmanı başlat
         </button>
       </section>
