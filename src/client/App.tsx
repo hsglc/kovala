@@ -20,7 +20,7 @@ type Screen =
   | { k: "quick" }
   | { k: "wardrobe" }
   | { k: "room"; code: string; quick: boolean }
-  | { k: "practice"; level: BotLevel; map?: string; squad?: number }
+  | { k: "practice"; level: BotLevel; map?: string; squad?: number; venue?: string }
   | { k: "survival"; n: number };
 
 /** Önizleme derlemesinde (artifact) sunucu yok: sadece botla antrenman. */
@@ -115,7 +115,7 @@ function AppScreens() {
             }
           }}
           onJoin={(code) => setScreen({ k: "room", code, quick: false })}
-          onPractice={(level, map, squad) => setScreen({ k: "practice", level, map, squad })}
+          onPractice={(level, map, squad, venue) => setScreen({ k: "practice", level, map, squad, venue })}
           onWardrobe={() => setScreen({ k: "wardrobe" })}
           onSurvival={() => setScreen({ k: "survival", n: Date.now() })}
         />
@@ -138,7 +138,7 @@ function AppScreens() {
     case "room":
       return <OnlineRoom key={screen.code} code={screen.code} quick={screen.quick} onLeave={home} />;
     case "practice":
-      return <Practice key={screen.level + (screen.map ?? "") + (screen.squad ?? 1)} level={screen.level} map={screen.map} squad={screen.squad} onLeave={() => home()} />;
+      return <Practice key={screen.level + (screen.map ?? "") + (screen.squad ?? 1) + (screen.venue ?? "")} level={screen.level} map={screen.map} squad={screen.squad} venue={screen.venue} onLeave={() => home()} />;
   }
 }
 
@@ -202,13 +202,13 @@ function Survival({ onLeave }: { onLeave: () => void }) {
   return inMatch ? <GameScreen source={source} state={state} onLeave={onLeave} /> : <Lobby source={source} state={state} onLeave={onLeave} />;
 }
 
-function Practice({ level, map, squad, onLeave }: { level: BotLevel; map?: string; squad?: number; onLeave: () => void }) {
+function Practice({ level, map, squad, venue, onLeave }: { level: BotLevel; map?: string; squad?: number; venue?: string; onLeave: () => void }) {
   const [source, setSource] = useState<LocalGame | null>(null);
   useEffect(() => {
-    const g = new LocalGame(getPid(), getName() || "Sen", level, squad && squad > 1 ? 10 : 16, map ?? "random", squad ?? 1);
+    const g = new LocalGame(getPid(), getName() || "Sen", level, squad && squad > 1 ? 10 : 16, map ?? "random", squad ?? 1, "match", venue ?? "arena");
     setSource(g);
     return () => g.close();
-  }, [level, map, squad]);
+  }, [level, map, squad, venue]);
   const state = useSourceState(source);
   useProgressTracker(source?.selfId, state);
   if (!source || !state) return null;

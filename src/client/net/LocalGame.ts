@@ -3,6 +3,7 @@ import { TICK_RATE } from "../../shared/constants";
 import { Bot, type BotLevel } from "../../shared/bot";
 import { MatchEngine, type PublicState, type TickInput } from "../../shared/engine";
 import { LAYOUTS, type QuadLayout } from "../../shared/maps";
+import { VENUES } from "../../shared/venues";
 import { clonePlayer, quantizeInput, type PlayerState } from "../../shared/sim";
 import type { ConnStatus, FrameData, GameSource } from "./types";
 
@@ -41,7 +42,7 @@ export class LocalGame implements GameSource {
   /** Hayatta kal modu: hep sen kaçarsın, her kaçışta bot güçlenir ve saha değişir; yakalanınca biter. */
   readonly survival: { streak: number; best: number; over: boolean } | null;
 
-  constructor(pid: string, name: string, level: BotLevel, chases = 16, layoutId = "random", teamSize = 1, mode: "match" | "survival" = "match") {
+  constructor(pid: string, name: string, level: BotLevel, chases = 16, layoutId = "random", teamSize = 1, mode: "match" | "survival" = "match", venue = "arena") {
     this.selfId = pid;
     this.survival = mode === "survival" ? { streak: 0, best: getBest(), over: false } : null;
     this.engine.join(pid, name, getFit());
@@ -57,6 +58,7 @@ export class LocalGame implements GameSource {
     }
     this.engine.setChases(pid, chases);
     this.engine.layoutChoice = layoutId;
+    this.engine.setVenue(pid, venue);
     if (this.survival) this.startSurvival();
     else this.engine.start(pid);
     this.state = this.engine.publicState();
@@ -101,6 +103,11 @@ export class LocalGame implements GameSource {
           // Bir sonraki chase farklı bir sahada
           const pool = LAYOUTS.filter((l) => l.id !== e.layout.id);
           e.layout = pool[Math.floor(Math.random() * pool.length)];
+          // Her 3 kaçışta mekân da değişir
+          if (sv.streak % 3 === 0) {
+            const vs = VENUES.filter((v) => v.id !== e.venue);
+            e.venue = vs[Math.floor(Math.random() * vs.length)].id;
+          }
         } else {
           sv.over = true;
           e.endMatch(e.member(BOT_ID)!.team);
@@ -203,6 +210,11 @@ export class LocalGame implements GameSource {
       return;
     }
     this.engine.start(this.selfId);
+    this.state = this.engine.publicState();
+    this.emit();
+  }
+  setVenue(v: string) {
+    this.engine.setVenue(this.selfId, v);
     this.state = this.engine.publicState();
     this.emit();
   }

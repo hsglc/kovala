@@ -7,6 +7,8 @@ import { TEAM_COLORS, TEAM_DARK, memberTeam } from "../../lib/text";
 import { Figure3D, lookFor, type Pose } from "./figure3d";
 import { CameraRig } from "./CameraRig";
 import { Athlete, athleteTemplate, loadAthlete } from "./athlete";
+import { buildVenue } from "./venues";
+import type { VenueId } from "../../../shared/venues";
 import { buildFloor, buildObstacle, makeMaterials, type QuadMaterials } from "./quadBuilder";
 
 /**
@@ -45,6 +47,10 @@ export class Scene3D {
   private figures = new Map<string, FigEntry>();
   private layoutId = "";
   private sun: THREE.DirectionalLight;
+  private hemi: THREE.HemisphereLight;
+  private fill: THREE.DirectionalLight;
+  private venueId = "";
+  private venueGroup: THREE.Group | null = null;
   private reachRing: THREE.Mesh;
   private edgeGlow: THREE.Mesh[] = [];
   private w = 1;
@@ -68,11 +74,11 @@ export class Scene3D {
     this.scene.background = new THREE.Color(0x0a1020);
     this.scene.fog = new THREE.Fog(0x0a1020, 26, 60);
 
-    const hemi = new THREE.HemisphereLight(0xcfe0ff, 0x2a2214, 1.7);
-    this.scene.add(hemi);
-    const fill = new THREE.DirectionalLight(0x8fb6ff, 0.9);
-    fill.position.set(10, 6, 14);
-    this.scene.add(fill);
+    this.hemi = new THREE.HemisphereLight(0xcfe0ff, 0x2a2214, 1.7);
+    this.scene.add(this.hemi);
+    this.fill = new THREE.DirectionalLight(0x8fb6ff, 0.9);
+    this.fill.position.set(10, 6, 14);
+    this.scene.add(this.fill);
     this.sun = new THREE.DirectionalLight(0xfff1dc, 2.4);
     this.sun.castShadow = true;
     this.sun.shadow.mapSize.set(1024, 1024);
@@ -124,16 +130,6 @@ export class Scene3D {
   // ---------- Statik sahne ----------
 
   private buildGround() {
-    // Saha dışı zemin (koyu beton)
-    const outer = new THREE.Mesh(
-      new THREE.PlaneGeometry(80, 80),
-      new THREE.MeshStandardMaterial({ color: 0x0d1424, roughness: 1 }),
-    );
-    outer.rotation.x = -Math.PI / 2;
-    outer.position.set(QUAD_SIZE / 2, -0.01, QUAD_SIZE / 2);
-    outer.receiveShadow = true;
-    this.scene.add(outer);
-
     // Saha çizgisi (parlak beyaz şerit)
     const lineMat = new THREE.MeshBasicMaterial({ color: 0xe8eef7 });
     const lw = 0.1;
@@ -160,40 +156,44 @@ export class Scene3D {
       this.edgeGlow.push(m);
     }
 
-    // Arena: sahanın çevresinde reklam/LED panoları ve ışık direkleri
-    const board = new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.6, metalness: 0.2 });
-    const led = (col: number) => new THREE.MeshBasicMaterial({ color: col });
-    const off = 1.8;
-    const sides: [number, number, number, number, number][] = [
-      [QUAD_SIZE / 2, -off, QUAD_SIZE + off * 2, 0.12, 0xff3b2f],
-      [QUAD_SIZE / 2, QUAD_SIZE + off, QUAD_SIZE + off * 2, 0.12, 0x2f6bff],
-      [-off, QUAD_SIZE / 2, 0.12, QUAD_SIZE + off * 2, 0xf5b83d],
-      [QUAD_SIZE + off, QUAD_SIZE / 2, 0.12, QUAD_SIZE + off * 2, 0xf5b83d],
-    ];
-    for (const [x, z, w, d, col] of sides) {
-      const m = new THREE.Mesh(new THREE.BoxGeometry(w, 0.9, d), board);
-      m.position.set(x, 0.45, z);
-      m.receiveShadow = true;
-      this.scene.add(m);
-      const strip = new THREE.Mesh(new THREE.BoxGeometry(w + 0.01, 0.08, d + 0.01), led(col));
-      strip.position.set(x, 0.82, z);
-      this.scene.add(strip);
-    }
-    for (const [x, z] of [
-      [-off, -off],
-      [QUAD_SIZE + off, -off],
-      [-off, QUAD_SIZE + off],
-      [QUAD_SIZE + off, QUAD_SIZE + off],
-    ]) {
-      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 7, 10), this.mats?.steel ?? board);
-      pole.position.set(x, 3.5, z);
-      this.scene.add(pole);
-      const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.3, 0.3), led(0xfff4dd));
-      lamp.position.set(x, 7, z);
-      lamp.lookAt(QUAD_SIZE / 2, 0, QUAD_SIZE / 2);
-      this.scene.add(lamp);
-    }
   }
+
+  /** Mekânı (çevre, zemin, ışık) kurar. */
+  private applyVenue(id: VenueId) {
+    if (this.venueGroup) {
+      this.scene.remove(this.venueGroup);
+      this.venueGroup.traverse((o) => {
+        const m = o as THREE.Mesh;
+        if (m.isMesh) {
+          m.geometry.dispose();
+          const mats = Array.isArray(m.material) ? m.material : [m.material];
+          for (const mt of mats) {
+            (mt as THREE.MeshStandardMaterial).map?.dispose();
+            mt.dispose();
+          }
+        }
+      });
+    }
+    const v = buildVenue(id, this.mats.steel);
+    this.venueGroup = v.group;
+    this.scene.add(v.group);
+    (this.scene.background as THREE.Color).setHex(v.background);
+    const fog = this.scene.fog as THREE.Fog;
+    fog.color.setHex(v.fog[0]);
+    fog.near = v.fog[1];
+    fog.far = v.fog[2];
+    this.hemi.color.setHex(v.hemi[0]);
+    this.hemi.groundColor.setHex(v.hemi[1]);
+    this.hemi.intensity = v.hemi[2];
+    this.sun.color.setHex(v.sun[0]);
+    this.sun.intensity = v.sun[1];
+    this.sunOffset = v.sunPos;
+    this.fill.color.setHex(v.fill[0]);
+    this.fill.intensity = v.fill[1];
+    this.renderer.toneMappingExposure = v.exposure;
+  }
+
+  private sunOffset: [number, number, number] | null = null;
 
   private buildLayout(layout: QuadLayout) {
     this.world.clear();
@@ -282,6 +282,11 @@ export class Scene3D {
     selfId: string,
     now: number,
   ): Map<string, Projected> {
+    const venue = (state?.venue ?? "arena") as VenueId;
+    if (venue !== this.venueId) {
+      this.venueId = venue;
+      this.applyVenue(venue);
+    }
     if (layout.id !== this.layoutId) {
       this.layoutId = layout.id;
       this.buildLayout(layout);
@@ -309,10 +314,15 @@ export class Scene3D {
     const z = Math.min(1, Math.max(0, (this.rig.dist - 10) / 14));
 
     // Güneş kamerayla gelir (gölge alanı dar ve keskin kalsın)
-    this.sun.position.set(cam.x - 5, 11, cam.y - 4);
+    const so = this.sunOffset ?? [QUAD_SIZE / 2 - 5, 11, QUAD_SIZE / 2 - 4];
+    const ox = so[0] - QUAD_SIZE / 2;
+    const oz = so[2] - QUAD_SIZE / 2;
+    const ol = Math.hypot(ox, so[1], oz) || 1;
+    this.sun.position.set(cam.x + (ox / ol) * 14, (so[1] / ol) * 14, cam.y + (oz / ol) * 14);
     this.sun.target.position.set(cam.x, 0, cam.y);
+    this.sun.shadow.camera.far = 50;
     const sc = this.sun.shadow.camera;
-    const sr = 9 + z * 6;
+    const sr = 11 + z * 6;
     sc.left = -sr;
     sc.right = sr;
     sc.top = sr;

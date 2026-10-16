@@ -8,6 +8,7 @@ import { QuadThumb } from "../ui/QuadThumb";
 import { VsBg } from "../ui/VsBg";
 import { getProgress } from "../lib/progress";
 import { survivalBest } from "../net/LocalGame";
+import { VENUES } from "../../shared/venues";
 import { unlockAudio } from "../lib/sound";
 import { CURRENT_VERSION, PATCH_NOTES } from "../patchnotes";
 
@@ -19,7 +20,7 @@ interface Props {
   onQuick: () => void;
   onCreate: () => void;
   onJoin: (code: string) => void;
-  onPractice: (level: BotLevel, map: string, squad: number) => void;
+  onPractice: (level: BotLevel, map: string, squad: number, venue: string) => void;
   onWardrobe: () => void;
   onSurvival: () => void;
 }
@@ -38,6 +39,7 @@ export function Home({ offline, initialCode, busy, error, onQuick, onCreate, onJ
     }
   });
   const [squad, setSquad] = useState<number>(1);
+  const [venue, setVenue] = useState<string>("arena");
   const choosePmap = (id: string) => {
     setPmap(id);
     try {
@@ -230,6 +232,17 @@ export function Home({ offline, initialCode, busy, error, onQuick, onCreate, onJ
                   </div>
                 </div>
                 <div className="opt">
+                  <span className="marker">Mekân</span>
+                  <div className="venue-row">
+                    {VENUES.map((v) => (
+                      <button key={v.id} className={`venue-chip v-${v.id} ${venue === v.id ? "on" : ""}`} onClick={() => setVenue(v.id)}>
+                        <b>{v.name}</b>
+                        <small>{v.blurb}</small>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="opt">
                   <span className="marker">Saha</span>
                   <div className="pmap-grid" role="listbox" aria-label="Saha">
                     {[{ id: "random", name: "Rastgele", level: 0 }, ...LAYOUTS].map((l) => (
@@ -247,7 +260,7 @@ export function Home({ offline, initialCode, busy, error, onQuick, onCreate, onJ
                     ))}
                   </div>
                 </div>
-                <button className="tape tape-go big" onClick={() => onPractice(level, pmap, squad)}>
+                <button className="tape tape-go big" onClick={() => onPractice(level, pmap, squad, venue)}>
                   <span className="tape-main">Başlat</span>
                 </button>
               </div>

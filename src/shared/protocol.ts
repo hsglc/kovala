@@ -11,6 +11,7 @@ export type ClientMsg =
   | { t: "chases"; n: number }
   | { t: "layout"; id: string }
   | { t: "rest"; v: string }
+  | { t: "venue"; v: string }
   | { t: "start" }
   | { t: "pick"; id: string };
 

@@ -6,6 +6,7 @@ import { TEAM_COLORS, memberName, secs, sortedTeam, teamName } from "../lib/text
 import { unlockAudio } from "../lib/sound";
 import { QuadThumb } from "../ui/QuadThumb";
 import { VsBg } from "../ui/VsBg";
+import { VENUES } from "../../shared/venues";
 import type { GameSource } from "../net/types";
 
 interface Props {
@@ -117,6 +118,22 @@ export function Lobby({ source, state: s, onLeave }: Props) {
             ).map(([v, label]) => (
               <button key={v} disabled={!isHost} className={s.rest === v ? "on" : ""} onClick={() => source.setRest(v)}>
                 {label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="setting">
+          <span className="setting-label">Mekân</span>
+          <div className="venue-row">
+            {VENUES.map((v) => (
+              <button
+                key={v.id}
+                disabled={!isHost || finished}
+                className={`venue-chip v-${v.id} ${s.venue === v.id ? "on" : ""}`}
+                onClick={() => source.setVenue(v.id)}
+              >
+                <b>{v.name}</b>
+                <small>{v.blurb}</small>
               </button>
             ))}
           </div>

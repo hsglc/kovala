@@ -12,6 +12,17 @@ export interface PatchNote {
 
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: "0.18.0",
+    date: "16 Eki 2026",
+    time: "11:01",
+    title: "Mekânlar: arena, park, depo, çatı",
+    items: [
+      "Maçı dört farklı mekânda oyna: Gece arenası (LED panolar), Park (çim, ağaçlar, koşu bandı, öğlen güneşi), Eski depo (beton, forklift çizgileri, paletler, varil ve sandıklar, sıcak tavan lambaları), Çatı katı (gün batımı, korkuluk, klima üniteleri, su deposu).",
+      "Her mekânın kendi ışığı ve gölge yönü var. Mekân lobide ve antrenman ayarlarında seçilir; online odada herkes aynı mekânı görür.",
+      "Hayatta kal modunda her 3 kaçışta mekân da değişir.",
+    ],
+  },
+  {
     version: "0.17.0",
     date: "16 Eki 2026",
     time: "10:55",

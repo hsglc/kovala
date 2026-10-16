@@ -9,6 +9,7 @@ import {
   REST_QUICK_TICKS,
 } from "./constants";
 import { LAYOUTS, getLayout, pickSpawnPair, type QuadLayout } from "./maps";
+import { isVenue, type VenueId } from "./venues";
 import { chaserReach, createPlayer, isTag, NEUTRAL_INPUT, stepPlayer, type Input, type PlayerState } from "./sim";
 
 /**
@@ -53,6 +54,7 @@ export interface PublicState {
   host: string | null;
   chases: number;
   rest: "official" | "quick";
+  venue: VenueId;
   layoutId: string;
   scores: [number, number];
   chaseNo: number;
@@ -96,6 +98,7 @@ export class MatchEngine {
   chases = 16;
   /** Chase'ler arası dinlenme: "official" 25 sn, "quick" 5 sn */
   rest: "official" | "quick" = "quick";
+  venue: VenueId = "arena";
   layoutChoice: string | "random" = "quad";
   layout: QuadLayout = LAYOUTS[0];
   scores: [number, number] = [0, 0];
@@ -203,6 +206,13 @@ export class MatchEngine {
     if (by !== this.host || this.inMatch()) return false;
     if (rest !== "official" && rest !== "quick") return false;
     this.rest = rest;
+    this.bump();
+    return true;
+  }
+
+  setVenue(by: string, v: string): boolean {
+    if (by !== this.host || this.inMatch() || !isVenue(v)) return false;
+    this.venue = v;
     this.bump();
     return true;
   }
@@ -574,6 +584,7 @@ export class MatchEngine {
       host: this.host,
       chases: this.chases,
       rest: this.rest,
+      venue: this.venue,
       layoutId: this.inMatch() || this.phase === "finished" ? this.layout.id : this.layoutChoice,
       scores: [...this.scores] as [number, number],
       chaseNo: this.chaseNo,
@@ -602,6 +613,7 @@ export class MatchEngine {
       host: this.host,
       chases: this.chases,
       rest: this.rest,
+      venue: this.venue,
       layoutChoice: this.layoutChoice,
       phase: this.phase === "finished" ? "finished" : "lobby",
       scores: this.scores,
@@ -617,6 +629,7 @@ export class MatchEngine {
     this.host = data.host;
     this.chases = data.chases;
     this.rest = data.rest ?? "quick";
+    this.venue = data.venue && isVenue(data.venue) ? data.venue : "arena";
     this.layoutChoice = data.layoutChoice;
     this.phase = data.phase as Phase;
     this.scores = data.scores;

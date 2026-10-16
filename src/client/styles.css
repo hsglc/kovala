@@ -2347,3 +2347,61 @@ body:has(.game) {
   font-family: var(--display);
   font-size: 26px;
 }
+
+/* Mekân seçimi */
+.venue-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.venue-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  padding: 10px 12px;
+  border: 0;
+  text-align: left;
+  color: var(--white);
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: inset 6px 0 0 var(--vc);
+}
+
+.venue-chip b {
+  font-family: var(--display);
+  font-weight: 900;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.venue-chip small {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.venue-chip.on {
+  background: var(--vc);
+  color: var(--ink);
+  box-shadow: none;
+}
+
+.venue-chip.on small {
+  color: rgba(20, 20, 20, 0.75);
+}
+
+.v-arena {
+  --vc: #6f98ff;
+}
+
+.v-park {
+  --vc: #5ccf5a;
+}
+
+.v-depo {
+  --vc: #ffb24a;
+}
+
+.v-cati {
+  --vc: #ff8a6a;
+}
