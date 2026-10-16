@@ -12,6 +12,17 @@ export interface PatchNote {
 
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: "0.12.0",
+    date: "16 Eki 2026",
+    time: "10:09",
+    title: "Yavaş çekim tekrar",
+    items: [
+      "Her chase bitince son 1,6 saniye yavaş çekimde tekrar oynar: yakalanma ya da son kaçış anını gör.",
+      "Tekrarda animasyonlar da yavaşlar; üstte kırmızı TEKRAR · YAVAŞ ÇEKİM etiketi, sonuç kartı alta iner.",
+      "Sonuç ekranı 3,6 sn oldu; Resmî dinlenme süresi değişmedi.",
+    ],
+  },
+  {
     version: "0.11.0",
     date: "16 Eki 2026",
     time: "10:06",

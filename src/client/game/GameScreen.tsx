@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { CLIMB_COST, DIVE_COST, JUKE_COST, JUMP_COST, KICK_COST } from "../../shared/constants";
 import type { PublicState } from "../../shared/engine";
-import { ACT_CLIMB, ACT_JUMP, ACT_KICK, ACT_KONG, ACT_SLIDE, ACT_STUMBLE, ACT_VAULT, parkourPreview } from "../../shared/sim";
+import { ACT_CLIMB, ACT_JUMP, ACT_KICK, ACT_KONG, ACT_SLIDE, ACT_STUMBLE, ACT_VAULT, parkourPreview, type PlayerState } from "../../shared/sim";
 import { TEAM_COLORS, memberName, resultLine, resultTitle, teamName } from "../lib/text";
 import { music } from "../lib/music";
 import { isMuted, setMuted, sfx, unlockAudio, vibrate } from "../lib/sound";
@@ -20,6 +20,7 @@ export function GameScreen({ source, state, onLeave }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const glRef = useRef<HTMLCanvasElement>(null);
   const timeRef = useRef<HTMLDivElement>(null);
+  const replayRef = useRef<HTMLDivElement>(null);
   const digitRef = useRef<HTMLDivElement>(null);
   const actRef = useRef<HTMLButtonElement>(null);
   const actLabelRef = useRef<HTMLSpanElement>(null);
@@ -229,6 +230,11 @@ export function GameScreen({ source, state, onLeave }: Props) {
     let lastAk = 0;
     let lastPing = -2;
     let lastChaseTick = -1;
+    // Yavaş çekim tekrar: chase boyunca son 2,5 sn kaydedilir, sonuç ekranında %45 hızla oynatılır
+    const rec: { t: number; players: Map<string, PlayerState> }[] = [];
+    let replay: { start: number; base: number; frames: typeof rec } | null = null;
+    const REPLAY_SPEED = 0.45;
+    const REPLAY_SPAN = 1600;
     const loop = (now: number) => {
       raf = requestAnimationFrame(loop);
       const s = stateRef.current;
@@ -243,8 +249,43 @@ export function GameScreen({ source, state, onLeave }: Props) {
       if (s.phase === "countdown") cam.init = cam.init && s.chaseStartTick === lastChaseTick;
       lastChaseTick = s.chaseStartTick;
       void me; void other; void dtc; void cam; void updateCamera;
-      const proj = scene.render(layout, s, f.players, source.selfId, now);
-      drawOverlay(ctx, view, layout, s, f.players, proj, source.selfId, joy);
+      if (s.phase === "chase") {
+        rec.push({ t: now, players: new Map([...f.players].map(([id, p]) => [id, { ...p }])) });
+        while (rec.length && now - rec[0].t > 2500) rec.shift();
+      }
+      if (s.phase === "result" && lastPhase === "chase" && rec.length > 10) {
+        const end = rec[rec.length - 1].t;
+        replay = { start: now, base: now, frames: rec.filter((r) => r.t >= end - REPLAY_SPAN) };
+        rec.length = 0;
+        if (replayRef.current) replayRef.current.dataset.on = "1";
+      }
+      if (replay && s.phase !== "result") {
+        replay = null;
+        if (replayRef.current) replayRef.current.dataset.on = "0";
+      }
+      if (s.phase === "chase" && lastPhase !== "chase") rec.length = 0;
+      let drawPlayers = f.players;
+      let drawState = s;
+      let drawNow = now;
+      if (replay) {
+        const el = (now - replay.start) * REPLAY_SPEED;
+        const fr = replay.frames;
+        const tt = Math.min(fr[0].t + el, fr[fr.length - 1].t);
+        let i = 0;
+        while (i < fr.length - 2 && fr[i + 1].t < tt) i++;
+        const a = fr[i];
+        const b = fr[Math.min(i + 1, fr.length - 1)];
+        const k = b.t > a.t ? Math.min(1, Math.max(0, (tt - a.t) / (b.t - a.t))) : 0;
+        drawPlayers = new Map();
+        for (const [id, pa] of a.players) {
+          const pb = b.players.get(id) ?? pa;
+          drawPlayers.set(id, { ...pa, x: pa.x + (pb.x - pa.x) * k, y: pa.y + (pb.y - pa.y) * k, h: pa.h + (pb.h - pa.h) * k });
+        }
+        drawState = { ...s, phase: "chase" };
+        drawNow = replay.base + el;
+      }
+      const proj = scene.render(layout, drawState, drawPlayers, source.selfId, drawNow);
+      drawOverlay(ctx, view, layout, drawState, drawPlayers, proj, source.selfId, joy);
 
       // Saat
       let t = 20;
@@ -444,8 +485,12 @@ export function GameScreen({ source, state, onLeave }: Props) {
         </div>
       )}
 
+      <div className="replay-badge" ref={replayRef} data-on="0">
+        <span className="rec-dot" /> TEKRAR · YAVAŞ ÇEKİM
+      </div>
+
       {s.phase === "result" && last && (
-        <div className={`banner result ${last.winner}`} key={`r-${last.n}-${last.sd}`}>
+        <div className={`banner result replay-top ${last.winner}`} key={`r-${last.n}-${last.sd}`}>
           <div className="banner-title">{resultTitle(last)}</div>
           <div className="banner-line">{resultLine(s, last)}</div>
           {!last.sd && last.winner === "evader" && last.reason !== "forfeit" && (

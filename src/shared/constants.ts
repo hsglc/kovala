@@ -17,7 +17,8 @@ export const OUT_MARGIN = 0.22;
 export const CHASE_SECONDS = 20;
 export const CHASE_TICKS = CHASE_SECONDS * TICK_RATE;
 export const COUNTDOWN_TICKS = 3 * TICK_RATE;
-export const RESULT_TICKS = Math.round(2.6 * TICK_RATE);
+/** Sonuç ekranı (yavaş çekim tekrar bu sürede oynar) */
+export const RESULT_TICKS = Math.round(3.6 * TICK_RATE);
 
 export const PLAYER_RADIUS = 0.32;
 export const TAG_REACH = 0.2;
