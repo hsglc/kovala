@@ -12,6 +12,16 @@ export interface PatchNote {
 
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: "0.28.3",
+    date: "16 Eki 2026",
+    time: "20:39",
+    title: "Her yatay ekranda",
+    items: [
+      "Önceki yatay düzen yalnızca kısa ekranlarda açılıyordu; artık ekran genişse her boyutta iki sütunlu düzen",
+      "Sayfalar ekranın genişliğini kullanıyor (en fazla 1100 px), kenarlarda boşluk kalmıyor",
+    ],
+  },
+  {
     version: "0.28.2",
     date: "16 Eki 2026",
     time: "20:36",
