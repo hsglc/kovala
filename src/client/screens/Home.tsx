@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { BotLevel } from "../../shared/bot";
 import { ROOM_CODE_ALPHABET, ROOM_CODE_LENGTH } from "../../shared/protocol";
-import { fitIndex, REGIONS } from "../../shared/outfit";
+import { fitItem, REGIONS } from "../../shared/outfit";
 import { getFit, getName, setName } from "../lib/identity";
 import { unlockAudio } from "../lib/sound";
 import { CURRENT_VERSION, PATCH_NOTES } from "../patchnotes";
@@ -143,7 +143,7 @@ export function Home({ offline, initialCode, busy, error, onQuick, onCreate, onJ
         </span>
         <span className="wc-text">
           <b>Gardırop</b>
-          <small>{REGIONS.map((r) => r.items[fitIndex(getFit(), r.id)].name).join(" · ")}</small>
+          <small>{REGIONS.map((r) => fitItem(getFit(), r.id)).filter((it) => it.id !== "none").map((it) => it.name).join(" · ")}</small>
         </span>
         <span className="wc-arrow">›</span>
       </button>

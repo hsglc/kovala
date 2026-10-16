@@ -7,14 +7,6 @@ interface Props {
   onBack: () => void;
 }
 
-/** Her parçanın kartta gösterilen renk örneği. */
-const SWATCH: Record<Region, [string, string]> = {
-  head: ["linear-gradient(135deg,#ff5a4f 0 60%,#15171d 60%)", "linear-gradient(180deg,#f4f6fa 0 38%,#ff5a4f 38% 62%,#f4f6fa 62%)"],
-  top: ["linear-gradient(90deg,#f2f2f2 0 18%,#ff5a4f 18% 82%,#f2f2f2 82%)", "repeating-linear-gradient(180deg,#ff5a4f 0 7px,#f5f5f5 7px 12px)"],
-  bottom: ["linear-gradient(180deg,#a8302a,#7c221e)", "linear-gradient(90deg,#a8302a 0 18%,#fff 18% 22%,#a8302a 22% 26%,#fff 26% 30%,#a8302a 30% 34%,#fff 34% 38%,#a8302a 38%)"],
-  shoes: ["linear-gradient(180deg,#c6ff28 0 72%,#f5f5f5 72%)", "linear-gradient(180deg,#f5f5f5 0 72%,#ff5a4f 72%)"],
-};
-
 export function Wardrobe({ onBack }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const previewRef = useRef<WardrobePreview | null>(null);
@@ -33,7 +25,7 @@ export function Wardrobe({ onBack }: Props) {
     previewRef.current?.set(team, fit);
   }, [team, fit]);
 
-  const pick = (i: 0 | 1) => {
+  const pick = (i: number) => {
     const next = withItem(fit, region, i);
     setFitState(next);
     setFit(next);
@@ -67,7 +59,7 @@ export function Wardrobe({ onBack }: Props) {
         <div className="wr-hint">Döndürmek için sürükle</div>
       </div>
 
-      <div className="wr-tabs" role="tablist">
+      <div className="wr-tabs" role="tablist" style={{ gridTemplateColumns: `repeat(${REGIONS.length}, 1fr)` }}>
         {REGIONS.map((r) => (
           <button key={r.id} role="tab" aria-selected={region === r.id} className={region === r.id ? "on" : ""} onClick={() => setRegion(r.id)}>
             {r.label}
@@ -77,8 +69,8 @@ export function Wardrobe({ onBack }: Props) {
 
       <div className="wr-items">
         {reg.items.map((it, i) => (
-          <button key={it.name} className={`wr-item ${sel === i ? "on" : ""}`} onClick={() => pick(i as 0 | 1)}>
-            <span className="wr-swatch" style={{ background: SWATCH[region][i] }} />
+          <button key={it.id} className={`wr-item ${sel === i ? "on" : ""}`} onClick={() => pick(i)}>
+            <span className="wr-swatch" style={{ background: it.swatch }} />
             <span className="wr-text">
               <b>{it.name}</b>
               <small>{it.desc}</small>

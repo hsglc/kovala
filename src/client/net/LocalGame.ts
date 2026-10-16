@@ -12,7 +12,7 @@ const BOT_ID = "bot-evade";
 const BOT_NAMES: Record<BotLevel, string> = { kolay: "Çaylak Bot", orta: "Bot", zor: "Usta Bot" };
 
 /** Botla antrenman: aynı maç motoru tarayıcıda çalışır, ağ yok. */
-const BOT_FITS: Record<BotLevel, string> = { kolay: "1000", orta: "0111", zor: "1110" };
+const BOT_FITS: Record<BotLevel, string> = { kolay: "41000", orta: "12321", zor: "25443" };
 
 export class LocalGame implements GameSource {
   readonly kind = "local" as const;

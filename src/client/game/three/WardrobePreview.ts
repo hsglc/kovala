@@ -10,7 +10,7 @@ export class WardrobePreview {
   private raf = 0;
   private last = 0;
   private yaw = 0.35;
-  private spin = 0.5;
+  private spin = 0.35;
   private drag: { x: number; yaw: number } | null = null;
   private disposed = false;
   private key = "";

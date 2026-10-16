@@ -12,6 +12,20 @@ export interface PatchNote {
 
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: "0.9.1",
+    date: "16 Eki 2026",
+    time: "09:45",
+    title: "Gardırop büyüdü: 26 parça",
+    items: [
+      "Baş: Snapback Kep, Ters Kep, ponponlu Bere, Güneş Vizörü, Ter Bandı.",
+      "Üst: Pro Forma, Çizgili Forma, Kamuflaj, Gün Batımı, Şimşek, Karbon Siyah.",
+      "Alt: Antrenman Taytı, Üç Şeritli Eşofman, Kamuflaj Kargo, karanlıkta parlayan Neon Biyeli, İki Renk.",
+      "Ayakkabı: Neon Koşu, Beyaz Sneaker, Siyah Altın, Gökkuşağı, parlayan Lav.",
+      "Yeni bölge Takı: Bileklik, Kol Kılıfı, Altın Zincir, Kaptan Bandı (ya da sade).",
+      "Gardırop ekranı iki sütunlu kart düzenine geçti; botların tarzları da yenilendi.",
+    ],
+  },
+  {
     version: "0.9.0",
     date: "16 Eki 2026",
     time: "09:38",

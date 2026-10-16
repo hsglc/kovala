@@ -12,6 +12,6 @@ fits.forEach((f, i) => { const a = new Athlete(tpl, i%2 ? 0x35b8ff : 0xff5a4f, i
   a.update({phase:0,run:0,pose:-1,at:0,now:0,mood:"",heading:Math.PI/2 - rot,h:0,hv:0,airborne:false}, 0, 0.5); });
 const cam = new THREE.PerspectiveCamera(30, innerWidth/innerHeight, 0.1, 50);
 const zoom = new URLSearchParams(location.search).get("z");
-if (zoom) { cam.position.set(0, 1.55, 2.2); cam.lookAt(0, 1.5, 0); } else { cam.position.set(0, 1.0, 6.2); cam.lookAt(0, 0.9, 0); }
+if (zoom) { cam.position.set(0, 1.45, 3.4); cam.lookAt(0, 1.38, 0); } else { cam.position.set(0, 1.0, 6.2); cam.lookAt(0, 0.9, 0); }
 r.render(sc, cam); window.done = true;
 </script></body></html>

@@ -1436,7 +1436,7 @@ body:has(.game) {
 .wr-saved.on { opacity: 1; }
 .wr-stage {
   position: relative;
-  height: min(52vh, 440px);
+  height: min(44vh, 400px);
   border-radius: 22px;
   border: 1px solid var(--line);
   background: radial-gradient(ellipse at 50% 30%, rgba(53, 184, 255, 0.18), transparent 60%),
@@ -1488,20 +1488,22 @@ body:has(.game) {
   background: transparent;
   color: var(--muted);
   font-family: var(--display);
-  font-size: 17px;
-  letter-spacing: 0.04em;
+  font-size: 15px;
+  letter-spacing: 0.02em;
   text-transform: uppercase;
   padding: 9px 0;
   border-radius: 10px;
   cursor: pointer;
 }
 .wr-tabs button.on { background: var(--panel-2); color: var(--text); box-shadow: inset 0 -2px 0 var(--amber); }
-.wr-items { display: grid; gap: 8px; }
+.wr-items { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .wr-item {
+  position: relative;
   display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px;
   border-radius: 16px;
   border: 1px solid var(--line);
   background: var(--panel);
@@ -1511,13 +1513,16 @@ body:has(.game) {
   transition: border-color 0.15s, background 0.15s;
 }
 .wr-item.on { border-color: var(--amber); background: linear-gradient(120deg, rgba(245, 184, 61, 0.16), transparent), var(--panel); }
-.wr-swatch { width: 46px; height: 46px; border-radius: 12px; flex: none; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12); }
+.wr-swatch { width: 100%; height: 54px; border-radius: 11px; flex: none; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12); }
 .wr-text { flex: 1; display: flex; flex-direction: column; gap: 3px; }
-.wr-text b { font-size: 16px; }
-.wr-text small { color: var(--muted); font-size: 13px; }
+.wr-text b { font-size: 14.5px; }
+.wr-text small { color: var(--muted); font-size: 11.5px; line-height: 1.3; }
 .wr-check {
-  width: 26px;
-  height: 26px;
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   display: grid;
   place-items: center;
