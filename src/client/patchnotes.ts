@@ -12,6 +12,16 @@ export interface PatchNote {
 
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: "0.28.2",
+    date: "16 Eki 2026",
+    time: "20:36",
+    title: "Sabit kamera",
+    items: [
+      "Kamera oyuncuyu takip edip yakınlaşıp uzaklaşmıyor; bütün harita baştan sona ekranda",
+      "Ekranı döndürürsen saha yeni ekrana göre bir kez yerine oturur",
+    ],
+  },
+  {
     version: "0.28.1",
     date: "16 Eki 2026",
     time: "20:32",
