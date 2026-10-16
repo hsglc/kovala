@@ -12,6 +12,17 @@ export interface PatchNote {
 
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: "0.21.1",
+    date: "16 Eki 2026",
+    time: "13:19",
+    title: "Sahalar 20 m",
+    items: [
+      "Sahalar yine büyüdü: 16 m'den 20 m'ye (resmî Quad'ın alanının ~2,8 katı)",
+      "Engel sayısı alanla birlikte arttı: kolay haritalarda 19, Resmî Quad ve Labirent'te 31, Kafes'te 45 engel",
+      "Kaçan bot engelin arkasında donup kalmıyor: kulenin etrafında kovalayanın döndüğü yönde dönmeye devam ediyor, yolunu gerçek yürüme mesafesiyle buluyor",
+    ],
+  },
+  {
     version: "0.21.0",
     date: "16 Eki 2026",
     time: "12:52",

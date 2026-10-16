@@ -134,6 +134,8 @@ export class Bot {
   private cfg: (typeof LEVELS)[BotLevel];
   private cacheKey = "";
   private cacheField: Float32Array | null = null;
+  private goalKey = "";
+  private goalField: Float32Array | null = null;
 
   private field(grid: Grid, layout: QuadLayout, x: number, y: number): Float32Array {
     const key = `${layout.id}:${toCell(x)}:${toCell(y)}`;
@@ -288,14 +290,30 @@ export class Bot {
       let d = a - myA;
       while (d > Math.PI) d -= Math.PI * 2;
       while (d < -Math.PI) d += Math.PI * 2;
-      a = myA + Math.sign(d || 1) * Math.min(Math.abs(d), 0.9);
+      if (Math.abs(d) < 0.5) {
+        // Zaten tam karşısındasın: durma, kovalayanın döndüğü yönde dönmeyi sürdür
+        const rx = other.x - cx;
+        const ry = other.y - cy;
+        const w = rx * other.vy - ry * other.vx;
+        a = myA + (w >= 0 ? 1 : -1) * 0.6;
+      } else a = myA + Math.sign(d) * Math.min(Math.abs(d), 0.9);
     }
     return [cx + Math.cos(a) * best.r, cy + Math.sin(a) * best.r];
   }
 
   private decideEvade(grid: Grid, self: PlayerState, other: PlayerState, layout: QuadLayout) {
     const field = this.field(grid, layout, other.x, other.y);
-    const goal = this.orbitGoal(self, other, layout);
+    // Kovalayan uzaktayken alan kazan (yerel kaçış); yaklaşınca kuleyi arana al
+    const goal = Math.hypot(other.x - self.x, other.y - self.y) < 6.5 ? this.orbitGoal(self, other, layout) : null;
+    let goalField: Float32Array | null = null;
+    if (goal) {
+      const gk = `${layout.id}:${toCell(goal[0])}:${toCell(goal[1])}`;
+      if (gk !== this.goalKey || !this.goalField) {
+        this.goalField = distanceField(grid, goal[0], goal[1], 1.4);
+        this.goalKey = gk;
+      }
+      goalField = this.goalField;
+    }
     let best: [number, number] = [self.x - other.x, self.y - other.y];
     let bestScore = -INF;
     const curL = Math.hypot(self.vx, self.vy);
@@ -321,7 +339,12 @@ export class Bot {
       }
       if (!ok) continue;
       if (curL > 0.5) score += ((dx * self.vx + dy * self.vy) / curL) * 0.35;
-      if (goal) score -= Math.hypot(goal[0] - (self.x + dx * 1.0), goal[1] - (self.y + dy * 1.0)) * 3;
+      if (goalField) {
+        // Yol mesafesi (düz çizgi değil): araya engel girince bot yerinde titreşmesin
+        const gv = sample(goalField, self.x + dx * 1.0, self.y + dy * 1.0);
+        if (gv > -INF && gv < INF) score -= gv * 3;
+        else score -= 40;
+      }
       if (score > bestScore) {
         bestScore = score;
         best = [dx, dy];
