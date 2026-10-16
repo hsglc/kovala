@@ -12,6 +12,19 @@ export interface PatchNote {
 
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: "0.27.1",
+    date: "16 Eki 2026",
+    time: "17:45",
+    title: "Her ekran yatayda da",
+    items: [
+      "Ana menü yatayda iki sütun: solda logo, sağda bütün butonlar",
+      "Gardırop: karakter solda sabit, parçalar sağda üç sütun",
+      "Rakip aranıyor ekranı yatayda yan yana: sen | VS | rakip",
+      "Antrenman, görevler, kurallar, çevrimiçi ve sıralama panelleri ortada pencere olarak açılıyor",
+      "Lobi yatayda iki sütun, başlat butonu hep görünür",
+    ],
+  },
+  {
     version: "0.27.0",
     date: "16 Eki 2026",
     time: "17:15",

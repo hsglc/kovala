@@ -4090,3 +4090,247 @@ body:has(.game) {
     order: 3;
   }
 }
+
+/* =====================================================================
+   Yatay telefon: menü ekranları (maç içi düzen yukarıda ayrı)
+   Kısa ve geniş ekranda her ekranın ana eylemi kaydırmadan görünür.
+   ===================================================================== */
+@media (orientation: landscape) and (max-height: 520px) {
+  :root {
+    --safe-l: env(safe-area-inset-left, 0px);
+    --safe-r: env(safe-area-inset-right, 0px);
+  }
+
+  /* Genel sayfa: daha geniş, yan güvenli alanlar */
+  .page {
+    max-width: 820px;
+    padding: calc(10px + var(--safe-t)) calc(16px + var(--safe-r)) calc(14px + var(--safe-b)) calc(16px + var(--safe-l));
+    gap: 12px;
+  }
+
+  /* ---- Ana menü: solda logo, sağda butonlar ---- */
+  .vs-home {
+    display: grid;
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .vs-top,
+  .vs-bottom {
+    max-width: none;
+    margin: 0;
+  }
+
+  .vs-top {
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    padding: calc(10px + var(--safe-t)) 8px 12px calc(16px + var(--safe-l));
+  }
+
+  .vs-top .mega {
+    margin-top: 6px;
+  }
+
+  .mega-1,
+  .mega-2 {
+    font-size: min(33vh, 19vw);
+  }
+
+  .mega-2 {
+    -webkit-text-stroke: 3px var(--ink);
+    text-shadow: 6px 6px 0 var(--ink);
+  }
+
+  .mega-sub {
+    margin-top: auto;
+    max-width: 100%;
+    font-size: 17px;
+  }
+
+  .vs-bottom {
+    height: 100dvh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-content: start;
+    gap: 10px 12px;
+    padding: calc(10px + var(--safe-t)) calc(14px + var(--safe-r)) calc(16px + var(--safe-b)) 10px;
+  }
+
+  .vs-bottom > .name-tape,
+  .vs-bottom > .tape-alert,
+  .vs-bottom > .tape-go,
+  .vs-bottom > .tape-row,
+  .vs-bottom > .small-links {
+    grid-column: 1 / -1;
+  }
+
+  .vs-bottom > .tape {
+    min-height: 54px;
+    padding: 8px 14px 10px;
+  }
+
+  .vs-bottom .tape-main {
+    font-size: 26px;
+  }
+
+  .vs-bottom > .tape-go.big .tape-main {
+    font-size: 44px;
+  }
+
+  .vs-bottom .marker {
+    font-size: 14px;
+  }
+
+  .small-links {
+    margin-top: 0;
+  }
+
+  /* ---- Alt sayfalar: ortada pencere ---- */
+  .sheet-backdrop {
+    align-items: center;
+    padding: 8px calc(12px + var(--safe-r)) 8px calc(12px + var(--safe-l));
+  }
+
+  .sheet {
+    width: min(680px, 100%);
+    max-height: calc(100dvh - 16px);
+    padding-bottom: 16px;
+    border-top-width: 8px;
+  }
+
+  /* ---- Gardırop: solda sabit karakter, sağda seçimler ---- */
+  .page.wardrobe {
+    max-width: none;
+    display: grid;
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+    grid-template-areas:
+      "stage head"
+      "stage sex"
+      "stage tabs"
+      "stage items"
+      "stage note";
+    grid-template-rows: auto auto auto auto 1fr;
+    align-items: start;
+    column-gap: 16px;
+    row-gap: 10px;
+  }
+
+  .wardrobe .wr-head {
+    grid-area: head;
+  }
+
+  .wardrobe .wr-head h1 {
+    font-size: 36px;
+  }
+
+  .wardrobe .wr-sex {
+    grid-area: sex;
+  }
+
+  .wardrobe .wr-tabs {
+    grid-area: tabs;
+  }
+
+  .wardrobe .wr-items {
+    grid-area: items;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .wardrobe .wr-note {
+    grid-area: note;
+  }
+
+  .wardrobe .wr-stage {
+    grid-area: stage;
+    position: sticky;
+    top: calc(10px + var(--safe-t));
+    height: calc(100dvh - 24px - var(--safe-t) - var(--safe-b));
+  }
+
+  /* ---- Rakip aranıyor: sen | VS | rakip ---- */
+  .qm {
+    grid-template-columns: 1fr auto 1fr;
+    grid-template-rows: 1fr;
+    align-items: center;
+    column-gap: 14px;
+    padding: calc(12px + var(--safe-t)) calc(18px + var(--safe-r)) calc(12px + var(--safe-b)) calc(18px + var(--safe-l));
+  }
+
+  .qm-me,
+  .qm-opp {
+    align-self: center;
+  }
+
+  .qm-me b,
+  .qm-scramble {
+    font-size: min(22vh, 9vw);
+  }
+
+  .qm-vs {
+    font-size: 42px;
+  }
+
+  .qm-actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .qm-actions .tape-main {
+    font-size: 24px;
+  }
+
+  /* ---- Lobi: takımlar ve ayarlar yan yana ---- */
+  .page.lobby {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: start;
+    gap: 12px 16px;
+  }
+
+  .page.lobby > .lobby-head,
+  .page.lobby > .result-card,
+  .page.lobby > .lobby-actions {
+    grid-column: 1 / -1;
+  }
+
+  .page.lobby > .teams {
+    grid-template-columns: 1fr;
+  }
+
+  .page.lobby.surv-page {
+    display: flex;
+  }
+
+  .lobby-actions .btn.big {
+    min-height: 64px;
+    font-size: 36px;
+  }
+
+  /* Antrenman paneli: yapışık Başlat daha ince, sahalar görünsün */
+  .ps-go {
+    bottom: -16px;
+    margin-bottom: -16px;
+    padding: 4px 18px 10px;
+  }
+
+  .ps-go .tape-go {
+    min-height: 50px;
+  }
+
+  .ps-go .tape-main {
+    font-size: 30px;
+  }
+
+  /* Menü bantlarının alt yazısı tek satır */
+  .vs-bottom > .tape .marker {
+    max-width: 100%;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+}
