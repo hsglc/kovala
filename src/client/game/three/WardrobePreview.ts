@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { Athlete, loadAthlete } from "./athlete";
+import { fitSex } from "../../../shared/outfit";
 import { Pipeline, studioEnvironment } from "./quality";
 
 /** Gardırop ekranındaki dönen 3B önizleme. */
@@ -85,17 +86,26 @@ export class WardrobePreview {
     const k = team + fit;
     if (k === this.key) return;
     this.key = k;
+    const shirt = team === 0 ? 0xff3b2f : 0x2f6bff;
+    const shorts = team === 0 ? 0xb0201a : 0x173fb0;
+    // Aynı karakterde kombin değişimi yerinde ve anlık; yalnızca kadın/erkek değişince yeniden kurulur
+    if (this.athlete && this.athlete.sex === fitSex(fit)) {
+      this.athlete.applyFit(fit, shirt, shorts);
+      return;
+    }
     loadAthlete()
       .then(() => {
         if (this.disposed || this.key !== k) return;
         if (this.athlete) this.scene.remove(this.athlete.root);
-        const a = new Athlete(null, team === 0 ? 0xff3b2f : 0x2f6bff, team === 0 ? 0xb0201a : 0x173fb0, 0xffffff, fit);
+        const a = new Athlete(null, shirt, shorts, 0xffffff, fit);
         a.setRing(0xffffff, 0);
         a.root.traverse((o) => {
           if ((o as THREE.Mesh).isMesh) (o as THREE.Mesh).castShadow = true;
         });
         this.athlete = a;
         this.scene.add(a.root);
+        // İlk kez: gölgelendiricileri arka planda derle (sonraki değişimler anlık)
+        void this.renderer.compileAsync(a.root, this.camera, this.scene).catch(() => {});
       })
       .catch(() => {});
   }

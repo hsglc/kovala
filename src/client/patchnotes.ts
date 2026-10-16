@@ -12,6 +12,17 @@ export interface PatchNote {
 
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: "0.26.1",
+    date: "16 Eki 2026",
+    time: "16:05",
+    title: "Gardırop anlık",
+    items: [
+      "Gardıropta seçimler artık anlık: kombin değişince karakter yeniden kurulmuyor, sadece giysiler değişiyor",
+      "Tüm kıyafetler tek ortak ışık programı kullanıyor: eskiden her desen ayrı derleniyordu (~40 kez), şimdi bir kez; maçta da yeni kıyafet görünce takılma yok",
+      "Kart önizlemeleri tek karakter üzerinde çiziliyor, çok daha hızlı doluyor",
+    ],
+  },
+  {
     version: "0.26.0",
     date: "16 Eki 2026",
     time: "15:52",

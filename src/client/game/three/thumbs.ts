@@ -11,6 +11,7 @@ import { studioEnvironment } from "./quality";
 
 const SIZE = 320;
 const cache = new Map<string, string>();
+const models = new Map<"f" | "m", Athlete>();
 type Job = { key: string; sex: "f" | "m"; team: 0 | 1; region: Region; item: number; resolve: (url: string) => void };
 let queue: Job[] = [];
 let running = false;
@@ -82,26 +83,24 @@ async function pump() {
       const { renderer, scene, camera } = setup();
       const shirt = job.team === 0 ? 0xff3b2f : 0x2f6bff;
       const shorts = job.team === 0 ? 0xb0201a : 0x173fb0;
-      const a = new Athlete(null, shirt, shorts, 0xffffff, fitFor(job.sex, job.region, job.item));
-      a.setRing(0xffffff, 0);
+      // Her cinsiyet için tek sporcu: her önizlemede yalnızca kombin uygulanır
+      const fit = fitFor(job.sex, job.region, job.item);
+      let a = models.get(job.sex);
+      if (!a) {
+        a = new Athlete(null, shirt, shorts, 0xffffff, fit);
+        a.setRing(0xffffff, 0);
+        models.set(job.sex, a);
+      } else a.applyFit(fit, shirt, shorts);
       // Ayakkabıda yandan, başta ve üstte dörtte üç açıdan bak
       const yaw = job.region === "shoes" ? 1.4 : job.region === "hair" || job.region === "head" ? 0.5 : 0.32;
       a.update({ phase: 0, run: 0, pose: -1, at: 0, now: 0, mood: "run", heading: Math.PI / 2 - yaw, h: 0, hv: 0, airborne: false }, 0, 0.0001);
       scene.add(a.root);
       const h = athleteTemplate(job.sex)?.headTop ?? 1.7;
       frame(camera, job.region, h);
-      // Gölgelendiriciyi arka planda derle (ilk kez görülen desen kartlar arasında takılma yapmasın)
       await renderer.compileAsync(a.root, camera, scene).catch(() => undefined);
       renderer.render(scene, camera);
       const url = renderer.domElement.toDataURL("image/webp", 0.86);
       scene.remove(a.root);
-      a.root.traverse((o) => {
-        const m = o as THREE.Mesh;
-        if (!m.isMesh) return;
-        for (const mt of Array.isArray(m.material) ? m.material : [m.material]) mt.dispose();
-        // Geometri şablonla paylaşılıyor; yalnızca aksesuarlarınki bu sporcuya ait
-        if (!(m as THREE.SkinnedMesh).isSkinnedMesh) m.geometry.dispose();
-      });
       cache.set(job.key, url);
       job.resolve(url);
       // Arayüz akıcı kalsın: her önizlemeden sonra bir kare bekle
@@ -140,5 +139,6 @@ export function releaseThumbs() {
     ctx.renderer.dispose();
     ctx.renderer.forceContextLoss();
     ctx = null;
+    models.clear();
   }
 }

@@ -16,7 +16,7 @@ import {
   ACT_ROLL,
   ACT_FEINT,
 } from "../../../shared/sim";
-import { cleanFit, fitItem, fitSex } from "../../../shared/outfit";
+import { REGIONS, cleanFit, fitItem, fitSex } from "../../../shared/outfit";
 import type { FigureAnim } from "./figure3d";
 
 /**
@@ -143,22 +143,17 @@ export class Athlete {
   private ring: THREE.Mesh;
   private ringMat: THREE.MeshBasicMaterial;
   private lastAk = 0;
+  private tpl: Template;
+  private garments = new Map<string, THREE.Mesh>();
+  private extras: THREE.Object3D[] = [];
+  private fitKey = "";
 
   constructor(tplOrAny: Template | null | undefined, shirt: number, shorts: number, ringColor: number, fit = "0000000") {
     fit = cleanFit(fit);
     this.sex = fitSex(fit);
     const tpl = templates.get(this.sex) ?? tplOrAny!;
     this.model = cloneSkinned(tpl.scene);
-    const top = fitItem(fit, "top");
-    const bottom = fitItem(fit, "bottom");
-    const shoes = fitItem(fit, "shoes");
-    const hair = fitItem(fit, "hair");
-    const hairMesh = hair.id === "natural" ? (this.sex === "f" ? ["hair_long", "ponytail"] : ["hair_short"]) : (hair.mesh ?? []);
-    const visible = new Set<string>([...(top.mesh ?? []), ...(bottom.mesh ?? []), ...(shoes.mesh ?? []), ...hairMesh, "brief"]);
-    // Sütyen yalnızca üst olarak seçilince çizilir; üstlerin içinden taşmasın
-    if (this.sex === "f" && top.id === "bra") visible.add("bra");
-    const team = new THREE.Color(shirt);
-    const teamDark = new THREE.Color(shorts);
+    this.tpl = tpl;
     this.model.traverse((o) => {
       const m = o as THREE.Mesh;
       if (!m.isMesh) return;
@@ -170,7 +165,7 @@ export class Athlete {
       if (name === "Body") {
         const src = m.material as THREE.MeshStandardMaterial;
         // Deri: hafif "sheen" ile ışığa dönen kenarlarda yumuşak, kırmızımsı parlama (ucuz alt-yüzey saçılımı izlenimi)
-        const mat = new THREE.MeshPhysicalMaterial({
+        m.material = new THREE.MeshPhysicalMaterial({
           map: src.map,
           color: SKIN[this.sex],
           roughness: 0.52,
@@ -180,7 +175,6 @@ export class Athlete {
           clearcoat: 0.06,
           clearcoatRoughness: 0.6,
         });
-        m.material = mat;
         return;
       }
       if (name === "Eyes") {
@@ -188,30 +182,11 @@ export class Athlete {
         return;
       }
       if (!name.startsWith("G_")) return;
-      const id = name.slice(2);
-      m.visible = visible.has(id);
-      if (!m.visible) return;
-      let look = "plain";
-      let role: "top" | "bottom" | "shoe" | "sock" | "hair" | "under" = "top";
-      if (top.mesh?.includes(id)) look = top.look ?? "plain";
-      else if (bottom.mesh?.includes(id)) {
-        look = bottom.look ?? "plain";
-        role = "bottom";
-      } else if (id === "socks") role = "sock";
-      else if (shoes.mesh?.includes(id)) {
-        look = shoes.look ?? "white";
-        role = "shoe";
-      } else if (hairMesh.includes(id)) {
-        look = hair.look ?? "default";
-        role = "hair";
-      } else if (id === "bra" || id === "brief") {
-        role = "under";
-        look = id === "bra" && top.id === "bra" ? "bra-team" : "under";
-      }
-      m.material = garmentMaterial(m as THREE.SkinnedMesh, id, role, look, team, teamDark, tpl);
+      // Tüm giysiler tek ortak gölgelendirici kullanır; kombin değişince yalnızca görünürlük ve uniform değişir
+      m.material = garmentMaterial(m as THREE.SkinnedMesh, tpl);
+      this.garments.set(name.slice(2), m);
     });
-    addHeadwear(this.model, tpl, fitItem(fit, "head").id, shirt);
-    addAccessory(this.model, tpl, fitItem(fit, "acc").id, shirt);
+    this.applyFit(fit, shirt, shorts);
     this.root.add(this.model);
     this.mixer = new THREE.AnimationMixer(this.model);
     for (const [name, clip] of tpl.clips) {
@@ -290,6 +265,68 @@ export class Athlete {
     }
     this.lastAk = ak;
     this.mixer.update(dt);
+  }
+
+  /**
+   * Kombini yerinde değiştir (yeni sporcu kurmadan): giysilerin görünürlüğü ve desen/kumaş uniform'ları.
+   * Aynı cinsiyetteki her değişiklik anlık; gölgelendirici yeniden derlenmez.
+   */
+  applyFit(fit: string, shirt: number, shorts: number) {
+    fit = cleanFit(fit);
+    const key = `${fit}:${shirt}:${shorts}`;
+    if (key === this.fitKey) return;
+    this.fitKey = key;
+    const top = fitItem(fit, "top");
+    const bottom = fitItem(fit, "bottom");
+    const shoes = fitItem(fit, "shoes");
+    const hair = fitItem(fit, "hair");
+    const hairMesh = hair.id === "natural" ? (this.sex === "f" ? ["hair_long", "ponytail"] : ["hair_short"]) : (hair.mesh ?? []);
+    const visible = new Set<string>([...(top.mesh ?? []), ...(bottom.mesh ?? []), ...(shoes.mesh ?? []), ...hairMesh, "brief"]);
+    // Sütyen yalnızca üst olarak seçilince çizilir; üstlerin içinden taşmasın
+    if (this.sex === "f" && top.id === "bra") visible.add("bra");
+    const team = new THREE.Color(shirt);
+    const teamDark = new THREE.Color(shorts);
+    for (const [id, m] of this.garments) {
+      m.visible = visible.has(id);
+      if (!m.visible) continue;
+      let look = "plain";
+      let role: Role = "top";
+      if (top.mesh?.includes(id)) look = top.look ?? "plain";
+      else if (bottom.mesh?.includes(id)) {
+        look = bottom.look ?? "plain";
+        role = "bottom";
+      } else if (id === "socks") role = "sock";
+      else if (shoes.mesh?.includes(id)) {
+        look = shoes.look ?? "white";
+        role = "shoe";
+      } else if (hairMesh.includes(id)) {
+        look = hair.look ?? "default";
+        role = "hair";
+      } else if (id === "bra" || id === "brief") {
+        role = "under";
+        look = id === "bra" && top.id === "bra" ? "bra-team" : "under";
+      }
+      setGarment(m.material as THREE.MeshPhysicalMaterial, id, role, look, team, teamDark);
+    }
+    for (const x of this.extras) {
+      x.removeFromParent();
+      x.traverse((o) => {
+        const mm = o as THREE.Mesh;
+        if (mm.isMesh) {
+          mm.geometry.dispose();
+          (mm.material as THREE.Material).dispose();
+        }
+      });
+    }
+    const before = new Set<THREE.Object3D>();
+    this.model.traverse((o) => before.add(o));
+    addHeadwear(this.model, this.tpl, fitItem(fit, "head").id, shirt);
+    addAccessory(this.model, this.tpl, fitItem(fit, "acc").id, shirt);
+    this.extras = [];
+    this.model.traverse((o) => {
+      if (!before.has(o) && o.parent && before.has(o.parent)) this.extras.push(o);
+    });
+    for (const x of this.extras) x.traverse((o) => ((o as THREE.Mesh).isMesh ? ((o as THREE.Mesh).castShadow = true) : null));
   }
 
   setRing(color: number, opacity: number) {
@@ -461,56 +498,112 @@ const LOOK_GLSL: Record<string, string> = {
   "bra-team": `c = uTeam; c = mix(c, uDark, step(0.85, v) + (1.0 - step(0.15, v)));`,
 };
 
-function garmentMaterial(mesh: THREE.SkinnedMesh, id: string, role: string, look: string, team: THREE.Color, teamDark: THREE.Color, tpl: Template) {
-  const geo = mesh.geometry;
-  geo.computeBoundingBox();
-  const bb = geo.boundingBox!;
+type Role = "top" | "bottom" | "shoe" | "sock" | "hair" | "under";
+
+/** Rol + desenden gölgelendirici anahtarı */
+function lookKey(role: Role, id: string, look: string): string {
   let key = look;
-  let col = team;
   if (role === "bottom" && look === "plain") key = "b-plain";
   if (role === "sock") key = "sock";
   if (role === "shoe") key = "s-" + look;
-  if (role === "hair") {
-    key = "hair";
-    col = new THREE.Color(HAIR[look] ?? HAIR.default);
-  }
+  if (role === "hair") key = "hair";
   if (role === "under") key = look;
   if (id === "hood") key = look === "camo" ? "camo" : "hood";
   if (!LOOK_GLSL[key]) key = role === "bottom" ? "b-plain" : role === "shoe" ? "s-white" : "plain";
-  // Kumaş türü malzemeyi belirler (pürüzlülük, sheen, cila)
-  const fp = FABRIC_PARAMS[LOOK_FABRIC[key] ?? "jersey"];
+  return key;
+}
+
+/**
+ * Ortak giysi gölgelendiricisi: tüm desenler ve kumaş/kırışık kodları tek programda, uniform ile seçilir.
+ * Eskiden her desen ayrı programdı (~40 derleme); şimdi bir kez derlenir, kombin değişimi anlıktır.
+ */
+let UBER: { look: string; fab: string; fabIndex: Map<string, number>; lookIndex: Map<string, number> } | null = null;
+function fabCombo(key: string, role: Role, id: string) {
+  return `${key}|${role}|${id === "hood" ? "h" : ""}`;
+}
+function uber() {
+  if (UBER) return UBER;
+  const lookIndex = new Map<string, number>();
+  Object.keys(LOOK_GLSL).forEach((k, i) => lookIndex.set(k, i));
+  const look = Object.keys(LOOK_GLSL)
+    .map((k, i) => `${i ? "else " : ""}if (uLookI == ${i}) {\n${LOOK_GLSL[k]}\n}`)
+    .join("\n");
+  // Kullanılan tüm (desen, rol, kapüşon) birleşimlerinin kumaş kodu; aynı kodlar tek dalda
+  const combos: [string, Role, string][] = [];
+  const add = (role: Role, id: string, lk: string) => combos.push([lookKey(role, id, lk), role, id]);
+  for (const r of REGIONS) {
+    for (const it of r.items) {
+      if (r.id === "top") {
+        for (const id of it.mesh ?? []) add("top", id, it.look ?? "plain");
+        if (it.id === "bra") add("under", "bra", "bra-team");
+      } else if (r.id === "bottom") for (const id of it.mesh ?? []) add("bottom", id, it.look ?? "plain");
+      else if (r.id === "shoes") {
+        for (const id of it.mesh ?? []) id === "socks" ? add("sock", id, "sock") : add("shoe", id, it.look ?? "white");
+      } else if (r.id === "hair") add("hair", "hair_short", it.look ?? "default");
+    }
+  }
+  add("under", "brief", "under");
+  add("under", "bra", "under");
+  const codeIndex = new Map<string, number>();
+  const fabIndex = new Map<string, number>();
+  const parts: string[] = [];
+  for (const [key, role, id] of combos) {
+    const code = fabricCode(key, role, id);
+    let i = codeIndex.get(code);
+    if (i === undefined) {
+      i = parts.length;
+      codeIndex.set(code, i);
+      parts.push(`${i ? "else " : ""}if (uFabI == ${i}) {\n${code}\n}`);
+    }
+    fabIndex.set(fabCombo(key, role, id), i);
+  }
+  UBER = { look, fab: parts.join("\n"), fabIndex, lookIndex };
+  return UBER;
+}
+
+interface GarmentUniforms {
+  uTeam: { value: THREE.Color };
+  uDark: { value: THREE.Color };
+  uLookI: { value: number };
+  uFabI: { value: number };
+}
+
+function garmentMaterial(mesh: THREE.SkinnedMesh, tpl: Template) {
+  const geo = mesh.geometry;
+  geo.computeBoundingBox();
+  const bb = geo.boundingBox!;
+  const U = uber();
   const mat = new THREE.MeshPhysicalMaterial({
     color: 0xffffff,
-    roughness: fp.roughness,
-    sheen: fp.sheen,
-    sheenRoughness: fp.sheenRoughness,
-    sheenColor: new THREE.Color(fp.sheenColor),
-    clearcoat: fp.clearcoat ?? 0,
-    clearcoatRoughness: fp.clearcoatRoughness ?? 0.4,
+    roughness: 0.84,
+    // sheen ve clearcoat hep açık: değerleri değişse de program aynı kalsın
+    sheen: 0.5,
+    sheenRoughness: 0.7,
+    sheenColor: new THREE.Color(0x5e5e64),
+    clearcoat: 0.001,
+    clearcoatRoughness: 0.4,
   });
-  mat.customProgramCacheKey = () => `g4-${key}-${role}-${id === "hood" ? "h" : ""}`;
-  // Katman sırası: üst > alt > iç çamaşır. Birbirine çok yakın yüzeylerde (bel bandı, etek ucu)
-  // titreşen derinlik yerine dıştaki katman kazanır.
-  const layer = role === "top" ? -3 : role === "bottom" ? -1.5 : role === "under" ? 0 : role === "sock" ? -0.5 : 0;
-  if (layer) {
-    mat.polygonOffset = true;
-    mat.polygonOffsetFactor = layer;
-    mat.polygonOffsetUnits = layer * 2;
-  }
+  const u: GarmentUniforms = {
+    uTeam: { value: new THREE.Color(0xffffff) },
+    uDark: { value: new THREE.Color(0x888888) },
+    uLookI: { value: 0 },
+    uFabI: { value: 0 },
+  };
+  mat.userData.u = u;
+  mat.customProgramCacheKey = () => "garment-uber-1";
   const maxX = Math.max(Math.abs(bb.min.x), Math.abs(bb.max.x));
+  const j = tpl.joints;
+  const uMin = { value: bb.min.clone() };
+  const uMax = { value: new THREE.Vector3(maxX, bb.max.y, bb.max.z) };
+  const uJ = { value: new THREE.Vector4(j.sh, j.el, j.wr, tpl.headTop) };
+  const uL = { value: new THREE.Vector4(j.hip, j.knee, j.ank, 0) };
   mat.onBeforeCompile = (sh) => {
-    sh.uniforms.uTeam = { value: col };
-    sh.uniforms.uDark = { value: teamDark };
-    sh.uniforms.uMin = { value: bb.min.clone() };
-    sh.uniforms.uMax = { value: new THREE.Vector3(maxX, bb.max.y, bb.max.z) };
-    const j = tpl.joints;
-    sh.uniforms.uJ = { value: new THREE.Vector4(j.sh, j.el, j.wr, tpl.headTop) };
-    sh.uniforms.uL = { value: new THREE.Vector4(j.hip, j.knee, j.ank, 0) };
+    Object.assign(sh.uniforms, u, { uMin, uMax, uJ, uL });
     sh.vertexShader = sh.vertexShader
       .replace("#include <common>", "#include <common>\nvarying vec3 vBind;\nvarying vec3 vBindN;")
       .replace("#include <begin_vertex>", "#include <begin_vertex>\nvBind = position;\nvBindN = normal;");
     sh.fragmentShader = sh.fragmentShader
-      .replace("#include <common>", "#include <common>\n" + GLSL_COMMON + FABRIC_COMMON)
+      .replace("#include <common>", "#include <common>\nuniform int uLookI;\nuniform int uFabI;\n" + GLSL_COMMON + FABRIC_COMMON)
       .replace(
         "#include <map_fragment>",
         `#include <map_fragment>
@@ -521,9 +614,9 @@ function garmentMaterial(mesh: THREE.SkinnedMesh, id: string, role: string, look
           float v = clamp((vBind.y - uMin.y) / max(0.001, uMax.y - uMin.y), 0.0, 1.0);
           float ax = clamp(abs(vBind.x) / max(0.001, uMax.x), 0.0, 1.0);
           vec3 c = uTeam;
-          ${LOOK_GLSL[key]}
+          ${U.look}
           {
-          ${fabricCode(key, role, id)}
+          ${U.fab}
           }
           diffuseColor.rgb *= c;
         }`,
@@ -533,6 +626,30 @@ function garmentMaterial(mesh: THREE.SkinnedMesh, id: string, role: string, look
       .replace("#include <emissivemap_fragment>", "#include <emissivemap_fragment>\ntotalEmissiveRadiance += glow;");
   };
   return mat;
+}
+
+/** Bir giysiyi desen ve kumaşa ayarla (yalnızca uniform ve malzeme değerleri) */
+function setGarment(mat: THREE.MeshPhysicalMaterial, id: string, role: Role, look: string, team: THREE.Color, teamDark: THREE.Color) {
+  const U = uber();
+  const key = lookKey(role, id, look);
+  const u = mat.userData.u as GarmentUniforms;
+  u.uLookI.value = U.lookIndex.get(key) ?? 0;
+  u.uFabI.value = U.fabIndex.get(fabCombo(key, role, id)) ?? U.fabIndex.get(fabCombo(key, role, "")) ?? 0;
+  u.uTeam.value.copy(role === "hair" ? new THREE.Color(HAIR[look] ?? HAIR.default) : team);
+  u.uDark.value.copy(teamDark);
+  const fp = FABRIC_PARAMS[LOOK_FABRIC[key] ?? "jersey"];
+  mat.roughness = fp.roughness;
+  mat.sheen = Math.max(0.001, fp.sheen);
+  mat.sheenRoughness = fp.sheenRoughness;
+  mat.sheenColor.setHex(fp.sheenColor);
+  mat.clearcoat = Math.max(0.001, fp.clearcoat ?? 0);
+  mat.clearcoatRoughness = fp.clearcoatRoughness ?? 0.4;
+  // Katman sırası: üst > alt > iç çamaşır. Birbirine çok yakın yüzeylerde (bel bandı, etek ucu)
+  // titreşen derinlik yerine dıştaki katman kazanır.
+  const layer = role === "top" ? -3 : role === "bottom" ? -1.5 : role === "sock" ? -0.5 : 0;
+  mat.polygonOffset = layer !== 0;
+  mat.polygonOffsetFactor = layer;
+  mat.polygonOffsetUnits = layer * 2;
 }
 
 function eyeMaterial() {
