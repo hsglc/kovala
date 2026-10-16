@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { fitIndex, fitItem, fitSex, itemsFor, REGIONS, withItem, type Region } from "../../shared/outfit";
 import { WardrobePreview } from "../game/three/WardrobePreview";
+import { cachedThumb, releaseThumbs, requestThumb, thumbKey } from "../game/three/thumbs";
 import { getFit, setFit } from "../lib/identity";
 import { getProgress } from "../lib/progress";
 
@@ -36,6 +37,23 @@ export function Wardrobe({ onBack }: Props) {
   useEffect(() => {
     previewRef.current?.set(team, fit);
   }, [team, fit]);
+
+  // Kart önizlemeleri: açık sekmedeki parçalar, sırayla üretilir
+  const [thumbs, setThumbs] = useState<Record<string, string>>({});
+  useEffect(() => {
+    let alive = true;
+    const list = itemsFor(region, sex);
+    for (const { i } of [...list].reverse()) {
+      if (cachedThumb(sex, team, region, i)) continue;
+      requestThumb(sex, team, region, i).then((url) => {
+        if (alive) setThumbs((t) => ({ ...t, [thumbKey(sex, team, region, i)]: url }));
+      });
+    }
+    return () => {
+      alive = false;
+    };
+  }, [region, sex, team]);
+  useEffect(() => () => releaseThumbs(), []);
 
   useEffect(() => {
     previewRef.current?.setPose(pose);
@@ -140,7 +158,14 @@ export function Wardrobe({ onBack }: Props) {
               onClick={() => commit(withItem(fit, region, i))}
             >
               {locked && <span className="wr-lock">Seviye {it.lvl}</span>}
-              <span className="wr-swatch" style={{ background: it.swatch }} />
+              {(() => {
+                const url = thumbs[thumbKey(sex, team, region, i)] ?? cachedThumb(sex, team, region, i);
+                return (
+                  <span className={`wr-thumb ${url ? "ready" : ""}`} data-team={team} data-region={region}>
+                    {url ? <img src={url} alt="" draggable={false} /> : <span className="wr-thumb-wait" style={{ background: it.swatch }} />}
+                  </span>
+                );
+              })()}
               <span className="wr-text">
                 <b>{it.name}</b>
                 <small>{it.desc}</small>

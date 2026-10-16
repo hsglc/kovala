@@ -12,6 +12,17 @@ export interface PatchNote {
 
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: "0.22.0",
+    date: "16 Eki 2026",
+    time: "13:30",
+    title: "Gardıropta gerçek önizleme",
+    items: [
+      "Gardıropta her parçanın kartında artık renk örneği değil, o parçanın gerçek 3B önizlemesi var: karakterin üstünde, takım renginde, stüdyo ışığında",
+      "Önizleme parçanın bölgesine yakın çekiliyor: üstte gövde, altta bacaklar, ayakkabıda yandan ayak, başlıkta yüz",
+      "Kırmızı/Mavi ve Kadın/Erkek değişince önizlemeler o renkte ve o karakterde yeniden çiziliyor",
+    ],
+  },
+  {
     version: "0.21.1",
     date: "16 Eki 2026",
     time: "13:19",
