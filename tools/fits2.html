@@ -1,0 +1,19 @@
+<!doctype html><html><body style="margin:0;background:#111"><script type="module">
+import * as THREE from "three";
+import { Athlete, loadAthlete } from "/src/client/game/three/athlete.ts";
+const q = new URLSearchParams(location.search);
+const r = new THREE.WebGLRenderer({ antialias: true }); r.setSize(innerWidth, innerHeight); document.body.appendChild(r.domElement);
+const sc = new THREE.Scene(); sc.background = new THREE.Color(0x1a2030);
+sc.add(new THREE.HemisphereLight(0xffffff, 0x303040, 1.6)); const d = new THREE.DirectionalLight(0xffffff, 2); d.position.set(2,4,5); sc.add(d);
+if (q.get("src")) globalThis.__ATHLETE_BASE = q.get("src"); await loadAthlete();
+const fits = (q.get("f") || "0000000,1000000").split(",");
+const rot = +(q.get("r") || 0);
+const out=[];
+fits.forEach((f, i) => { const a = new Athlete(null, 0xff3b2f, 0xb0201a, 0xffffff, f);
+  a.root.position.x = (i - (fits.length-1)/2) * 0.9; sc.add(a.root);
+  a.update({phase:0,run:0,pose:-1,at:0,now:0,mood:"run",heading:Math.PI/2 - rot,h:0,hv:0,airborne:false}, 0, +(q.get("t")||0.5));
+  a.root.traverse(o=>{ if(o.isMesh && o.visible) out.push(o.name); });
+});
+const cam = new THREE.PerspectiveCamera(30, innerWidth/innerHeight, 0.1, 50); cam.position.set(0, 1.0, 6); cam.lookAt(0, 0.9, 0);
+r.render(sc, cam); window.out = out.join(","); window.done = true;
+</script></body></html>

@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { Pipeline, skyEnvironment } from "./quality";
 import { PLAYER_RADIUS, QUAD_SIZE, SPEED_EVADER } from "../../../shared/constants";
 import type { PublicState } from "../../../shared/engine";
 import type { Obstacle, QuadLayout } from "../../../shared/maps";
@@ -41,6 +42,7 @@ export interface Projected {
 
 export class Scene3D {
   private renderer: THREE.WebGLRenderer;
+  private pipe: Pipeline;
   private scene = new THREE.Scene();
   private camera = new THREE.PerspectiveCamera(48, 1, 0.1, 80);
   private world = new THREE.Group();
@@ -66,11 +68,11 @@ export class Scene3D {
   private lastNow = 0;
 
   constructor(canvas: HTMLCanvasElement) {
-    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, powerPreference: "high-performance" });
+    this.pipe = new Pipeline(canvas, { kind: "game", maxDpr: 2, aoRadius: 1.1, aoIntensity: 2.6 });
+    this.renderer = this.pipe.renderer;
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.05;
+    this.pipe.setExposure(1.05);
     this.scene.background = new THREE.Color(0x0a1020);
     this.scene.fog = new THREE.Fog(0x0a1020, 26, 60);
 
@@ -81,7 +83,7 @@ export class Scene3D {
     this.scene.add(this.fill);
     this.sun = new THREE.DirectionalLight(0xfff1dc, 2.4);
     this.sun.castShadow = true;
-    this.sun.shadow.mapSize.set(1024, 1024);
+    this.sun.shadow.mapSize.set(2048, 2048);
     this.sun.shadow.camera.near = 1;
     this.sun.shadow.camera.far = 40;
     this.sun.shadow.bias = -0.0008;
@@ -92,6 +94,7 @@ export class Scene3D {
     this.scene.add(this.world);
     this.mats = makeMaterials();
     this.rig = new CameraRig(this.camera);
+    this.pipe.attach(this.scene, this.camera);
     // Blender sporcu modeli yüklenince mevcut basit figürleri değiştir
     loadAthlete()
       .then(() => {
@@ -116,15 +119,15 @@ export class Scene3D {
   resize(w: number, h: number, dpr: number) {
     this.w = w;
     this.h = h;
-    this.renderer.setPixelRatio(Math.min(dpr, 2));
-    this.renderer.setSize(w, h, false);
+    this.pipe.setSize(w, h, dpr);
     this.camera.aspect = w / h;
     this.portrait = h > w * 1.15;
     this.camera.updateProjectionMatrix();
   }
 
   dispose() {
-    this.renderer.dispose();
+    this.scene.environment?.dispose();
+    this.pipe.dispose();
   }
 
   // ---------- Statik sahne ----------
@@ -190,7 +193,14 @@ export class Scene3D {
     this.sunOffset = v.sunPos;
     this.fill.color.setHex(v.fill[0]);
     this.fill.intensity = v.fill[1];
-    this.renderer.toneMappingExposure = v.exposure;
+    this.pipe.setExposure(v.exposure);
+    // Mekâna uygun ortam haritası: gök/zemin rengi + güneş yönü → karakter ve metallerde tutarlı yansıma
+    this.scene.environment?.dispose();
+    const sd = new THREE.Vector3(v.sunPos[0] - QUAD_SIZE / 2, v.sunPos[1], v.sunPos[2] - QUAD_SIZE / 2).normalize();
+    this.scene.environment = skyEnvironment(this.renderer, v.hemi[0], v.hemi[1], sd, v.sun[0], 14);
+    this.scene.environmentIntensity = 0.5;
+    // Ortam haritası dolgu ışığının bir kısmını üstlenir
+    this.hemi.intensity = v.hemi[2] * 0.6;
   }
 
   private sunOffset: [number, number, number] | null = null;
@@ -428,7 +438,7 @@ export class Scene3D {
     const occ: THREE.Vector3[] = [];
     for (const p of players.values()) occ.push(new THREE.Vector3(p.x, p.h + 1.0, p.y), new THREE.Vector3(p.x, p.h + 1.6, p.y));
     this.updateOcclusion(occ);
-    this.renderer.render(this.scene, this.camera);
+    this.pipe.render(this.scene, this.camera);
 
     // Etiket konumları (başın üstü)
     const out = new Map<string, Projected>();

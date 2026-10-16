@@ -12,6 +12,21 @@ export interface PatchNote {
 
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: "0.20.0",
+    date: "16 Eki 2026",
+    time: "12:04",
+    title: "Gerçekçi görüntü + düzgün kollar",
+    items: [
+      "Kollar ve bacaklar düzeldi: animasyonlar artık karakterin duruşuna göre aktarılıyor, kollar gövdeye girmiyor, bacaklar açılmıyor",
+      "Yeni görüntü hattı: ortam ışığı gölgeleri (N8AO), SMAA kenar yumuşatma, sinematik ton eşleme (ACES) ve hafif parlama",
+      "Her mekânın kendi gök ışığı var; karakterler ve metal engeller sahneyle uyumlu ışık ve yansıma alıyor",
+      "Deri ve kumaş daha gerçekçi: kumaşta yumuşak parlaklık, deride sıcak kenar ışığı, gözlerde ıslak parıltı",
+      "Giysi kenarları temiz ve düz kesiliyor, paçalardan ve kol ağızlarından deri taşmıyor; üstler göğüste doğal duruyor",
+      "Gardırop artık telefonun tam ekran çözünürlüğünde, keskin gölgelerle çiziliyor",
+      "Telefon zorlanırsa kalite kendiliğinden bir kademe düşer, oyun akıcı kalır",
+    ],
+  },
+  {
     version: "0.19.0",
     date: "16 Eki 2026",
     time: "11:31",

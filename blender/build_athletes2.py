@@ -252,7 +252,49 @@ def taubin(bm, verts, iters, lam=0.55, mu=-0.58):
                 v.co = c
 
 
-def make_garment(body, name, pred, inflate, mat_name=None, sole=0.0, smooth=0, edge_smooth=16):
+def flatten_hems(bm, name, tol=0.03):
+    """Her sınır halkasını en uygun düzleme yansıt: paça, kol ağzı ve bel düz ve temiz kesilir.
+    Derin yaka gibi düzlemsel olmayan halkalar (rms > tol) olduğu gibi kalır."""
+    import numpy as np
+    boundary = {v for v in bm.verts if v.is_boundary}
+    seen = set()
+    for start in boundary:
+        if start in seen:
+            continue
+        loop, stack = [], [start]
+        while stack:
+            x = stack.pop()
+            if x in seen:
+                continue
+            seen.add(x)
+            loop.append(x)
+            for e in x.link_edges:
+                if e.is_boundary and e.other_vert(x) not in seen:
+                    stack.append(e.other_vert(x))
+        if len(loop) < 6:
+            continue
+        c = sum((v.co for v in loop), Vector()) / len(loop)
+        P = np.array([tuple(v.co - c) for v in loop])
+        _, vecs = np.linalg.eigh(P.T @ P)
+        n = Vector(vecs[:, 0])
+        d = [(v.co - c).dot(n) for v in loop]
+        rms = (sum(x * x for x in d) / len(d)) ** 0.5
+        if rms > tol:
+            print("   hem", name, len(loop), "rms", round(rms, 3), "atla")
+            continue
+        ring = {}
+        for v, x in zip(loop, d):
+            v.co -= n * x
+            for e in v.link_edges:
+                o = e.other_vert(v)
+                if o not in boundary:
+                    ring.setdefault(o, []).append(-x)
+        for o, xs in ring.items():
+            o.co += n * (sum(xs) / len(xs)) * 0.5
+        print("   hem", name, len(loop), "rms", round(rms, 3))
+
+
+def make_garment(body, name, pred, inflate, mat_name=None, sole=0.0, smooth=0, edge_smooth=16, soft=None, soft_iters=14, soft_floor=None):
     """pred(p, dom, v) True olan köşelerden oluşan yüzleri kopyalar, normal boyunca şişirir."""
     idx = vg_names(body)
     mw = body.matrix_world
@@ -282,9 +324,36 @@ def make_garment(body, name, pred, inflate, mat_name=None, sole=0.0, smooth=0, e
                 new[v] = v.co.lerp(avg, 0.6)
         for v, c in new.items():
             v.co = c
+    if not name.startswith(("hair", "hood", "ponytail")):
+        flatten_hems(bm, name)
+    # Kenar yumuşatma halkayı içeri çeker (deri dışarı taşar): sınır ve komşu halkayı gövde yüzeyine geri oturt
+    from mathutils.bvhtree import BVHTree
+    tree = BVHTree.FromObject(body, bpy.context.evaluated_depsgraph_get())
+    inv = mw.inverted()
+    edge = {v for v in bm.verts if v.is_boundary}
+    edge |= {e.other_vert(v) for v in list(edge) for e in v.link_edges}
+    for v in edge:
+        hit, nrm, _, _ = tree.find_nearest(v.co)
+        if hit is not None and (v.co - hit).dot(nrm) < 0.002:
+            v.co = hit + nrm * 0.002
     # Tüm yüzeyi yumuşat (ayakkabıda parmakları siler)
     if smooth:
         taubin(bm, [v for v in bm.verts if not v.is_boundary], smooth)
+    if soft:
+        # Kumaş göğüs gibi bölgelerde vücudun ince ayrıntısını izlemez, tepeler arasında gerilir.
+        # Düz Laplace ile ayrıntıyı sil; şişirme payının %60'ından fazla içeri girmesine izin verme.
+        region = [v for v in bm.verts if not v.is_boundary and soft(mw @ v.co)]
+        nb = {v: [e.other_vert(v) for e in v.link_edges] for v in region}
+        for _ in range(soft_iters):
+            new = {v: v.co.lerp(sum((u.co for u in nb[v]), Vector()) / len(nb[v]), 0.5) for v in region if nb[v]}
+            for v, c in new.items():
+                v.co = c
+        lim = inflate * 0.6 if soft_floor is None else max(0.0, inflate - soft_floor)
+        for v in region:
+            hit, nrm, _, _ = tree.find_nearest(v.co)
+            if hit is not None and (v.co - hit).dot(nrm) < -lim:
+                v.co = hit - nrm * lim
+        print("   yumuşak bölge", name, len(region))
     bm.normal_update()
     zmin = min((v.co.z for v in bm.verts), default=0)
     for v in bm.verts:
@@ -375,7 +444,10 @@ def garments(body, rig, sex):
                 return False  # yaka oyuğu (önde derin)
         return True
 
-    out.append(make_garment(body, "tank", tank, 0.006))
+    def chest(p):
+        return front(p) > 0.02 and armpitZ - 0.2 < p.z < armpitZ + 0.04 and side(p) < 0.17
+
+    out.append(make_garment(body, "tank", tank, 0.006, soft=chest, soft_floor=0.0055))
 
     def tee(p, d, v):
         t = arm_t(p, d)
@@ -385,7 +457,7 @@ def garments(body, rig, sex):
             return p.z > hipZ + 0.035 and not neckline(p, 0.045, 0.015)
         return False
 
-    out.append(make_garment(body, "tee", tee, 0.009))
+    out.append(make_garment(body, "tee", tee, 0.009, soft=chest))
 
     def longsleeve(top_extra):
         def f(p, d, v):
@@ -400,9 +472,9 @@ def garments(body, rig, sex):
 
         return f
 
-    out.append(make_garment(body, "sweat", longsleeve(0.0), 0.016))
-    out.append(make_garment(body, "sweater", longsleeve(0.07), 0.02))
-    hoodie = make_garment(body, "hoodie", longsleeve(0.0), 0.018)
+    out.append(make_garment(body, "sweat", longsleeve(0.0), 0.016, soft=chest))
+    out.append(make_garment(body, "sweater", longsleeve(0.07), 0.02, soft=chest))
+    hoodie = make_garment(body, "hoodie", longsleeve(0.0), 0.018, soft=chest)
     out.append(hoodie)
 
     headC = Vector((L.head.x, L.head.y, L.head.z))

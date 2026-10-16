@@ -38,11 +38,34 @@ for b in tgt.data.bones:
     if b.parent is None:
         walk(b)
 
+CHILD = {}
+for n in common:
+    kids = [c.name for c in tgt.data.bones[n].children if c.name in common and c.name in src.data.bones[n].children]
+    # Kol/bacak zincirinde tek doğal çocuk; parmak/omurga dallanmasında ilk ortak çocuk
+    pref = [k for k in kids if any(t in k for t in ("ForeArm", "Hand", "Leg", "Foot", "ToeBase", "Spine", "Neck", "Head", "Arm"))]
+    if (pref or kids):
+        CHILD[n] = (pref or kids)[0]
+
+
+def rest_dir(arm, n):
+    mw = arm.matrix_world
+    return ((mw @ arm.data.bones[CHILD[n]].head_local) - (mw @ arm.data.bones[n].head_local)).normalized()
+
+
+# Kaynak T-pozunda, hedef A-pozunda: önce hedef kemiğin dinlenme yönünü kaynağınkine çevir
+# (sanal T-pozu), sonra kaynağın dünya-uzayı farkını uygula. Yoksa kollar gövdeye girer.
+ALIGN_SKIP = ("Hips",)
 offset = {}
 for n in order:
     rs = rest_ws(src, n).to_quaternion()
     rt = rest_ws(tgt, n).to_quaternion()
-    offset[n] = rs.inverted() @ rt
+    if any(n.endswith(k) for k in ALIGN_SKIP) or n not in CHILD:
+        align = Quaternion()
+    else:
+        align = rest_dir(tgt, n).rotation_difference(rest_dir(src, n))
+    offset[n] = rs.inverted() @ align @ rt
+    if n in CHILD and any(k in n for k in ("Arm", "Leg", "Shoulder")):
+        print("align", n.replace("mixamorig:", ""), round(math.degrees(align.angle), 1))
 
 tgt.animation_data_create()
 src.animation_data_create()

@@ -76,7 +76,7 @@ export function loadAthlete(): Promise<void> {
     loader.setDRACOLoader(draco);
     loading = Promise.all(
       (["f", "m"] as Sex[]).map((sex) =>
-        loader.loadAsync(`/models/athlete_${sex}.glb`).then((g) => {
+        loader.loadAsync(`${(globalThis as { __ATHLETE_BASE?: string }).__ATHLETE_BASE ?? "/models/athlete_"}${sex}.glb`).then((g) => {
           templates.set(sex, measure(sex, g.scene as THREE.Group, g.animations));
         }),
       ),
@@ -133,7 +133,8 @@ export class Athlete {
     const hair = fitItem(fit, "hair");
     const hairMesh = hair.id === "natural" ? (this.sex === "f" ? ["hair_long", "ponytail"] : ["hair_short"]) : (hair.mesh ?? []);
     const visible = new Set<string>([...(top.mesh ?? []), ...(bottom.mesh ?? []), ...(shoes.mesh ?? []), ...hairMesh, "brief"]);
-    if (this.sex === "f") visible.add("bra");
+    // Sütyen yalnızca üst olarak seçilince çizilir; üstlerin içinden taşmasın
+    if (this.sex === "f" && top.id === "bra") visible.add("bra");
     const team = new THREE.Color(shirt);
     const teamDark = new THREE.Color(shorts);
     this.model.traverse((o) => {
@@ -146,7 +147,17 @@ export class Athlete {
       }
       if (name === "Body") {
         const src = m.material as THREE.MeshStandardMaterial;
-        const mat = new THREE.MeshStandardMaterial({ map: src.map, color: SKIN[this.sex], roughness: 0.62 });
+        // Deri: hafif "sheen" ile ışığa dönen kenarlarda yumuşak, kırmızımsı parlama (ucuz alt-yüzey saçılımı izlenimi)
+        const mat = new THREE.MeshPhysicalMaterial({
+          map: src.map,
+          color: SKIN[this.sex],
+          roughness: 0.52,
+          sheen: 0.35,
+          sheenRoughness: 0.55,
+          sheenColor: new THREE.Color(0xff8a6a),
+          clearcoat: 0.06,
+          clearcoatRoughness: 0.6,
+        });
         m.material = mat;
         return;
       }
@@ -411,8 +422,18 @@ function garmentMaterial(mesh: THREE.SkinnedMesh, id: string, role: string, look
   if (role === "under") key = look;
   if (id === "hood") key = look === "camo" ? "camo" : "hood";
   if (!LOOK_GLSL[key]) key = role === "bottom" ? "b-plain" : role === "shoe" ? "s-white" : "plain";
-  const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: role === "shoe" ? 0.55 : 0.82 });
-  mat.customProgramCacheKey = () => "g2-" + key;
+  // Kumaş: sheen ile pamuk/örgü yüzeyin kenarda açılan yumuşak parlaklığı; ayakkabıda hafif cila
+  const cloth = role !== "shoe" && role !== "hair";
+  const mat = new THREE.MeshPhysicalMaterial({
+    color: 0xffffff,
+    roughness: role === "shoe" ? 0.5 : role === "hair" ? 0.6 : 0.86,
+    sheen: cloth ? 0.8 : role === "hair" ? 0.5 : 0,
+    sheenRoughness: cloth ? 0.75 : 0.35,
+    sheenColor: cloth ? new THREE.Color(0x6a6a70) : new THREE.Color(0x8a6a50),
+    clearcoat: role === "shoe" ? 0.35 : 0,
+    clearcoatRoughness: 0.4,
+  });
+  mat.customProgramCacheKey = () => "g3-" + key;
   const maxX = Math.max(Math.abs(bb.min.x), Math.abs(bb.max.x));
   mat.onBeforeCompile = (sh) => {
     sh.uniforms.uTeam = { value: col };
@@ -444,8 +465,8 @@ function garmentMaterial(mesh: THREE.SkinnedMesh, id: string, role: string, look
 }
 
 function eyeMaterial() {
-  const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.25 });
-  mat.customProgramCacheKey = () => "eyes2";
+  const mat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.3, clearcoat: 1, clearcoatRoughness: 0.05 });
+  mat.customProgramCacheKey = () => "eyes3";
   mat.onBeforeCompile = (sh) => {
     sh.vertexShader = sh.vertexShader
       .replace("#include <common>", "#include <common>\nvarying vec3 vBN;")

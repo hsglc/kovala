@@ -24,6 +24,6 @@ for (const f of files) {
   if (q.get("clip")) { const m = new THREE.AnimationMixer(root); const c = g.animations.find(a => a.name === q.get("clip")); if (c) { const a = m.clipAction(c); a.play(); m.update(+(q.get("t")||0.3)); } }
 }
 const cam = new THREE.PerspectiveCamera(28, innerWidth/innerHeight, 0.1, 50);
-if (q.get("z") === "feet") { cam.position.set(0, 0.5, 2.6); cam.lookAt(0, 0.05, 0); } else if (q.get("z")) { cam.position.set(0, 1.55, 2.6); cam.lookAt(0, 1.5, 0); } else { cam.position.set(0, 1.0, 5.6); cam.lookAt(0, 0.9, 0); }
+if (q.get("z") === "knee") { cam.position.set(0, 0.75, 1.6); cam.lookAt(0, 0.7, 0); } else if (q.get("z") === "feet") { cam.position.set(0, 0.5, 2.6); cam.lookAt(0, 0.05, 0); } else if (q.get("z")) { cam.position.set(0, 1.55, 2.6); cam.lookAt(0, 1.5, 0); } else { cam.position.set(0, 1.0, 5.6); cam.lookAt(0, 0.9, 0); }
 r.render(sc, cam); window.out = out.join("|"); window.done = true;
 </script></body></html>
