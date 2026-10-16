@@ -42,6 +42,22 @@ export function Lobby({ source, state: s, onLeave }: Props) {
     } catch {}
   };
 
+  if (source.survival) {
+    return (
+      <div className="page lobby surv-page">
+        <VsBg split={[34, 24]} live={false} />
+        <SurvivalResult
+          sv={source.survival}
+          onRetry={() => {
+            unlockAudio();
+            source.start();
+          }}
+          onLeave={onLeave}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="page lobby">
       <VsBg split={[34, 24]} live={false} />
@@ -60,11 +76,7 @@ export function Lobby({ source, state: s, onLeave }: Props) {
         )}
       </header>
 
-      {source.survival ? (
-        <SurvivalResult sv={source.survival} />
-      ) : (
-        finished && s.winner !== null && <MatchResult s={s} me={me} />
-      )}
+      {finished && s.winner !== null && <MatchResult s={s} me={me} />}
 
       {!local && (
         <section className="teams">
@@ -190,17 +202,29 @@ export function Lobby({ source, state: s, onLeave }: Props) {
   );
 }
 
-function SurvivalResult({ sv }: { sv: { streak: number; best: number } }) {
+function SurvivalResult({ sv, onRetry, onLeave }: { sv: { streak: number; best: number }; onRetry: () => void; onLeave: () => void }) {
   const record = sv.streak > 0 && sv.streak >= sv.best;
   return (
     <section className="surv-card">
-      <span className="marker">{record ? "yeni rekor!" : "yakalandın"}</span>
-      <div className="surv-num">{sv.streak}</div>
-      <div className="surv-label">{sv.streak === 0 ? "ilk chase'te yakalandın" : "chase üst üste kaçtın"}</div>
-      <div className="surv-best">
-        Rekorun <b>{sv.best}</b>
+      <div className="surv-score">
+        <span className="marker">{record ? "yeni rekor!" : "yakalandın"}</span>
+        <div className="surv-num">{sv.streak}</div>
       </div>
-      <p className="hint">Her kaçışta kovalayan güçlenir ve saha değişir. 7. chase'ten sonra bot en zor hâline gelir.</p>
+      <div className="surv-info">
+        <div className="surv-label">{sv.streak === 0 ? "İlk chase'te yakalandın" : sv.streak === 1 ? "1 chase kaçtın" : `${sv.streak} chase üst üste kaçtın`}</div>
+        <div className="surv-best">
+          Rekorun <b>{sv.best}</b>
+        </div>
+        <div className="surv-actions">
+          <button className="btn primary big surv-retry" autoFocus onClick={onRetry}>
+            Tekrar dene
+          </button>
+          <button className="btn ghost surv-menu" onClick={onLeave}>
+            Ana menü
+          </button>
+        </div>
+        <p className="surv-hint">Her kaçışta kovalayan güçlenir, saha değişir.</p>
+      </div>
     </section>
   );
 }

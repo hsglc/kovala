@@ -12,6 +12,17 @@ export interface PatchNote {
 
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: "0.26.2",
+    date: "16 Eki 2026",
+    time: "16:13",
+    title: "Anlaşılır sonuç ekranı",
+    items: [
+      "Yatay ekranda skor solda, butonlar sağda — kaydırmaya gerek yok",
+      "Tekrar dene ve Ana menü artık sonuç kartının içinde, büyük ve belirgin",
+      "Maç sonu Rövanş butonu ekranın altına yapışık kalıyor",
+    ],
+  },
+  {
     version: "0.26.1",
     date: "16 Eki 2026",
     time: "16:05",

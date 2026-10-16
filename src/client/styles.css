@@ -1420,6 +1420,9 @@ button:disabled {
 }
 
 .lobby-actions {
+  position: sticky;
+  bottom: calc(10px + var(--safe-b));
+  z-index: 5;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -2295,17 +2298,22 @@ body:has(.game) {
   color: var(--white);
 }
 
+.surv-page {
+  justify-content: center;
+}
+
 .surv-card {
   position: relative;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  padding: 18px 20px 20px;
+  gap: 10px;
+  padding: 20px 22px 22px;
   background: var(--weave), var(--black);
   clip-path: var(--torn);
 }
 
-.surv-card > .marker {
+.surv-score .marker {
+  display: block;
   font-size: 26px;
   color: var(--yellow);
 }
@@ -2313,22 +2321,31 @@ body:has(.game) {
 .surv-num {
   font-family: var(--display);
   font-weight: 900;
-  font-size: 170px;
-  line-height: 0.8;
+  font-size: clamp(96px, 28vw, 150px);
+  line-height: 0.85;
   color: var(--white);
   -webkit-text-stroke: 4px var(--ink);
   paint-order: stroke fill;
   text-shadow: 8px 8px 0 var(--red);
 }
 
+.surv-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+}
+
 .surv-label {
   font-family: var(--display);
   font-weight: 900;
-  font-size: 30px;
+  font-size: 28px;
+  line-height: 1.05;
+  color: var(--white);
 }
 
 .surv-best {
-  margin: 8px 0 6px;
   padding: 2px 12px;
   background: var(--yellow);
   color: var(--ink);
@@ -2340,6 +2357,78 @@ body:has(.game) {
 .surv-best b {
   font-family: var(--display);
   font-size: 26px;
+}
+
+.surv-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  margin-top: 6px;
+}
+
+.surv-actions .btn {
+  white-space: nowrap;
+}
+
+.surv-actions .surv-retry {
+  flex: 2;
+  background: repeating-linear-gradient(-45deg, rgba(0, 0, 0, 0.09) 0 14px, transparent 14px 28px), var(--yellow);
+  color: var(--ink);
+  rotate: -1.5deg;
+}
+
+.surv-actions .surv-menu {
+  flex: 1;
+  min-height: 58px;
+  background: var(--white);
+  color: var(--ink);
+  font-family: var(--display);
+  font-weight: 900;
+  font-size: 22px;
+  rotate: 1deg;
+}
+
+.surv-hint {
+  margin: 0;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* Yatay telefon: sayı solda, bilgi ve butonlar sağda — her şey tek ekranda */
+@media (orientation: landscape) and (max-height: 520px) {
+  .page.surv-page {
+    max-width: 760px;
+    padding-top: calc(10px + var(--safe-t));
+    padding-bottom: calc(10px + var(--safe-b));
+  }
+
+  .surv-card {
+    flex-direction: row;
+    align-items: center;
+    gap: 28px;
+    padding: 18px 28px;
+  }
+
+  .surv-num {
+    font-size: min(150px, 42vh);
+  }
+
+  .surv-label {
+    font-size: 24px;
+  }
+
+  .surv-actions {
+    flex-direction: row;
+  }
+
+  .surv-actions .btn {
+    min-height: 68px;
+  }
+
+  .surv-actions .surv-retry {
+    font-size: 36px;
+  }
 }
 
 /* Mekân seçimi */
