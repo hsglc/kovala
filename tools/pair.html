@@ -1,0 +1,23 @@
+<!doctype html><html><body style="margin:0;background:#111"><script type="module">
+import * as THREE from "three";
+import { Athlete, loadAthlete } from "/src/client/game/three/athlete.ts";
+import { studioEnvironment } from "/src/client/game/three/quality.ts";
+const q = new URLSearchParams(location.search);
+const r = new THREE.WebGLRenderer({ antialias: true }); r.setSize(innerWidth, innerHeight); r.toneMapping = THREE.ACESFilmicToneMapping; document.body.appendChild(r.domElement);
+const sc = new THREE.Scene(); sc.background = new THREE.Color(0x2a3040); sc.environment = studioEnvironment(r); sc.environmentIntensity = 0.6;
+sc.add(new THREE.HemisphereLight(0xffffff, 0x303040, 0.6)); const d = new THREE.DirectionalLight(0xfff4ea, 2.6); d.position.set(2,3.5,3.5); sc.add(d);
+const rim = new THREE.DirectionalLight(0x8fb0ff, 1.6); rim.position.set(-3,2.5,-2.5); sc.add(rim);
+if (q.get("src")) globalThis.__ATHLETE_BASE = q.get("src"); await loadAthlete();
+const fits = (q.get("f") || "0000000,1000000").split(",");
+const rots = (q.get("r") || "0").split(",").map(Number);
+const gap = +(q.get("gap") || 0.8);
+const cells = [];
+fits.forEach((f) => rots.forEach((rot) => cells.push([f, rot])));
+cells.forEach(([f, rot], i) => { const a = new Athlete(null, 0xff3b2f, 0xb0201a, 0xffffff, f);
+  a.root.position.x = (i - (cells.length-1)/2) * gap; sc.add(a.root);
+  a.update({phase:0,run:0,pose:-1,at:0,now:0,mood:"run",heading:Math.PI/2 - rot,h:0,hv:0,airborne:false}, 0, +(q.get("t")||0.5));
+});
+const cy = +(q.get("cy") || 1.0), cz = +(q.get("cz") || 6), ly = +(q.get("ly") || 0.9), fov = +(q.get("fov") || 30);
+const cam = new THREE.PerspectiveCamera(fov, innerWidth/innerHeight, 0.05, 50); cam.position.set(0, cy, cz); cam.lookAt(0, ly, 0);
+r.compile(sc, cam); r.render(sc, cam); window.done = true;
+</script></body></html>
