@@ -1887,6 +1887,10 @@ body:has(.game) {
 }
 
 .sb-name {
+  max-width: 13ch;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   font-size: 11px;
   font-weight: 700;
   color: rgba(255, 255, 255, 0.92);
@@ -3452,5 +3456,637 @@ body:has(.game) {
 
   .rot-scrim h2 {
     font-size: 34px;
+  }
+}
+
+/* ---------- Kariyer: Dünya Turu ---------- */
+
+.tape-career,
+.vs-bottom > .tape-career {
+  color: var(--ink);
+  background: repeating-linear-gradient(-45deg, rgba(0, 0, 0, 0.08) 0 12px, transparent 12px 24px), var(--yellow);
+  --rot: -1.8deg;
+}
+
+.tape-career .marker {
+  color: #5a4700;
+}
+
+.page.career {
+  gap: 14px;
+}
+
+.cr-head {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cr-head .link-btn {
+  align-self: flex-start;
+  color: var(--ink);
+  font-size: 19px;
+}
+
+.cr-team h1 {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 900;
+  font-size: clamp(40px, 12vw, 58px);
+  line-height: 0.9;
+  color: var(--white);
+  -webkit-text-stroke: 3px var(--ink);
+  paint-order: stroke fill;
+  text-shadow: 5px 5px 0 var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.cr-team .marker {
+  color: var(--ink);
+  font-size: 20px;
+}
+
+.cr-team small {
+  display: block;
+  margin-top: 6px;
+  font-weight: 700;
+  color: var(--white);
+  text-shadow: 0 1px 0 var(--ink);
+}
+
+/* Rota: üç durak, bir uçak bileti gibi */
+.cr-route {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cr-route li {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px 10px;
+  background: var(--weave), var(--black);
+  clip-path: var(--torn);
+  opacity: 0.92;
+}
+
+.cr-route li.locked {
+  opacity: 0.55;
+}
+
+.cr-route li.on {
+  background: var(--white);
+  color: var(--ink);
+  opacity: 1;
+  rotate: -1.5deg;
+}
+
+.cr-route li.won::after {
+  content: "🏆";
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  font-size: 16px;
+}
+
+.cr-city {
+  font-family: var(--display);
+  font-weight: 900;
+  font-size: 22px;
+  line-height: 1;
+}
+
+.cr-tname {
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0.8;
+}
+
+.cr-last {
+  align-self: flex-start;
+  padding: 6px 14px;
+  background: var(--black);
+  font-weight: 700;
+  clip-path: var(--torn);
+}
+
+.cr-last.won b {
+  color: var(--green);
+}
+
+.cr-last.lost b {
+  color: #ff8a80;
+}
+
+/* Maç afişi: ekranın tek gösterişli parçası */
+.cr-poster {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 18px 20px;
+  background: var(--weave), var(--black);
+  clip-path: var(--torn);
+}
+
+.cr-stage {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.cr-stage span:first-child {
+  color: var(--yellow);
+}
+
+.cr-vs {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2px;
+}
+
+.cr-side {
+  font-family: var(--display);
+  font-weight: 900;
+  font-size: clamp(30px, 9vw, 44px);
+  line-height: 0.92;
+  overflow-wrap: anywhere;
+}
+
+.cr-side.me {
+  color: var(--red);
+}
+
+.cr-side.opp {
+  color: #7ea2ff;
+  text-align: right;
+}
+
+.cr-side small {
+  display: block;
+  margin-top: 4px;
+  font-family: var(--body);
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.cr-x {
+  justify-self: center;
+  font-family: var(--marker);
+  font-size: 26px;
+  color: var(--yellow);
+  rotate: -8deg;
+}
+
+.cr-quote {
+  margin: 0;
+  padding: 10px 14px;
+  background: var(--white);
+  color: var(--ink);
+  font-family: var(--marker);
+  font-size: 18px;
+  line-height: 1.25;
+  rotate: 1deg;
+}
+
+.cr-quote cite {
+  display: block;
+  margin-top: 6px;
+  font-family: var(--body);
+  font-style: normal;
+  font-weight: 700;
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.cr-riv {
+  margin: 0;
+  font-weight: 700;
+  color: var(--yellow);
+}
+
+.cr-go {
+  width: 100%;
+  align-items: center;
+  text-align: center;
+}
+
+.cr-go .marker {
+  font-size: 14px;
+}
+
+.cr-poster.end {
+  align-items: flex-start;
+}
+
+.cr-poster.end > .marker {
+  font-size: 26px;
+  color: var(--yellow);
+}
+
+.cr-poster.champ {
+  background: repeating-linear-gradient(-45deg, rgba(0, 0, 0, 0.08) 0 14px, transparent 14px 28px), var(--yellow);
+  color: var(--ink);
+}
+
+.cr-poster.champ > .marker {
+  color: var(--ink);
+}
+
+.cr-endt {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 900;
+  font-size: clamp(32px, 9vw, 46px);
+  line-height: 0.95;
+}
+
+.cr-endp {
+  margin: 0;
+  font-weight: 600;
+}
+
+.cr-awards,
+.cr-shelf {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cr-awards li {
+  font-weight: 800;
+  font-size: 17px;
+}
+
+/* Paneller */
+.cr-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px 16px;
+  background: var(--weave), var(--black);
+}
+
+.cr-h {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 900;
+  font-size: 26px;
+  line-height: 1;
+}
+
+.cr-note {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.cr-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.cr-table caption {
+  text-align: left;
+  font-weight: 700;
+  color: var(--yellow);
+  padding-bottom: 4px;
+}
+
+.cr-table th,
+.cr-table td {
+  padding: 7px 4px;
+  text-align: center;
+  border-bottom: 1px solid var(--line);
+}
+
+.cr-table th {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.cr-table .tl {
+  text-align: left;
+  width: 60%;
+}
+
+.cr-table tr.q td:first-child {
+  box-shadow: inset 3px 0 0 var(--green);
+  padding-left: 9px;
+}
+
+.cr-table tr.me td {
+  color: var(--yellow);
+  font-weight: 800;
+}
+
+.cr-ko {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cr-ko li {
+  display: grid;
+  grid-template-columns: 74px 1fr auto 1fr;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.cr-ko li > span:last-child {
+  text-align: right;
+}
+
+.cr-kos {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.cr-kosc {
+  font-family: var(--display);
+  font-weight: 900;
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+}
+
+.cr-ko .w {
+  font-weight: 800;
+}
+
+.cr-ko .me {
+  color: var(--yellow);
+}
+
+.cr-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.cr-stats div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cr-stats b {
+  font-family: var(--display);
+  font-weight: 900;
+  font-size: 40px;
+  line-height: 1;
+}
+
+.cr-stats span {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.cr-stats i {
+  display: block;
+  height: 6px;
+  margin-top: 6px;
+  background: linear-gradient(90deg, var(--yellow) var(--w), rgba(255, 255, 255, 0.12) var(--w));
+}
+
+.cr-news {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 14px;
+}
+
+.cr-news li:first-child {
+  font-weight: 700;
+}
+
+.cr-shelf li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+}
+
+.cr-shelf small {
+  display: block;
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.cr-ico {
+  font-size: 26px;
+}
+
+.cr-reset-link {
+  align-self: center;
+  border: 0;
+  background: none;
+  color: var(--white);
+  opacity: 0.6;
+  font-size: 13px;
+  text-decoration: underline;
+}
+
+.cr-reset {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--black);
+  font-size: 14px;
+}
+
+.cr-reset button {
+  border: 0;
+  padding: 6px 12px;
+  background: var(--white);
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.cr-reset button:first-of-type {
+  background: var(--red);
+  color: var(--white);
+}
+
+/* Giriş */
+.cr-intro {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px 18px 20px;
+  background: var(--weave), var(--black);
+  clip-path: var(--torn);
+}
+
+.cr-intro > .marker {
+  color: var(--yellow);
+  font-size: 22px;
+}
+
+.cr-intro h1 {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 900;
+  font-size: clamp(52px, 16vw, 76px);
+  line-height: 0.85;
+}
+
+.cr-intro p {
+  margin: 0;
+  line-height: 1.45;
+}
+
+.cr-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 4px 0 0;
+  padding-left: 20px;
+  line-height: 1.4;
+}
+
+.cr-label {
+  font-weight: 700;
+}
+
+.cr-input {
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 12px;
+  border: 0;
+  background: var(--white);
+  color: var(--ink);
+  font: 700 20px var(--body);
+}
+
+.cr-input:focus-visible {
+  outline: 3px solid var(--yellow);
+}
+
+.cr-ideas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.cr-ideas button {
+  border: 1px solid var(--line);
+  padding: 6px 10px;
+  background: transparent;
+  color: var(--white);
+  font-size: 13px;
+}
+
+/* Yatay telefon: başlık tek satır, maç afişi hemen altta ve iki sütun; "Maça çık" ilk ekranda */
+@media (orientation: landscape) and (max-height: 520px) {
+  .page.career {
+    max-width: 820px;
+    gap: 10px;
+    padding-top: calc(8px + var(--safe-t));
+  }
+
+  .cr-head {
+    flex-direction: row;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .cr-team {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .cr-team h1 {
+    font-size: 30px;
+    -webkit-text-stroke: 2px var(--ink);
+    text-shadow: 3px 3px 0 var(--ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .cr-team small {
+    display: none;
+  }
+
+  .cr-poster {
+    order: 1;
+    display: grid;
+    grid-template-columns: 1.15fr 1fr;
+    column-gap: 18px;
+    row-gap: 8px;
+    padding: 12px 16px 14px;
+  }
+
+  .cr-stage {
+    grid-column: 1 / -1;
+  }
+
+  .cr-vs {
+    grid-row: 2 / span 3;
+    align-content: center;
+  }
+
+  .cr-side {
+    font-size: 32px;
+  }
+
+  .cr-quote {
+    font-size: 15px;
+    padding: 8px 12px;
+  }
+
+  .cr-poster .cr-go {
+    min-height: 0;
+    padding-top: 6px;
+    padding-bottom: 8px;
+  }
+
+  .cr-poster .cr-go .tape-main {
+    font-size: 40px;
+  }
+
+  .cr-poster.end {
+    display: flex;
+  }
+
+  .cr-route {
+    order: 2;
+  }
+
+  .cr-last {
+    order: 0;
+  }
+
+  .page.career > .cr-panel,
+  .page.career > .cr-reset,
+  .page.career > .cr-reset-link {
+    order: 3;
   }
 }

@@ -8,6 +8,17 @@ import { QuadThumb } from "../ui/QuadThumb";
 import { VsBg } from "../ui/VsBg";
 import { getProgress } from "../lib/progress";
 import { BOT_FITS, survivalBest } from "../net/LocalGame";
+import { TIERS, load as loadCareer, nextMatch, stageLabel } from "../lib/career";
+
+/** Ana menüde kariyerin nerede kaldığı. */
+function careerLine() {
+  const d = loadCareer();
+  if (!d) return "takımını kur, İstanbul'dan Paris'e";
+  const t = TIERS[d.tier];
+  const f = nextMatch(d);
+  if (!f) return `${t.name} bitti · sonuçlara bak`;
+  return `${t.place} · ${stageLabel(f)} · ${d.teamName}`;
+}
 import { prewarmGame } from "../game/three/prewarm";
 import { VENUES } from "../../shared/venues";
 import { unlockAudio } from "../lib/sound";
@@ -27,11 +38,12 @@ interface Props {
   onPractice: (level: BotLevel, map: string, squad: number, venue: string) => void;
   onWardrobe: () => void;
   onSurvival: () => void;
+  onCareer: () => void;
 }
 
 type Sheet = null | "rules" | "notes" | "missions" | "practice" | "ladder" | "online";
 
-export function Home({ offline, initialCode, busy, error, onQuick, onCreate, onJoin, onPractice, onWardrobe, onSurvival }: Props) {
+export function Home({ offline, initialCode, busy, error, onQuick, onCreate, onJoin, onPractice, onWardrobe, onSurvival, onCareer }: Props) {
   const [name, setNameState] = useState(getName());
   const [code, setCode] = useState(initialCode ?? "");
   const [level, setLevel] = useState<BotLevel>("orta");
@@ -208,6 +220,11 @@ export function Home({ offline, initialCode, busy, error, onQuick, onCreate, onJ
             </form>
           )}
         </div>
+
+        <button className="tape tape-career" onClick={() => ensureName() && onCareer()}>
+          <span className="tape-main">Kariyer</span>
+          <span className="marker">{careerLine()}</span>
+        </button>
 
         <button className="tape tape-ply" onClick={() => ensureName() && setSheet("practice")}>
           <span className="tape-main">Antrenman</span>

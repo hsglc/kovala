@@ -4,8 +4,14 @@ export const TEAM_NAMES = ["Kırmızı", "Mavi"] as const;
 export const TEAM_COLORS = ["#ff3b2f", "#2f6bff"] as const;
 export const TEAM_DARK = ["#b0201a", "#173fb0"] as const;
 
+let customNames: [string, string] | null = null;
+/** Kariyer maçında takım adlarını değiştir (null: Kırmızı/Mavi). */
+export function setTeamNames(n: [string, string] | null) {
+  customNames = n;
+}
+
 export function teamName(t: Team | number) {
-  return TEAM_NAMES[t as 0 | 1];
+  return (customNames ?? TEAM_NAMES)[t as 0 | 1];
 }
 
 export function memberName(s: PublicState | null, id: string | null | undefined) {

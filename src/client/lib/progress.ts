@@ -202,3 +202,9 @@ export function recordMatch(s: PublicState, me: string) {
   }
   save();
 }
+
+/** Dışarıdan (kariyer ödülleri vb.) XP ver. */
+export function grantXp(xp: number, why: string) {
+  addXp(xp, why);
+  save();
+}

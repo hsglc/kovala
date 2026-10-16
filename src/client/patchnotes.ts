@@ -12,6 +12,20 @@ export interface PatchNote {
 
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: "0.27.0",
+    date: "16 Eki 2026",
+    time: "17:15",
+    title: "Kariyer: Dünya Turu",
+    items: [
+      "Takımını kur: sen ve iki takım arkadaşın, her chase'ten önce sahaya kimin gireceğini sen seçersin",
+      "Üç turnuva: İstanbul Bölge Elemesi, Ankara Türkiye Şampiyonası, Paris Dünya Şampiyonası",
+      "Gerçek WCT gibi grup aşaması (galibiyet 3 puan), yarı final ve final; diğer maçlar da oynanır, tablo canlı",
+      "Her rakibin yıldızı ve sözü var; aranızdaki geçmiş (ör. 2 maçtır yenemiyorsun) maç afişinde",
+      "Turnuvanın en iyi kaçanına Kaçış Dükü/Düşesi, en iyi kovalayana Uçuş Şövalyesi; kupalar rafında, ödüller XP getirir",
+      "Paris'i kazanınca yeni sezon; takım arkadaşların maç oynadıkça gelişir",
+    ],
+  },
+  {
     version: "0.26.4",
     date: "16 Eki 2026",
     time: "16:55",

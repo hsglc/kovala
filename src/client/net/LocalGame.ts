@@ -44,7 +44,18 @@ export class LocalGame implements GameSource {
   /** Hayatta kal modu: hep sen kaçarsın, her kaçışta bot güçlenir ve saha değişir; yakalanınca biter. */
   readonly survival: { streak: number; best: number; over: boolean } | null;
 
-  constructor(pid: string, name: string, level: BotLevel, chases = 16, layoutId = "random", teamSize = 1, mode: "match" | "survival" = "match", venue = "arena") {
+  constructor(
+    pid: string,
+    name: string,
+    level: BotLevel,
+    chases = 16,
+    layoutId = "random",
+    teamSize = 1,
+    mode: "match" | "survival" = "match",
+    venue = "arena",
+    /** Kariyer: sırayla rakip, arkadaş, rakip… isim, kombin ve ustalık (0..1) */
+    roster?: { name: string; fit: string; tune: number }[],
+  ) {
     this.selfId = pid;
     this.survival = mode === "survival" ? { streak: 0, best: getBest(), over: false } : null;
     this.engine.join(pid, name, getFit());
@@ -54,11 +65,16 @@ export class LocalGame implements GameSource {
     } else {
       for (let i = 0; i < teamSize * 2 - 1; i++) {
         const id = `bot-${i + 1}`;
-        this.engine.join(id, SQUAD[i].name, SQUAD[i].fit);
-        this.bots.set(id, new Bot(level));
+        const r = roster?.[i];
+        this.engine.join(id, r?.name ?? SQUAD[i].name, r?.fit ?? SQUAD[i].fit);
+        const b = new Bot(level);
+        if (r) b.tune(r.tune);
+        this.bots.set(id, b);
       }
     }
     this.engine.setChases(pid, chases);
+    // Kariyer turnuvaları daha kısa maçlar oynar (oda ayarlarında olmayan 8 chase gibi)
+    if (roster && this.engine.chases !== chases) this.engine.chases = chases;
     this.engine.layoutChoice = layoutId;
     this.engine.setVenue(pid, venue);
     if (this.survival) this.startSurvival();

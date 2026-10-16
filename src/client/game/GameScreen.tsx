@@ -16,9 +16,11 @@ interface Props {
   source: GameSource;
   state: PublicState;
   onLeave: () => void;
+  /** çıkış penceresinin metni (ör. kariyerde hükmen mağlubiyet uyarısı) */
+  leaveText?: { title: string; body: string };
 }
 
-export function GameScreen({ source, state, onLeave }: Props) {
+export function GameScreen({ source, state, onLeave, leaveText: leaveOverride }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const timeRef = useRef<HTMLDivElement>(null);
@@ -470,7 +472,7 @@ export function GameScreen({ source, state, onLeave }: Props) {
   const leaveText = source.survival
     ? { title: "Seri bitsin mi?", body: `${source.survival.streak} kaçışlık serin burada biter. En iyin: ${source.survival.best}.` }
     : source.kind === "local"
-      ? { title: "Antrenmandan çık?", body: "Maç yarıda kalır, bu maçın skoru sayılmaz." }
+      ? leaveOverride ?? { title: "Antrenmandan çık?", body: "Maç yarıda kalır, bu maçın skoru sayılmaz." }
       : !inMatch
         ? { title: "Odadan çık?", body: "Arkadaşların odada kalır, kodla tekrar katılabilirsin." }
         : mateLeft

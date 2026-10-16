@@ -18,6 +18,9 @@ import { getProgress } from "./lib/progress";
 import type { PresenceStatus } from "../shared/presence";
 import { useRef } from "react";
 import type { PublicState } from "../shared/engine";
+import { Career } from "./screens/Career";
+import { PLAYER_ID, forfeitCareerMatch, load as loadCareer, matchRoster, nextMatch, recordCareerMatch } from "./lib/career";
+import { setTeamNames } from "./lib/text";
 
 type Screen =
   | { k: "home"; error?: string }
@@ -25,7 +28,11 @@ type Screen =
   | { k: "wardrobe" }
   | { k: "room"; code: string; quick: boolean }
   | { k: "practice"; level: BotLevel; map?: string; squad?: number; venue?: string }
-  | { k: "survival"; n: number };
+  | { k: "survival"; n: number }
+  | { k: "career"; last?: CareerLast | null }
+  | { k: "careerMatch"; n: number };
+
+type CareerLast = { mine: number; theirs: number; won: boolean; opp: string };
 
 /** Önizleme derlemesinde (artifact) sunucu yok: sadece botla antrenman. */
 const OFFLINE = import.meta.env.VITE_OFFLINE === "1";
@@ -106,7 +113,7 @@ function AppScreens() {
   }, []);
   useEffect(() => {
     const st: PresenceStatus =
-      screen.k === "practice" || screen.k === "survival" ? "practice" : screen.k === "quick" ? "queue" : screen.k === "room" ? "room" : "menu";
+      screen.k === "practice" || screen.k === "survival" || screen.k === "careerMatch" ? "practice" : screen.k === "quick" ? "queue" : screen.k === "room" ? "room" : "menu";
     presence()?.update({ s: st, n: getName(), l: getProgress().level });
   }, [screen]);
 
@@ -135,8 +142,13 @@ function AppScreens() {
           onPractice={(level, map, squad, venue) => setScreen({ k: "practice", level, map, squad, venue })}
           onWardrobe={() => setScreen({ k: "wardrobe" })}
           onSurvival={() => setScreen({ k: "survival", n: Date.now() })}
+          onCareer={() => setScreen({ k: "career" })}
         />
       );
+    case "career":
+      return <Career last={screen.last} onBack={() => home()} onPlay={() => setScreen({ k: "careerMatch", n: Date.now() })} />;
+    case "careerMatch":
+      return <CareerMatch key={screen.n} onDone={(last) => setScreen({ k: "career", last })} />;
     case "survival":
       return <Survival key={screen.n} onLeave={() => home()} />;
     case "wardrobe":
@@ -233,6 +245,71 @@ function Practice({ level, map, squad, venue, onLeave }: { level: BotLevel; map?
   const inMatch = state.phase === "countdown" || state.phase === "chase" || state.phase === "result";
   return inMatch ? <GameScreen source={source} state={state} onLeave={onLeave} /> : <Lobby source={source} state={state} onLeave={onLeave} />;
 }
+
+/** Kariyer maçı: 3'e 3, gerçek takım adları; bitince sonuç kariyere işlenir. Çıkış hükmen mağlubiyettir. */
+function CareerMatch({ onDone }: { onDone: (last: CareerLast | null) => void }) {
+  const [source, setSource] = useState<LocalGame | null>(null);
+  const [opp, setOpp] = useState("");
+  const recorded = useRef(false);
+  useEffect(() => {
+    const d = loadCareer();
+    const f = d ? nextMatch(d) : null;
+    if (!d || !f) {
+      onDone(null);
+      return;
+    }
+    const m = matchRoster(d, f);
+    setOpp(m.opp.id);
+    setTeamNames([d.teamName, m.opp.name]);
+    const g = new LocalGame(getPid(), getName() || "Sen", "orta", m.chases, "random", 3, "match", m.venue, m.roster);
+    g.setRest("quick");
+    setSource(g);
+    return () => {
+      g.close();
+      setTeamNames(null);
+    };
+  }, []);
+  const state = useSourceState(source);
+  useProgressTracker(source?.selfId, state);
+  useEffect(() => {
+    if (!state || !source || recorded.current || state.phase !== "finished" || state.winner === null) return;
+    recorded.current = true;
+    const me = source.selfId;
+    const st = { evAtt: 0, ev: 0, chAtt: 0, tag: 0 };
+    for (const r of state.history) {
+      if (r.reason === "forfeit") continue;
+      if (r.evader === me) {
+        st.evAtt++;
+        if (r.winner === "evader") st.ev++;
+      }
+      if (r.chaser === me) {
+        st.chAtt++;
+        if (r.winner === "chaser" && r.reason === "tag") st.tag++;
+      }
+    }
+    const mine = state.scores[0];
+    const theirs = state.scores[1];
+    recordCareerMatch(mine, theirs, mine === theirs ? state.winner === 0 : null, st);
+    onDone({ mine, theirs, won: state.winner === 0, opp });
+  }, [state, source, opp, onDone]);
+  if (!source || !state) return null;
+  const leave = () => {
+    if (!recorded.current) {
+      recorded.current = true;
+      forfeitCareerMatch();
+      onDone({ mine: 0, theirs: 3, won: false, opp });
+    }
+  };
+  return (
+    <GameScreen
+      source={source}
+      state={state}
+      onLeave={leave}
+      leaveText={{ title: "Maçtan çık?", body: "Kariyer maçından çıkarsan hükmen 0–3 kaybedersin ve tabloya mağlubiyet yazılır." }}
+    />
+  );
+}
+void PLAYER_ID;
 
 /** Oda içinde lobi/maç durumunu çevrimiçi listesine bildirir. */
 function PresenceStatusSync({ s }: { s: PresenceStatus }) {
