@@ -15,7 +15,7 @@ interface Props {
   onQuick: () => void;
   onCreate: () => void;
   onJoin: (code: string) => void;
-  onPractice: (level: BotLevel, map: string) => void;
+  onPractice: (level: BotLevel, map: string, squad: number) => void;
   onWardrobe: () => void;
 }
 
@@ -32,6 +32,7 @@ export function Home({ offline, initialCode, busy, error, onQuick, onCreate, onJ
       return "random";
     }
   });
+  const [squad, setSquad] = useState<number>(1);
   const choosePmap = (id: string) => {
     setPmap(id);
     try {
@@ -173,6 +174,16 @@ export function Home({ offline, initialCode, busy, error, onQuick, onCreate, onJ
             ))}
           </div>
         </div>
+        <div className="seg squad-seg">
+          {[
+            [1, "1'e 1"],
+            [3, "3'e 3 takım"],
+          ].map(([n, label]) => (
+            <button key={n} className={squad === n ? "on" : ""} onClick={() => setSquad(n as number)}>
+              {label}
+            </button>
+          ))}
+        </div>
         <div className="pmap-cap">
           Saha <span className="pdot lvl-1" /> kolay <span className="pdot lvl-2" /> orta <span className="pdot lvl-3" /> zor
         </div>
@@ -184,7 +195,7 @@ export function Home({ offline, initialCode, busy, error, onQuick, onCreate, onJ
             </button>
           ))}
         </div>
-        <button className="btn wide" onClick={() => ensureName() && onPractice(level, pmap)}>
+        <button className="btn wide" onClick={() => ensureName() && onPractice(level, pmap, squad)}>
           Antrenmanı başlat
         </button>
       </section>

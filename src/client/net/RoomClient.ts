@@ -396,6 +396,9 @@ export class RoomClient implements GameSource {
   setChases(n: number) {
     this.sendMsg({ t: "chases", n });
   }
+  pick(id: string) {
+    this.sendMsg({ t: "pick", id });
+  }
   setRest(v: "official" | "quick") {
     this.sendMsg({ t: "rest", v });
   }

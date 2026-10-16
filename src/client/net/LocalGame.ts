@@ -14,11 +14,20 @@ const BOT_NAMES: Record<BotLevel, string> = { kolay: "Çaylak Bot", orta: "Bot",
 /** Botla antrenman: aynı maç motoru tarayıcıda çalışır, ağ yok. */
 const BOT_FITS: Record<BotLevel, string> = { kolay: "41000", orta: "12321", zor: "25443" };
 
+/** 3'e 3 antrenmanda sırayla: rakip, takım arkadaşı, rakip, takım arkadaşı, rakip */
+const SQUAD = [
+  { name: "Kaan", fit: "25443" },
+  { name: "Deniz", fit: "13104" },
+  { name: "Ece", fit: "32212" },
+  { name: "Arda", fit: "40331" },
+  { name: "Mert", fit: "01420" },
+];
+
 export class LocalGame implements GameSource {
   readonly kind = "local" as const;
   readonly selfId: string;
   private engine = new MatchEngine();
-  private bot: Bot;
+  private bots = new Map<string, Bot>();
   private state: PublicState;
   private listeners = new Set<() => void>();
   private acc = 0;
@@ -29,11 +38,19 @@ export class LocalGame implements GameSource {
   private act2 = false;
   private paused = false;
 
-  constructor(pid: string, name: string, level: BotLevel, chases = 16, layoutId = "random") {
+  constructor(pid: string, name: string, level: BotLevel, chases = 16, layoutId = "random", teamSize = 1) {
     this.selfId = pid;
-    this.bot = new Bot(level);
     this.engine.join(pid, name, getFit());
-    this.engine.join(BOT_ID, BOT_NAMES[level], BOT_FITS[level]);
+    if (teamSize <= 1) {
+      this.engine.join(BOT_ID, BOT_NAMES[level], BOT_FITS[level]);
+      this.bots.set(BOT_ID, new Bot(level));
+    } else {
+      for (let i = 0; i < teamSize * 2 - 1; i++) {
+        const id = `bot-${i + 1}`;
+        this.engine.join(id, SQUAD[i].name, SQUAD[i].fit);
+        this.bots.set(id, new Bot(level));
+      }
+    }
     this.engine.setChases(pid, chases);
     this.engine.layoutChoice = layoutId;
     this.engine.start(pid);
@@ -44,14 +61,19 @@ export class LocalGame implements GameSource {
     const e = this.engine;
     const inputs = new Map<string, TickInput>();
     if (e.phase === "chase") {
-      const selfRole = e.chaserId === this.selfId ? "chaser" : "evader";
-      const botRole = selfRole === "chaser" ? "evader" : "chaser";
-      const me = e.players.get(this.selfId)!;
-      const bp = e.players.get(BOT_ID)!;
-      inputs.set(this.selfId, { input: quantizeInput(this.move.mx, this.move.my, this.act, this.act2) });
+      const cid = e.chaserId!;
+      const vid = e.evaderId!;
+      const cp = e.players.get(cid)!;
+      const vp = e.players.get(vid)!;
+      for (const [id, role, self, opp] of [
+        [cid, "chaser", cp, vp],
+        [vid, "evader", vp, cp],
+      ] as const) {
+        if (id === this.selfId) inputs.set(id, { input: quantizeInput(this.move.mx, this.move.my, this.act, this.act2) });
+        else inputs.set(id, { input: this.bots.get(id)!.think(role, self, opp, e.layout) });
+      }
       this.act = false;
       this.act2 = false;
-      inputs.set(BOT_ID, { input: this.bot.think(botRole, bp, me, e.layout) });
     } else {
       this.act = false;
       this.act2 = false;
@@ -59,7 +81,7 @@ export class LocalGame implements GameSource {
     this.prev = new Map([...e.players].map(([id, p]) => [id, clonePlayer(p)]));
     const v = e.version;
     const events = e.step(inputs);
-    if (events.some((x) => x.type === "chaseStart")) this.bot.reset();
+    if (events.some((x) => x.type === "chaseStart")) for (const b of this.bots.values()) b.reset();
     if (e.version !== v) {
       this.state = e.publicState();
       this.emit();
@@ -139,6 +161,11 @@ export class LocalGame implements GameSource {
   }
   start() {
     this.engine.start(this.selfId);
+    this.state = this.engine.publicState();
+    this.emit();
+  }
+  pick(id: string) {
+    this.engine.pick(this.selfId, id);
     this.state = this.engine.publicState();
     this.emit();
   }

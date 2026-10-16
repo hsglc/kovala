@@ -11,7 +11,8 @@ export type ClientMsg =
   | { t: "chases"; n: number }
   | { t: "layout"; id: string }
   | { t: "rest"; v: string }
-  | { t: "start" };
+  | { t: "start" }
+  | { t: "pick"; id: string };
 
 // ---------- Sunucu → İstemci ----------
 /** [id, x, y, vx, vy, st, ak, at, dx, dy, cd, fx, fy, h, hv] */

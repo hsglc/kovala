@@ -33,5 +33,7 @@ export interface GameSource {
   setLayout(id: string): void;
   setRest(v: "official" | "quick"): void;
   start(): void;
+  /** Takım maçı: geri sayımda sahaya girecek takım arkadaşını seç */
+  pick(id: string): void;
   close(): void;
 }

@@ -285,3 +285,37 @@ describe("denge (bot vs bot)", () => {
     }
   });
 });
+
+describe("takım maçı (3'e 3)", () => {
+  it("geri sayımda takım sıradaki oyuncuyu seçer; kazanan sahada kalır", () => {
+    const e = new MatchEngine(seeded(7));
+    for (const id of ["a1aaaaaa", "b1bbbbbb", "a2aaaaaa", "b2bbbbbb", "a3aaaaaa", "b3bbbbbb"]) e.join(id, id.slice(0, 2));
+    e.setChases(e.host!, 10);
+    e.start(e.host);
+    const st = e.publicState();
+    expect(st.pick.chaser && st.pick.evader).toBe(true);
+    // en az 6 sn seçim süresi
+    expect(e.phaseEndTick - e.tick).toBeGreaterThanOrEqual(180);
+    const chTeam = e.member(e.chaserId!)!.team;
+    const mate = e.members.find((m) => m.team === chTeam && m.id !== e.chaserId)!;
+    const other = e.members.find((m) => m.team !== chTeam)!;
+    expect(e.pick(other.id, mate.id)).toBe(false); // rakip takım seçemez
+    expect(e.pick(mate.id, mate.id)).toBe(true);
+    expect(e.chaserId).toBe(mate.id);
+    expect(e.players.has(mate.id)).toBe(true);
+    // Chase'i oynat: kimse hareket etmez → kaçan süreyi doldurur ve sahada kalır
+    let guard = 0;
+    while (e.phase !== "countdown" || e.history.length === 0) {
+      e.step(new Map());
+      if (guard++ > 2000) throw new Error("ilerlemedi");
+    }
+    const st2 = e.publicState();
+    expect(st2.pick.evader).toBe(false); // kazanan kaçan sahada kalır
+    expect(st2.pick.chaser).toBe(true);
+    // Son 2 saniyede seçim kilitlenir
+    while (e.tick < e.phaseEndTick - 30) e.step(new Map());
+    const chT = e.member(e.chaserId!)!.team;
+    const m2 = e.members.find((m) => m.team === chT && m.id !== e.chaserId)!;
+    expect(e.pick(m2.id, m2.id)).toBe(false);
+  });
+});

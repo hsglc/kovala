@@ -12,6 +12,18 @@ export interface PatchNote {
 
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: "0.11.0",
+    date: "16 Eki 2026",
+    time: "10:06",
+    title: "Takım maçı: 3'e 3 ve sıra seçimi",
+    items: [
+      "Gerçek WCT takım formatı: geri sayımda takımın sahaya kimi süreceğini seçer (Sahaya kim girsin?). Seçim son 2 saniyede kilitlenir.",
+      "Kazanan sahada kalır, seçilemez; yeni girecek oyuncu için en az 6 sn seçim süresi var.",
+      "Botla antrenmanda 3'e 3 takım modu: iki bot takım arkadaşın ve üç bot rakiple 10 chase'lik maç.",
+      "Online odalarda da çalışır: takım başına 6 oyuncuya kadar, her takım kendi sırasını seçer.",
+    ],
+  },
+  {
     version: "0.10.0",
     date: "16 Eki 2026",
     time: "10:00",

@@ -66,6 +66,8 @@ export interface PublicState {
   history: ChaseRecord[];
   winner: Team | null;
   winReason: "score" | "sd" | "forfeit" | null;
+  /** Takım maçında geri sayım sırasında sahaya kimin gireceğini takım seçebilir. */
+  pick: { chaser: boolean; evader: boolean; until: number };
 }
 
 export interface TickInput {
@@ -81,6 +83,8 @@ export type EngineEvent =
   | { type: "finished" };
 
 const MAX_MEMBERS = MAX_TEAM_SIZE * 2;
+const PICK_LOCK_TICKS = 60;
+const PICK_COUNTDOWN_TICKS = 6 * 30;
 
 export class MatchEngine {
   tick = 0;
@@ -110,6 +114,8 @@ export class MatchEngine {
   /** Durum her değiştiğinde artar; sunucu bunu görünce herkese yeni state yollar. */
   version = 1;
   private lastUsed: [number, number] = [-1, -1];
+  /** Bu chase için yeni girecek oyuncu seçilebilir mi (kazanan sahada kalıyorsa seçilemez) */
+  pickable = { chaser: false, evader: false };
   private lastWinner: string | null = null;
   private evaderHist: { tick: number; x: number; y: number }[] = [];
   readonly lastInputs = new Map<string, Input>();
@@ -239,7 +245,28 @@ export class MatchEngine {
     const ev = this.nextFrom(evTeam);
     const ch = this.nextFrom(evTeam === 0 ? 1 : 0);
     if (!ev || !ch) return false;
-    this.setupChase(ch.id, ev.id);
+    this.setupChase(ch.id, ev.id, { chaser: true, evader: true });
+    return true;
+  }
+
+  /** Geri sayımda takım, sahaya gireceği oyuncuyu değiştirir (son 2 sn hariç). */
+  pick(by: string, id: string): boolean {
+    if (this.phase !== "countdown" || this.tick > this.phaseEndTick - PICK_LOCK_TICKS) return false;
+    const picker = this.member(by);
+    const target = this.member(id);
+    if (!picker || !target || !target.connected || picker.team !== target.team) return false;
+    const chTeam = this.member(this.chaserId!)?.team;
+    const role: "chaser" | "evader" = chTeam === target.team ? "chaser" : "evader";
+    if (!this.pickable[role]) return false;
+    const cur = role === "chaser" ? this.chaserId! : this.evaderId!;
+    if (cur === id) return true;
+    const st = this.players.get(cur)!;
+    this.players.delete(cur);
+    this.players.set(id, st);
+    if (role === "chaser") this.chaserId = id;
+    else this.evaderId = id;
+    this.markUsed(target);
+    this.bump();
     return true;
   }
 
@@ -265,7 +292,8 @@ export class MatchEngine {
     if (idx >= 0) this.lastUsed[m.team] = idx;
   }
 
-  private setupChase(chaserId: string, evaderId: string) {
+  private setupChase(chaserId: string, evaderId: string, pickable = { chaser: false, evader: false }) {
+    this.pickable = pickable;
     this.chaserId = chaserId;
     this.evaderId = evaderId;
     let cPos: [number, number];
@@ -289,6 +317,14 @@ export class MatchEngine {
     // İlk chase'ten önce 3 sn; sonrakilerde dinlenme süresinin kalanı (sonuç ekranı düşülür)
     const restLeft = (this.rest === "official" ? REST_OFFICIAL_TICKS : REST_QUICK_TICKS) - RESULT_TICKS;
     this.phaseEndTick = this.tick + (this.history.length === 0 ? COUNTDOWN_TICKS : Math.max(COUNTDOWN_TICKS, restLeft));
+    // Takım maçında seçim yapılabilsin diye en az 6 sn
+    const squad = (id: string) => {
+      const t = this.member(id)?.team;
+      return t !== undefined && this.teamMembers(t).filter((m) => m.connected).length > 1;
+    };
+    if ((pickable.chaser && squad(chaserId)) || (pickable.evader && squad(evaderId))) {
+      this.phaseEndTick = Math.max(this.phaseEndTick, this.tick + PICK_COUNTDOWN_TICKS);
+    }
     this.bump();
   }
 
@@ -489,7 +525,8 @@ export class MatchEngine {
       this.finish(evader ? evTeam : chTeam, "forfeit");
       return { type: "finished" };
     }
-    this.setupChase(chaser.id, evader.id);
+    const fresh = { chaser: !(lw && lw.id === chaser.id), evader: !(lw && lw.id === evader.id) };
+    this.setupChase(chaser.id, evader.id, fresh);
     return null;
   }
 
@@ -539,6 +576,11 @@ export class MatchEngine {
       history: this.history.slice(-20),
       winner: this.winner,
       winReason: this.winReason,
+      pick: {
+        chaser: this.phase === "countdown" && this.pickable.chaser,
+        evader: this.phase === "countdown" && this.pickable.evader,
+        until: this.phaseEndTick - PICK_LOCK_TICKS,
+      },
     };
   }
 

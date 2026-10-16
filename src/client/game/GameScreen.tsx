@@ -339,6 +339,21 @@ export function GameScreen({ source, state, onLeave }: Props) {
   const role = s.chaserId === me ? "chaser" : s.evaderId === me ? "evader" : null;
   const chaser = memberName(s, s.chaserId);
   const evader = memberName(s, s.evaderId);
+  const myTeam = s.members.find((m) => m.id === me)?.team;
+  const chTeam = s.members.find((m) => m.id === s.chaserId)?.team;
+  const pickRole: "chaser" | "evader" | null =
+    s.phase === "countdown" && myTeam !== undefined && s.pick
+      ? myTeam === chTeam
+        ? s.pick.chaser
+          ? "chaser"
+          : null
+        : s.pick.evader
+          ? "evader"
+          : null
+      : null;
+  const mates = myTeam !== undefined ? s.members.filter((m) => m.team === myTeam && m.connected) : [];
+  const activeMate = pickRole === "chaser" ? s.chaserId : pickRole === "evader" ? s.evaderId : null;
+  const showPick = !!pickRole && mates.length > 1;
   const chaseLabel = s.sd ? "SUDDEN DEATH" : `CHASE ${Math.min(s.chaseNo + 1, s.chases)}/${s.chases}`;
   const last = s.last;
 
@@ -405,6 +420,26 @@ export function GameScreen({ source, state, onLeave }: Props) {
             <span className="chip chaser">◆ {chaser}</span>
             <span className="vs">kovalıyor</span>
             <span className="chip evader">● {evader}</span>
+          </div>
+        </div>
+      )}
+
+      {showPick && (
+        <div className="pick-panel" key={`pk-${s.phaseEndTick}`}>
+          <div className="pick-title">Sahaya kim girsin? <span>{pickRole === "chaser" ? "◆ kovalayan" : "● kaçan"}</span></div>
+          <div className="pick-row">
+            {mates.map((m) => (
+              <button
+                key={m.id}
+                className={`pick-chip ${activeMate === m.id ? "on" : ""}`}
+                onPointerDown={(e) => {
+                  e.stopPropagation();
+                  source.pick(m.id);
+                }}
+              >
+                {m.id === me ? "Ben" : m.name}
+              </button>
+            ))}
           </div>
         </div>
       )}
