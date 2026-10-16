@@ -294,15 +294,12 @@ function depo(steel: THREE.Material): VenueLook {
     [CX - 3.5, CZ + 3.5],
     [CX + 3.5, CZ + 3.5],
   ]) {
-    const cone = new THREE.Mesh(new THREE.ConeGeometry(0.45, 0.35, 16, 1, true), shade);
-    cone.position.set(x, 7.5, z);
-    const b = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 8), bulb);
-    b.position.set(x, 7.35, z);
-    const cable = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, 4), steel);
-    cable.position.set(x, 9.7, z);
+    // Yalnızca ışık: kamera sahaya yukarıdan baktığı için lamba gövdesi ve kablosu görüşü kapatıyordu
+    void shade;
+    void bulb;
     const light = new THREE.PointLight(0xffb066, 22, 16, 1.6);
     light.position.set(x, 7.2, z);
-    g.add(cone, b, cable, light);
+    g.add(light);
   }
   return {
     group: g,

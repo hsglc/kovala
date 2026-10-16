@@ -167,6 +167,9 @@ export class Athlete {
         // Deri: hafif "sheen" ile ışığa dönen kenarlarda yumuşak, kırmızımsı parlama (ucuz alt-yüzey saçılımı izlenimi)
         m.material = new THREE.MeshPhysicalMaterial({
           map: src.map,
+          // gözenek ve ince kırışık (Blender'da üretilen normal haritası)
+          normalMap: src.normalMap ?? null,
+          normalScale: new THREE.Vector2(0.28, 0.28),
           color: SKIN[this.sex],
           roughness: 0.52,
           sheen: 0.35,
@@ -494,7 +497,19 @@ const LOOK_GLSL: Record<string, string> = {
     glow = vec3(0.4, 0.08, 0.0) * (1.0 - sole);`,
   sock: `c = vec3(0.96); c = mix(c, uTeam, (1.0 - step(0.01, abs(v - 0.8))));`,
   // ----- Saç ve iç giyim -----
-  hair: `float s = fitNoise(vBind * vec3(220.0, 60.0, 220.0)); c = uTeam * (0.85 + 0.3 * s); rough = 0.55;`,
+  // Saç: teller geriye ve hafif yukarı taranmış akar; ince tel + tutam + geniş dalga katmanları,
+  // tutam içinde parlaklık değişimi (plastik kask görünmesin)
+  hair: `vec3 hn = normalize(vBindN);
+    vec3 hd = vec3(0.0, 0.3, -1.0);
+    hd = normalize(hd - hn * dot(hd, hn) + vec3(0.0, 1e-3, 0.0));
+    vec3 ha = normalize(cross(hn, hd));
+    float hu = dot(vBind, ha), hw = dot(vBind, hd);
+    float s1 = fitNoise(vec3(hu * 700.0, hw * 12.0, 3.1));
+    float s2 = fitNoise(vec3(hu * 190.0, hw * 4.0, 7.7));
+    float s3 = fitNoise(vec3(hu * 45.0, hw * 1.2, 1.3));
+    float st = s1 * 0.45 + s2 * 0.35 + s3 * 0.2;
+    c = uTeam * (0.5 + 0.85 * st);
+    rough = 0.8 - 0.2 * s2;`,
   under: `c = vec3(0.12, 0.12, 0.14);`,
   "bra-team": `c = uTeam; c = mix(c, uDark, step(0.85, v) + (1.0 - step(0.15, v)));`,
 };

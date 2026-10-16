@@ -444,6 +444,8 @@ export function GameScreen({ source, state, onLeave, leaveText: leaveOverride }:
     ? `SERİ ${source.survival.streak}`
     : s.sd ? "SUDDEN DEATH" : `CHASE ${Math.min(s.chaseNo + 1, s.chases)}/${s.chases}`;
   const last = s.last;
+  // Rol, sahayı kapatan ayrı bir şerit yerine skor tabelasının saatinde gösterilir
+  const roleOn = !!role && (s.phase === "chase" || s.phase === "countdown");
 
   // Çıkış: onay penceresi. Yerel oyunda pencere açıkken oyun durur.
   const [askLeave, setAskLeave] = useState(false);
@@ -492,11 +494,14 @@ export function GameScreen({ source, state, onLeave, leaveText: leaveOverride }:
             <span className="sb-name">{teamName(0)}</span>
             <b>{s.scores[0]}</b>
           </div>
-          <div className="sb-clock">
+          <div className={`sb-clock ${roleOn ? `r-${role}` : ""}`}>
             <div className="sb-time" ref={timeRef}>
               20,0
             </div>
-            <div className="sb-sub">{chaseLabel}</div>
+            <div className="sb-sub">
+              {roleOn && <b className={`sb-role ${role}`}>{role === "chaser" ? "◆ KOVALA" : "● KAÇ"}</b>}
+              {roleOn ? chaseLabel.replace("CHASE ", "").replace("SUDDEN DEATH", "SD") : chaseLabel}
+            </div>
           </div>
           <div className="sb-team right" style={{ ["--c" as string]: TEAM_COLORS[1] }}>
             <b>{s.scores[1]}</b>
@@ -515,13 +520,6 @@ export function GameScreen({ source, state, onLeave, leaveText: leaveOverride }:
           {isMuted() ? "🔇" : "🔊"}
         </button>
       </div>
-
-      {role && (s.phase === "chase" || s.phase === "countdown") && (
-        <div className={`role-pill ${role}`}>
-          <b>{role === "chaser" ? "◆ KOVALAYANSIN" : "● KAÇANSIN"}</b>
-          <span>{role === "chaser" ? "yeşil olanı yakala" : "sarıdan kaç"}</span>
-        </div>
-      )}
 
       {s.phase === "countdown" && (
         <div className="banner" key={`cd-${s.phaseEndTick}`}>

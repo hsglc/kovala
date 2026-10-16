@@ -12,6 +12,17 @@ export interface PatchNote {
 
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: "0.27.2",
+    date: "16 Eki 2026",
+    time: "20:14",
+    title: "Açık görüş",
+    items: [
+      "Sarı/yeşil rol şeridi sahayı kapatıyordu: rol artık saatin altında kısa etiket (◆ KOVALA / ● KAÇ), saat kutusunun alt kenarı rol renginde",
+      "Eski depoda tavandan sarkan lambaların gövdesi kaldırıldı, ışıkları duruyor",
+      "Saç gölgelendiricisi: taranmış tel deseni, mat yüzey (plastik parlaklık yok)",
+    ],
+  },
+  {
     version: "0.27.1",
     date: "16 Eki 2026",
     time: "17:45",

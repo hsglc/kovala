@@ -32,7 +32,7 @@ export const FABRIC_PARAMS: Record<Fabric, FabricParams> = {
   denim: { roughness: 0.92, sheen: 0.35, sheenRoughness: 0.8, sheenColor: 0x3a4660 },
   leather: { roughness: 0.42, sheen: 0, sheenRoughness: 0.4, sheenColor: 0x000000, clearcoat: 0.45, clearcoatRoughness: 0.3 },
   runner: { roughness: 0.6, sheen: 0.3, sheenRoughness: 0.5, sheenColor: 0x606068, clearcoat: 0.15, clearcoatRoughness: 0.4 },
-  hair: { roughness: 0.5, sheen: 0.6, sheenRoughness: 0.3, sheenColor: 0x8a6a50 },
+  hair: { roughness: 0.78, sheen: 0.45, sheenRoughness: 0.45, sheenColor: 0x6a5040 },
 };
 
 /** Desen anahtarı → kumaş */
@@ -158,9 +158,12 @@ export function fabricCode(key: string, role: string, id: string): string {
     case "hair":
       // Saç telleri: yukarıdan aşağı akan ince çizgiler
       s += `
-    float strand = fitNoise(vBind * vec3(520.0, 26.0, 520.0));
-    fabH += 0.0005 * strand * fabFade(260.0);
-    c *= 0.82 + 0.36 * strand;`;
+    vec3 hn2 = normalize(vBindN);
+    vec3 hd2 = vec3(0.0, 0.3, -1.0);
+    hd2 = normalize(hd2 - hn2 * dot(hd2, hn2) + vec3(0.0, 1e-3, 0.0));
+    float hu2 = dot(vBind, normalize(cross(hn2, hd2)));
+    float strand = fitNoise(vec3(hu2 * 190.0, dot(vBind, hd2) * 4.0, 7.7));
+    fabH += 0.0004 * strand * fabFade(120.0);`;
       break;
     default:
       break;

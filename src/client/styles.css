@@ -1942,6 +1942,31 @@ body:has(.game) {
   white-space: nowrap;
 }
 
+/* Rol: saatin altında renkli kısa etiket + saat kutusunun alt kenarı rol renginde */
+.sb-role {
+  margin-right: 6px;
+  font-family: var(--display);
+  font-weight: 900;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+}
+
+.sb-role.chaser {
+  color: var(--role-chaser);
+}
+
+.sb-role.evader {
+  color: var(--role-evader);
+}
+
+.sb-clock.r-chaser {
+  box-shadow: inset 0 -4px 0 var(--role-chaser);
+}
+
+.sb-clock.r-evader {
+  box-shadow: inset 0 -4px 0 var(--role-evader);
+}
+
 /* Duyurular: dev eğik yazı ve bant */
 .banner {
   position: absolute;

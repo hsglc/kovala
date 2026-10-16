@@ -146,23 +146,188 @@ def split_helpers(body):
     return eye_obj, hair_obj
 
 
-def skin_texture(path):
-    """MakeHuman UV maskelerinden ten dokusu: beyaz zemin (oyunda ten rengiyle çarpılır), dudak ve göz kapağı tonları."""
-    from PIL import Image, ImageChops, ImageFilter
+def skin_texture(path, body=None, eyes=None, sex="f", rig=None):
+    """Ten dokusu (oyunda ten rengiyle çarpılır) + gözenek normal haritası.
+    MakeHuman UV maskeleri: dudak, göz kapağı, tırnak. Üstüne 3B konuma göre boyanır:
+    kaş, kirpik çizgisi, erkekte sakal gölgesi, yanak/burun/kulak kızarıklığı."""
+    import numpy as np
+    from PIL import Image, ImageFilter
     tex = "/root/.config/blender/5.2/extensions/user_default/mpfb/data/textures/"
-    S = 1024
+    S = 2048
     base = Image.new("RGB", (S, S), (255, 255, 255))
 
-    def tint(mask_file, rgb, blur=2):
-        m = Image.open(tex + mask_file).convert("L").resize((S, S)).filter(ImageFilter.GaussianBlur(blur))
-        layer = Image.new("RGB", (S, S), rgb)
-        return Image.composite(layer, base, m)
+    def mask(f, blur):
+        return Image.open(tex + f).convert("L").resize((S, S)).filter(ImageFilter.GaussianBlur(blur))
 
-    base = tint("mpfb_eyelids.jpg", (214, 186, 178))
-    base = tint("mpfb_lips.jpg", (178, 104, 100), 1.5)
-    base = tint("mpfb_fingernails.jpg", (255, 236, 230), 1)
-    base = tint("mpfb_toenails.jpg", (255, 236, 230), 1)
-    base.save(path)
+    def tint(img, m, rgb):
+        return Image.composite(Image.new("RGB", (S, S), rgb), img, m)
+
+    lips_m = mask("mpfb_lips.jpg", 3)
+    base = tint(base, mask("mpfb_eyelids.jpg", 4), (222, 192, 184) if sex == "f" else (214, 190, 180))
+    base = tint(base, lips_m, (196, 98, 104) if sex == "f" else (190, 132, 122))
+    base = tint(base, mask("mpfb_fingernails.jpg", 1), (255, 236, 230))
+    base = tint(base, mask("mpfb_toenails.jpg", 1), (255, 236, 230))
+    img = np.asarray(base).astype(np.float32) / 255.0
+    lips = np.asarray(lips_m).astype(np.float32) / 255.0
+    rng_ = np.random.default_rng(7)
+
+    def vnoise(x, y, seed):
+        """Değer gürültüsü (vektörel)."""
+        xi, yi = np.floor(x), np.floor(y)
+        xf, yf = x - xi, y - yi
+        def h(a, b):
+            n = (a * 374761393 + b * 668265263 + seed * 1442695041).astype(np.int64)
+            n = (n ^ (n >> 13)) * 1274126177
+            return ((n ^ (n >> 16)) & 0xFFFF) / 65535.0
+        u, v = xf * xf * (3 - 2 * xf), yf * yf * (3 - 2 * yf)
+        a, b_, c, d = h(xi, yi), h(xi + 1, yi), h(xi, yi + 1), h(xi + 1, yi + 1)
+        return (a + (b_ - a) * u) * (1 - v) + (c + (d - c) * u) * v
+
+    if body is not None and eyes is not None:
+        L = Land(rig, body)
+        mw = body.matrix_world
+        me = body.data
+        uvl = me.uv_layers.active.data
+        R_, F_ = L.right, L.fwd
+        ep = [eyes.matrix_world @ v.co for v in eyes.data.vertices]
+        M = sum(ep, Vector()) / len(ep)
+        left = [q for q in ep if (q - M).dot(R_) > 0]
+        right = [q for q in ep if (q - M).dot(R_) <= 0]
+        EL = sum(left, Vector()) / max(1, len(left))
+        ER = sum(right, Vector()) / max(1, len(right))
+        er = max((q - EL).length for q in left) if left else 0.012
+        # yüz bölgesindeki her üçgeni UV'de tara; her piksel için 3B konum
+        PX, PY, P3 = [], [], []
+        co = [mw @ v.co for v in me.vertices]
+        for poly in me.polygons:
+            vs = poly.vertices
+            if min(co[i].z for i in vs) < M.z - 0.22:
+                continue
+            if max(abs((co[i] - M).dot(F_)) for i in vs) > 0.25:
+                continue
+            li = list(poly.loop_indices)
+            for t in range(1, len(li) - 1):
+                tri = (li[0], li[t], li[t + 1])
+                uv = np.array([tuple(uvl[k].uv) for k in tri]) * S
+                uv[:, 1] = S - uv[:, 1]
+                p3 = np.array([tuple(co[me.loops[k].vertex_index]) for k in tri])
+                x0, y0 = np.floor(uv.min(0)).astype(int)
+                x1, y1 = np.ceil(uv.max(0)).astype(int)
+                if x1 - x0 > 400 or y1 - y0 > 400:
+                    continue
+                xs, ys = np.meshgrid(np.arange(x0, x1 + 1), np.arange(y0, y1 + 1))
+                xs, ys = xs.ravel(), ys.ravel()
+                (ax, ay), (bx, by), (cx, cy) = uv
+                den = (by - cy) * (ax - cx) + (cx - bx) * (ay - cy)
+                if abs(den) < 1e-9:
+                    continue
+                w1 = ((by - cy) * (xs + 0.5 - cx) + (cx - bx) * (ys + 0.5 - cy)) / den
+                w2 = ((cy - ay) * (xs + 0.5 - cx) + (ax - cx) * (ys + 0.5 - cy)) / den
+                w3 = 1 - w1 - w2
+                ok = (w1 >= -0.02) & (w2 >= -0.02) & (w3 >= -0.02) & (xs >= 0) & (ys >= 0) & (xs < S) & (ys < S)
+                if not ok.any():
+                    continue
+                PX.append(xs[ok]); PY.append(ys[ok])
+                P3.append(w1[ok, None] * p3[0] + w2[ok, None] * p3[1] + w3[ok, None] * p3[2])
+        PX = np.concatenate(PX); PY = np.concatenate(PY); P3 = np.concatenate(P3)
+        rel = P3 - np.array(tuple(M))
+        R3, F3 = np.array(tuple(R_)), np.array(tuple(F_))
+        lat = rel @ R3            # sağ(+)/sol(-)
+        fwd = rel @ F3            # ileri
+        up = rel[:, 2]
+        mul = np.ones((len(PX), 3), np.float32)
+
+        def sm(x):
+            x = np.clip(x, 0, 1)
+            return x * x * (3 - 2 * x)
+
+        def blend(dens, rgb, strength=1.0):
+            nonlocal mul
+            d = np.clip(dens * strength, 0, 1)[:, None]
+            mul = mul * (1 - d) + mul * np.array(rgb, np.float32)[None, :] * d
+
+        # --- kaşlar ---
+        for sgn, E in ((1, EL), (-1, ER)):
+            e = np.array(tuple(E)) - np.array(tuple(M))
+            u = (lat - e @ R3) * sgn            # dışa doğru +
+            v = up - e[2]
+            w = fwd - e @ F3
+            if sex == "f":
+                vc = 0.0175 + 0.0058 * (1 - ((u - 0.007) / 0.021) ** 2)
+                th = 0.0040 - 0.0024 * sm((u + 0.012) / 0.036)
+                a = sm((u + 0.016) / 0.006) * (1 - sm((u - 0.021) / 0.006))
+            else:
+                vc = 0.0150 + 0.0022 * (1 - ((u - 0.004) / 0.024) ** 2)
+                th = 0.0060 - 0.0022 * sm((u + 0.012) / 0.04)
+                a = sm((u + 0.018) / 0.005) * (1 - sm((u - 0.024) / 0.007))
+            dens = np.exp(-(((v - vc) / np.maximum(th, 1e-4)) ** 2) * 1.5) * a * (w > -0.012)
+            # kıl yönü: iç uçta yukarı, sonra dışa yatık; ince çizgiler
+            ang = np.where(u < 0.0, 1.2, 0.35)
+            q1 = (u * np.cos(ang) + v * np.sin(ang)) * 2600.0
+            q2 = (-u * np.sin(ang) + v * np.cos(ang)) * 380.0
+            hair = 0.45 + 0.55 * vnoise(q1, q2, 3 + sgn)
+            blend(dens * hair, (0.2, 0.15, 0.12), 0.92)
+            # --- kirpik çizgisi (üst göz kapağı kenarı) ---
+            vm = 0.0058 * np.clip(1 - (u / (er * 1.15)) ** 2, 0, 1) + 0.0004
+            lash = np.exp(-(((v - vm) / 0.0011) ** 2)) * (np.abs(u) < er * 1.15) * (w > 0.0) * (v > 0.0)
+            blend(lash, (0.12, 0.09, 0.08), 0.85 if sex == "f" else 0.55)
+            # --- yanak kızarıklığı ---
+            cheek = np.exp(-((u - 0.006) ** 2 + (v + 0.03) ** 2) / (0.02 ** 2)) * (w > -0.02)
+            blend(cheek, (0.96, 0.84, 0.84), 0.75 if sex == "f" else 0.35)
+        # --- burun ucu ve kulak: hafif kızarıklık (alt-yüzey saçılımı izlenimi) ---
+        nose = np.exp(-((lat) ** 2 + (up + 0.032) ** 2) / (0.014 ** 2)) * (fwd > 0.012)
+        blend(nose, (0.95, 0.85, 0.84), 0.6)
+        ear = sm((np.abs(lat) - 0.065) / 0.01) * (np.abs(up + 0.005) < 0.04) * (fwd < -0.05)
+        blend(ear, (0.95, 0.84, 0.83), 0.55)
+        hp = globals().get("_HAIR_PARAMS")
+        if hp:
+            (fz, rec, sz, nz_), eY, eZ, eX = hp
+            x, y, z = np.abs(lat), fwd, up
+            zf_front = fz + rec * sm((x - 0.012) / 0.04) + 0.007 * np.minimum(1.0, (x / 0.05) ** 2)
+            k = sm((y - (eY + 0.028)) / 0.04)
+            zf = sz + (zf_front - sz) * k
+            k2 = sm((y - (eY - 0.005)) / 0.03)
+            zf = nz_ + (zf - nz_) * k2
+            jag = 0.0018 * np.sin(x * 410 + 1.3) * np.sin(y * 370 + 0.4) + 0.0012 * np.sin(x * 1150 + y * 830)
+            line = z - zf + jag
+            ex = (y - (eY + 0.006)) / 0.034
+            ez = (z - (eZ + 0.004)) / 0.042
+            ear_s = np.where(x > eX - 0.035, (np.hypot(ex, ez) - 1.0) * 0.03, 0.05)
+            hf = np.minimum(line, ear_s)
+            # saç çizgisinin hemen altından başlayan yumuşak saç dibi gölgesi + tek tük kısa teller
+            roots = sm((hf + 0.005) / 0.009)
+            fuzz = (vnoise(PX * 1.3, PY * 1.3, 31) > 0.62) * sm((hf + 0.007) / 0.006) * (1 - sm(hf / 0.004))
+            blend(np.maximum(roots * 0.75, fuzz * 0.9), (0.5, 0.42, 0.38), 0.85 if sex == "m" else 0.7)
+        if sex == "m":
+            # --- sakal gölgesi: çene, alt yanak, bıyık; dudak hariç ---
+            ax_ = np.abs(lat)
+            top = np.where(fwd > 0.03, -0.042, -0.012 - 0.03 * sm((fwd + 0.06) / 0.09))
+            beard = sm((top - up) / 0.012) * sm((up + 0.175) / 0.03)
+            beard *= sm((fwd + 0.07) / 0.02)       # kulağın önünden başlar
+            beard *= 1 - sm((ax_ - 0.075) / 0.01)
+            neck_fade = 1 - sm((-0.13 - up) / 0.04) * sm((0.0 - fwd) / 0.03)
+            beard *= neck_fade
+            lp = lips[PY, PX]
+            beard *= 1 - np.clip(lp * 1.6, 0, 1)
+            stip = vnoise(PX * 0.9, PY * 0.9, 11)
+            stub = 0.35 + 0.65 * (stip > 0.45)
+            blend(beard * stub, (0.6, 0.55, 0.52), 0.55)
+        img[PY, PX] = img[PY, PX] * mul
+    # genel ten: düşük frekanslı renk dalgalanması (düz plastik görünmesin)
+    yy, xx = np.mgrid[0:S, 0:S].astype(np.float32)
+    var = vnoise(xx / 90.0, yy / 90.0, 5) * 0.6 + vnoise(xx / 23.0, yy / 23.0, 9) * 0.4
+    img *= (0.965 + 0.05 * var)[..., None]
+    Image.fromarray((np.clip(img, 0, 1) * 255).astype(np.uint8)).save(path)
+    # gözenek normal haritası: ince gözenek + daha seyrek kırışık yükseklik alanı
+    hgt = vnoise(xx / 2.2, yy / 2.2, 21) * 0.55 + vnoise(xx / 6.0, yy / 6.0, 22) * 0.3 + vnoise(xx / 40.0, yy / 7.0, 23) * 0.15
+    gx = np.roll(hgt, -1, 1) - np.roll(hgt, 1, 1)
+    gy = np.roll(hgt, -1, 0) - np.roll(hgt, 1, 0)
+    k = 1.6
+    nx, ny, nz = -gx * k, gy * k, np.ones_like(hgt)
+    ln = np.sqrt(nx * nx + ny * ny + nz * nz)
+    nrm = np.stack([nx / ln, ny / ln, nz / ln], -1) * 0.5 + 0.5
+    npath = path.replace(".png", "_n.png")
+    Image.fromarray((nrm * 255).astype(np.uint8)).save(npath)
     return path
 
 
@@ -176,6 +341,16 @@ def skin_material(objs, img_path):
     t.image = img
     nt.links.new(t.outputs["Color"], bsdf.inputs["Base Color"])
     bsdf.inputs["Roughness"].default_value = 0.6
+    npath = img_path.replace(".png", "_n.png")
+    if os.path.exists(npath):
+        nimg = bpy.data.images.load(npath)
+        nimg.colorspace_settings.name = "Non-Color"
+        tn = nt.nodes.new("ShaderNodeTexImage")
+        tn.image = nimg
+        nm = nt.nodes.new("ShaderNodeNormalMap")
+        nm.inputs["Strength"].default_value = 1.0
+        nt.links.new(tn.outputs["Color"], nm.inputs["Color"])
+        nt.links.new(nm.outputs["Normal"], bsdf.inputs["Normal"])
     for o in objs:
         o.data.materials.clear()
         o.data.materials.append(mat)
@@ -368,7 +543,7 @@ def iso_cut(bm, sv):
     bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context="VERTS")
 
 
-def make_garment(body, name, pred, inflate, mat_name=None, sole=0.0, smooth=0, edge_smooth=3, soft=None, soft_iters=14, soft_floor=None, drape=None, field_smooth=None, thick=None):
+def make_garment(body, name, pred, inflate, mat_name=None, sole=0.0, smooth=0, edge_smooth=3, soft=None, soft_iters=14, soft_floor=None, drape=None, field_smooth=None, thick=None, envelope=None):
     """pred(p, dom, v): alan (m, >0 içeride) ya da True/False. Sıfır eğrisinden temiz kesilir, normal boyunca şişirilir.
     thick(p, s) → şişirme çarpanı (saç çizgisinde incelme gibi)."""
     idx = vg_names(body)
@@ -478,6 +653,36 @@ def make_garment(body, name, pred, inflate, mat_name=None, sole=0.0, smooth=0, e
             if hit is not None and (v.co - hit).dot(nrm) < -lim:
                 v.co = hit - nrm * lim
         print("   yumuşak bölge", name, len(region))
+    if envelope:
+        # Kumaş zarfı: önce yalnızca DIŞA doğru yumuşat (göğüs arası, omurga ve kürek çukurları dolar),
+        # sonra kısa bir düz yumuşatma ile küçük tümsekleri (göğüs ucu, göbek) düzleştir; deri dışarı taşmasın.
+        region_fn, out_it, in_it = envelope
+        reg = [v for v in bm.verts if not v.is_boundary and region_fn(mw @ v.co, dominant(body, body.data.vertices[v[orig]], idx))]
+        bm.normal_update()
+        n0 = {v: v.normal.copy() for v in reg}
+        nb = {v: [e.other_vert(v) for e in v.link_edges] for v in reg}
+        for _ in range(out_it):
+            new = {}
+            for v in reg:
+                ns = nb[v]
+                if not ns:
+                    continue
+                avg = sum((u.co for u in ns), Vector()) / len(ns)
+                dd = (avg - v.co).dot(n0[v])
+                if dd > 0:
+                    new[v] = v.co + n0[v] * dd * 0.7
+            for v, c in new.items():
+                v.co = c
+        floor_ = inflate * 0.3
+        for _ in range(in_it):
+            new = {v: v.co.lerp(sum((u.co for u in nb[v]), Vector()) / len(nb[v]), 0.5) for v in reg if nb[v]}
+            for v, c in new.items():
+                v.co = c
+        for v in reg:
+            hit, nrm, _, _ = tree.find_nearest(v.co)
+            if hit is not None and (v.co - hit).dot(nrm) < -floor_:
+                v.co = hit - nrm * floor_
+        print("   zarf", name, len(reg))
     if drape and os.environ.get("DRAPE", "1") == "1":
         # Kumaş düşümü: gövdede asılı kalma, kol/paçada açılma, manşette toplanma
         inv3 = mw.inverted().to_3x3()
@@ -493,6 +698,16 @@ def make_garment(body, name, pred, inflate, mat_name=None, sole=0.0, smooth=0, e
         print("   düşüm", name, moved)
     bm.normal_update()
     zmin = min((v.co.z for v in bm.verts), default=0)
+    nrm_fix = {}
+    for v in bm.verts:
+        if v.is_boundary:
+            inner = [e.other_vert(v) for e in v.link_edges if not e.other_vert(v).is_boundary]
+            if inner:
+                n = sum((u.normal for u in inner), Vector())
+                if n.length > 1e-6:
+                    nrm_fix[v] = n.normalized()
+    for v, n in nrm_fix.items():
+        v.normal = n
     for v in bm.verts:
         k = 1.0
         if thick is not None:
@@ -644,7 +859,8 @@ def garments(body, rig, sex, eyes=None):
             if r < 1e-4:
                 return None
             a = int(((math.atan2(dxy.y, dxy.x) + math.pi) / (2 * math.pi)) * AB) % AB
-            # Koltuk altına doğru etkiyi yumuşat (omuz biçimi bozulmasın)
+            # Koltuk altı ve omuz yanında etkiyi yumuşat (omuz biçimi bozulmasın); göğüs ve sırt
+            # ortasında koltuk altının üstüne kadar tam etki (göğüs ucu ve kürek çizgisi görünmesin)
             k = min(1.0, (armpitZ - 0.02 - p.z) / 0.08)
             # Etek ucunda kumaş yeniden kalçaya/bele oturur (arkada içi görünmesin)
             k *= 0.6 + 0.4 * smooth01((p.z - hem_z) / 0.13)
@@ -661,15 +877,27 @@ def garments(body, rig, sex, eyes=None):
         return (d.normalized() if d.length > 1e-5 else None), t
 
     def sleeve(profile):
-        """profile(t) → dışa ek (m); t omuz 0 → bilek 1."""
+        """profile(t) → dışa ek (m); t omuz 0 → bilek 1. Taraf ve konum geometriden (kemik sınırında basamak olmasın);
+        koltuk altından yumuşak başlar."""
+        sgnL = (L.shL - L.spine2).dot(L.right)
+
         def f(p, d):
-            side = "L" if (d in ARM_L or d in (B("LeftForeArm"), B("LeftHand"))) else "R" if (d in ARM_R or d in (B("RightForeArm"), B("RightHand"))) else None
-            if side is None:
+            if is_hand(d):
                 return None
-            dirv, t = arm_radial(p, side)
-            if dirv is None:
+            side_ = "L" if (p - L.spine2).dot(L.right) * sgnL > 0 else "R"
+            dirv, t = arm_radial(p, side_)
+            a, b = (L.shL, L.wrL) if side_ == "L" else (L.shR, L.wrR)
+            tt = along(p, a, b)
+            if dirv is None or tt < 0.0:
                 return None
-            return dirv * profile(t)
+            # yalnızca kolun kendisi: eksene yakın noktalar (A pozunda kalça da "kol yönünde" kalıyor)
+            q = a + (b - a) * max(0.0, min(1.0, tt))
+            if (p - q).length > 0.085 or (arm_t(p, d) is None and tt > 0.25):
+                return None
+            ramp = smooth01((tt - 0.03) / 0.14)
+            if ramp <= 0:
+                return None
+            return dirv * profile(t) * ramp
 
         return f
 
@@ -721,7 +949,7 @@ def garments(body, rig, sex, eyes=None):
         def f(p, d):
             if not (d in HIPS or d in UPLEG or d == B("Spine")):
                 return None
-            if p.z < crotchZ or p.z > waistZ + 0.03 or p.z < z0 or p.z > z1:
+            if p.z < crotchZ or p.z > hipZ + 0.02 or p.z < z0 or p.z > z1:
                 return None
             zi = min(nz - 1, max(0, int((p.z - z0) / ZB)))
             dxy = Vector((p.x, p.y, 0)) - CEN[zi]
@@ -732,7 +960,7 @@ def garments(body, rig, sex, eyes=None):
             rh = RH[zi][a]
             if r < 0.55 * rh:
                 return None
-            want = min(cap, rh - r) * smooth01((p.z - crotchZ) / 0.07)
+            want = min(cap, rh - r) * smooth01((p.z - crotchZ) / 0.07) * (1 - smooth01((p.z - (hipZ - 0.04)) / 0.06))
             return dxy.normalized() * want if want > 0 else None
 
         return f
@@ -852,9 +1080,21 @@ def garments(body, rig, sex, eyes=None):
         return front(p) > 0.02 and armpitZ - 0.2 < p.z < armpitZ + 0.04 and side(p) < 0.17
 
     rad = halfNeck + 0.022
-    out.append(make_garment(body, "tank", tank, 0.006, soft=chest, soft_floor=0.0055, drape=torso_hang(0.55, 0.0, hipZ + 0.05)))
-    out.append(make_garment(body, "tee", top_field(hipZ + 0.035, 0.36, lambda p, d: crew(p, d, 0.05, 0.015, rad)), 0.009, soft=chest,
-                            drape=combine(torso_hang(0.22, 0.006, hipZ + 0.035), sleeve(lambda t: 0.004 + 0.03 * smooth01(t / 0.36)))))
+
+    def torso_env(p, d):
+        return (d in TORSO or d in HIPS or d in NECK) and p.z > hipZ - 0.05
+
+    ENV = (torso_env, 45, 6)
+
+    def hem_ease(gain):
+        """Üstün belden aşağısı bollaşır: altların bel bandının her zaman dışında kalır, etek hafif açılır."""
+        def t(p, sv_):
+            return 1.0 + gain * smooth01((waistZ + 0.03 - p.z) / 0.08)
+
+        return t
+    out.append(make_garment(body, "tank", tank, 0.006, thick=hem_ease(1.6), envelope=(torso_env, 25, 4)))
+    out.append(make_garment(body, "tee", top_field(hipZ + 0.035, 0.36, lambda p, d: crew(p, d, 0.05, 0.015, rad)), 0.009, thick=hem_ease(0.9), envelope=ENV,
+                            drape=sleeve(lambda t: 0.003 + 0.022 * smooth01(t / 0.36))))
 
     def turtle(extra):
         def f(p, d):
@@ -864,12 +1104,12 @@ def garments(body, rig, sex, eyes=None):
 
         return f
 
-    out.append(make_garment(body, "sweat", top_field(hipZ, 0.97, lambda p, d: crew(p, d, 0.035, 0.012, rad)), 0.016, soft=chest,
-                            drape=combine(torso_hang(0.12, 0.012), sleeve(lambda t: 0.01 * smooth01(t / 0.2) + cuff(t, 0.9, 0.012)))))
-    out.append(make_garment(body, "sweater", top_field(hipZ, 0.97, turtle(0.07)), 0.02, soft=chest,
-                            drape=combine(torso_hang(0.15, 0.012), sleeve(lambda t: 0.011 * smooth01(t / 0.2) + cuff(t, 0.9, 0.01)))))
-    hoodie = make_garment(body, "hoodie", top_field(hipZ, 0.97, lambda p, d: crew(p, d, 0.035, 0.012, rad)), 0.018, soft=chest,
-                          drape=combine(torso_hang(0.08, 0.018), sleeve(lambda t: 0.013 * smooth01(t / 0.2) + cuff(t, 0.9, 0.015))))
+    out.append(make_garment(body, "sweat", top_field(hipZ, 0.97, lambda p, d: crew(p, d, 0.035, 0.012, rad)), 0.016, thick=hem_ease(0.5), envelope=ENV,
+                            drape=sleeve(lambda t: 0.008 * smooth01(t / 0.2) + cuff(t, 0.9, 0.01))))
+    out.append(make_garment(body, "sweater", top_field(hipZ, 0.97, turtle(0.07)), 0.02, thick=hem_ease(0.4), envelope=ENV,
+                            drape=sleeve(lambda t: 0.009 * smooth01(t / 0.2) + cuff(t, 0.9, 0.009))))
+    hoodie = make_garment(body, "hoodie", top_field(hipZ, 0.97, lambda p, d: crew(p, d, 0.035, 0.012, rad)), 0.018, thick=hem_ease(0.5), envelope=ENV,
+                          drape=sleeve(lambda t: 0.011 * smooth01(t / 0.2) + cuff(t, 0.9, 0.012)))
     out.append(hoodie)
 
     headC = Vector((L.head.x, L.head.y, L.head.z))
@@ -995,13 +1235,16 @@ def garments(body, rig, sex, eyes=None):
             x = abs(r_.dot(L.right))
             y = r_.dot(fwd)
             z = r_.z
-            zf_front = front_z + recede * smooth01((x - 0.012) / 0.04)
+            # alın çizgisi ortada en alçak, şakaklara doğru yuvarlanarak yükselir (kâse kesimi gibi düz değil)
+            zf_front = front_z + recede * smooth01((x - 0.012) / 0.04) + 0.007 * min(1.0, (x / 0.05) ** 2)
             # önden (alın) yana: şakakta favoriye iner; kulak arkasında ense çizgisine
             k = smooth01((y - (earY + 0.028)) / 0.04)
             zf = side_z + (zf_front - side_z) * k
             k2 = smooth01((y - (earY - 0.005)) / 0.03)
             zf = nape_z + (zf - nape_z) * k2
-            line = z - zf
+            # gerçek saç çizgisi düz değildir: birkaç milimetrelik düzensizlik
+            jag = 0.0018 * math.sin(x * 410 + 1.3) * math.sin(y * 370 + 0.4) + 0.0012 * math.sin(x * 1150 + y * 830)
+            line = z - zf + jag
             # kulak ve çevresi açık
             ex = (y - (earY + 0.006)) / 0.034
             ez = (z - (earZ + 0.004)) / 0.042
@@ -1010,20 +1253,22 @@ def garments(body, rig, sex, eyes=None):
 
         return f
 
-    def hair_thick(top_gain, edge=0.012):
+    def hair_thick(top_gain, edge=0.012, floor=0.3):
         def t(p, sv_):
             z = (p - M).z
             vol = 1.0 + top_gain * smooth01((z - 0.03) / 0.07)
-            return (0.3 + 0.7 * smooth01(sv_ / edge)) * vol
+            return (floor + (1 - floor) * smooth01(sv_ / edge)) * vol
 
         return t
 
+    # cilt boyaması için doğal saçın çizgisi (saç dibinin koyuluğu, yumuşak geçiş)
+    globals()["_HAIR_PARAMS"] = ((0.06, 0.01, -0.002, -0.082) if sex == "m" else (0.057, -0.004, -0.004, -0.092), earY, earZ, earX)
     if sex == "m":
-        out.append(make_garment(body, "hair_short", hair_field(0.064, 0.01, -0.002, -0.082), 0.006, smooth=4, edge_smooth=2, thick=hair_thick(1.6)))
+        out.append(make_garment(body, "hair_short", hair_field(0.06, 0.01, -0.002, -0.082), 0.006, smooth=4, edge_smooth=2, thick=hair_thick(1.6, 0.022, 0.12)))
         out.append(make_garment(body, "hair_long", hair_field(0.06, 0.0, -0.01, -0.095), 0.009, smooth=4, edge_smooth=2, thick=hair_thick(1.4)))
     else:
         out.append(make_garment(body, "hair_short", hair_field(0.058, 0.0, 0.0, -0.085), 0.006, smooth=4, edge_smooth=2, thick=hair_thick(1.3)))
-        out.append(make_garment(body, "hair_long", hair_field(0.056, -0.004, -0.006, -0.092), 0.007, smooth=4, edge_smooth=2, thick=hair_thick(1.0, 0.009)))
+        out.append(make_garment(body, "hair_long", hair_field(0.057, -0.004, -0.004, -0.092), 0.0055, smooth=4, edge_smooth=2, thick=hair_thick(0.45, 0.012, 0.2)))
     globals()["_HAIR_REF"] = (M.copy(), earY)
     return out
 
@@ -1177,7 +1422,7 @@ def ponytail(rig, sex):
             if best is None or (q - M).dot(back) > (best - M).dot(back):
                 best = q
     A = (best or (M + back * 0.17)) + back * 0.008
-    P = [A, A + back * 0.045 + upv * 0.005, A + back * 0.075 - upv * 0.09, A + back * 0.06 - upv * 0.2, A + back * 0.035 - upv * 0.29]
+    P = [A, A + back * 0.032 - upv * 0.006, A + back * 0.048 - upv * 0.075, A + back * 0.045 - upv * 0.17, A + back * 0.034 - upv * 0.27]
 
     def bez(t):
         # Catmull-Rom benzeri: kontrol noktaları arasında yumuşak eğri
@@ -1205,14 +1450,14 @@ def ponytail(rig, sex):
         if t < 0.04:
             r = 0.017 + 0.003 * (t / 0.04)
         else:
-            r = 0.02 + 0.016 * math.sin(min(1.0, (t - 0.04) / 0.18) * math.pi / 2)
+            r = 0.018 + 0.011 * math.sin(min(1.0, (t - 0.04) / 0.16) * math.pi / 2)
             r *= (1 - smoothstep_py((t - 0.3) / 0.7)) * 0.85 + 0.15 * (1 - t)
             r = max(r, 0.003)
         ring = []
         for j in range(NR):
             ang = j / NR * 2 * math.pi
             # tutamlar: açı boyunca dalgalı kesit, uca doğru belirginleşir
-            clump = 1 + (0.07 + 0.1 * t) * math.sin(5 * ang + 3.1 * t) + 0.05 * math.sin(11 * ang + 7 * t)
+            clump = 1 + (0.08 + 0.18 * t) * math.sin(6 * ang + 3.1 * t) + (0.04 + 0.08 * t) * math.sin(13 * ang + 9 * t)
             off = (side * math.cos(ang) * 1.0 + nrm * math.sin(ang) * 0.82) * r * clump
             ring.append(bm.verts.new(c + off))
         rings.append(ring)
@@ -1306,7 +1551,7 @@ if __name__ == "__main__" and os.environ.get("STAGE", "") in ("garments", "full"
         if sex == "f":
             gs.append(ponytail(rig, sex))
         feet = split_feet(body, rig)
-        skin_material([body, feet], skin_texture(os.path.join(OUT_DIR, f"skin_{sex}.png")))
+        skin_material([body, feet], skin_texture(os.path.join(OUT_DIR, f"skin_{sex}.png"), body, eyes, sex, rig))
         em = bpy.data.materials.new("EyeMat")
         eyes.data.materials.clear()
         eyes.data.materials.append(em)
