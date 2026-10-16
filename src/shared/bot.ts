@@ -21,17 +21,22 @@ function buildGrid(layout: QuadLayout): Grid {
   if (cached) return cached;
   const cells = new Uint8Array(NX * NY);
   const pad = PLAYER_RADIUS + 0.04;
-  for (let gy = 0; gy < NY; gy++) {
-    for (let gx = 0; gx < NX; gx++) {
-      const x = (gx + 0.5) * CELL;
+  // Her engeli yalnızca kapladığı hücrelere işle (eskiden her hücre tüm engelleri tarıyordu)
+  for (const o of layout.obstacles) {
+    const v = o.kind === "wall" ? 2 : 1;
+    const gx0 = Math.max(0, Math.ceil((o.x - pad) / CELL - 0.5));
+    const gx1 = Math.min(NX - 1, Math.floor((o.x + o.w + pad) / CELL - 0.5));
+    const gy0 = Math.max(0, Math.ceil((o.y - pad) / CELL - 0.5));
+    const gy1 = Math.min(NY - 1, Math.floor((o.y + o.h + pad) / CELL - 0.5));
+    for (let gy = gy0; gy <= gy1; gy++) {
       const y = (gy + 0.5) * CELL;
-      let v = 0;
-      for (const o of layout.obstacles) {
-        if (x > o.x - pad && x < o.x + o.w + pad && y > o.y - pad && y < o.y + o.h + pad) {
-          v = Math.max(v, o.kind === "wall" ? 2 : 1);
-        }
+      if (!(y > o.y - pad && y < o.y + o.h + pad)) continue;
+      for (let gx = gx0; gx <= gx1; gx++) {
+        const x = (gx + 0.5) * CELL;
+        if (!(x > o.x - pad && x < o.x + o.w + pad)) continue;
+        const i = gy * NX + gx;
+        if (cells[i] < v) cells[i] = v;
       }
-      cells[gy * NX + gx] = v;
     }
   }
   const g = { cells };
@@ -46,9 +51,16 @@ let HEAP_I = new Int32Array(0);
 let HEAP_P = new Float32Array(0);
 
 /** Bir noktadan tüm hücrelere en kısa yol mesafesi (Dijkstra, 8 komşu). */
-function distanceField(grid: Grid, sx: number, sy: number, boxCost: number): Float32Array {
+/**
+ * Izgara üzerinde en kısa yol mesafesi (Dijkstra). (ux, uy) verilirse arama, o hücre çözüldükten sonra
+ * `margin` kadar ileride durur; kalan (duvar olmayan) hücreler sınır değerini alır. Bot yalnızca kendi
+ * çevresine baktığı için sonuç aynıdır, ama telefonda kare başına milisaniyeler kazanılır.
+ */
+function distanceField(grid: Grid, sx: number, sy: number, boxCost: number, ux = -1, uy = -1, margin = 0): Float32Array {
   const dist = new Float32Array(NX * NY).fill(INF);
   const start = toCellY(sy) * NX + toCellX(sx);
+  const until = ux >= 0 ? toCellY(uy) * NX + toCellX(ux) : -1;
+  let limit = INF;
   dist[start] = 0;
   // Tipli dizilerle ikili yığın (her hücre en fazla 8 kez itilir).
   const cap = NX * NY * 8;
@@ -90,6 +102,8 @@ function distanceField(grid: Grid, sx: number, sy: number, boxCost: number): Flo
       hp[c] = lp;
     }
     if (d > dist[i]) continue;
+    if (d > limit) break;
+    if (i === until) limit = d + margin;
     const cx = i % NX;
     const cy = (i / NX) | 0;
     for (let oy = -1; oy <= 1; oy++) {
@@ -112,8 +126,13 @@ function distanceField(grid: Grid, sx: number, sy: number, boxCost: number): Flo
       }
     }
   }
+  if (limit < INF) {
+    LAST_LIMIT = limit;
+    for (let i = 0; i < dist.length; i++) if (dist[i] > limit && grid.cells[i] !== 2) dist[i] = limit;
+  } else LAST_LIMIT = INF;
   return dist;
 }
+let LAST_LIMIT = INF;
 
 function sample(field: Float32Array, x: number, y: number): number {
   if (x < 0 || y < 0 || x > QUAD_W || y > QUAD_H) return -INF;
@@ -140,16 +159,28 @@ export class Bot {
   private cfg: (typeof LEVELS)[BotLevel];
   private cacheKey = "";
   private cacheField: Float32Array | null = null;
+  private cacheLimit = INF;
   private goalKey = "";
   private goalField: Float32Array | null = null;
+  private goalLimit = INF;
+  private cacheAt = -99;
+  private goalAt = -99;
 
-  private field(grid: Grid, layout: QuadLayout, x: number, y: number): Float32Array {
-    const key = `${layout.id}:${toCellX(x)}:${toCellY(y)}`;
-    if (key !== this.cacheKey || !this.cacheField) {
-      this.cacheField = distanceField(grid, x, y, 1.4);
+  /** (x, y) hedefinin yol alanı; (sx, sy) botun konumu, reach bakacağı en uzak mesafe. */
+  private field(grid: Grid, layout: QuadLayout, x: number, y: number, sx: number, sy: number, reach: number, throttle = 0): Float32Array {
+    const q = throttle ? 1 : 0;
+    const key = `${layout.id}:${toCellX(x) >> q}:${toCellY(y) >> q}`;
+    const f = this.cacheField;
+    const need = reach * 1.6 + 0.6;
+    const stale = !f || !this.cacheKey.startsWith(layout.id + ":") || (this.cacheLimit < INF && sample(f, sx, sy) + need > this.cacheLimit);
+    // Hedef taşındıysa en sık 200 ms'de bir yeniden hesapla (bot rakibi zaten gecikmeli algılıyor)
+    if (stale || (key !== this.cacheKey && this.t - this.cacheAt >= throttle)) {
+      this.cacheAt = this.t;
+      this.cacheField = distanceField(grid, x, y, 1.4, sx, sy, need + 1.5);
+      this.cacheLimit = LAST_LIMIT;
       this.cacheKey = key;
     }
-    return this.cacheField;
+    return this.cacheField!;
   }
 
   constructor(
@@ -179,6 +210,8 @@ export class Bot {
     this.dir = [0, 0];
     this.seen = [];
     this.fakeUntil = 0;
+    this.cacheAt = -99;
+    this.goalAt = -99;
   }
 
   /** Rakibin gecikmeli görüntüsü (algı geçmişi) ve çalım durumu */
@@ -285,7 +318,7 @@ export class Bot {
     const tx = Math.max(0.2, Math.min(QUAD_W - 0.2, other.x + other.vx * lead));
     const ty = Math.max(0.2, Math.min(QUAD_H - 0.2, other.y + other.vy * lead));
     // Hedefin mesafe alanı: bottan hedefe giden en kısa yönü seç.
-    const field = this.field(grid, layout, tx, ty);
+    const field = this.field(grid, layout, tx, ty, self.x, self.y, 0.6, 0);
     let best: [number, number] = [tx - self.x, ty - self.y];
     let bestScore = INF;
     for (let k = 0; k < 16; k++) {
@@ -359,14 +392,18 @@ export class Bot {
   }
 
   private decideEvade(grid: Grid, self: PlayerState, other: PlayerState, layout: QuadLayout) {
-    const field = this.field(grid, layout, other.x, other.y);
+    const field = this.field(grid, layout, other.x, other.y, self.x, self.y, 2.0);
     // Kovalayan uzaktayken alan kazan (yerel kaçış); yaklaşınca kuleyi arana al
     const goal = Math.hypot(other.x - self.x, other.y - self.y) < 6.5 ? this.orbitGoal(self, other, layout) : null;
     let goalField: Float32Array | null = null;
     if (goal) {
       const gk = `${layout.id}:${toCellX(goal[0])}:${toCellY(goal[1])}`;
-      if (gk !== this.goalKey || !this.goalField) {
-        this.goalField = distanceField(grid, goal[0], goal[1], 1.4);
+      const gf = this.goalField;
+      const gStale = !gf || !this.goalKey.startsWith(layout.id + ":") || (this.goalLimit < INF && sample(gf, self.x, self.y) + 2.2 > this.goalLimit);
+      if (gStale || gk !== this.goalKey) {
+        this.goalAt = this.t;
+        this.goalField = distanceField(grid, goal[0], goal[1], 1.4, self.x, self.y, 3.5);
+        this.goalLimit = LAST_LIMIT;
         this.goalKey = gk;
       }
       goalField = this.goalField;

@@ -3,7 +3,7 @@ import { TICK_RATE } from "../../shared/constants";
 import { Bot, type BotLevel } from "../../shared/bot";
 import { MatchEngine, type PublicState, type TickInput } from "../../shared/engine";
 import { LAYOUTS, type QuadLayout } from "../../shared/maps";
-import { VENUES } from "../../shared/venues";
+import { VENUES, type VenueId } from "../../shared/venues";
 import { clonePlayer, quantizeInput, type PlayerState } from "../../shared/sim";
 import type { ConnStatus, FrameData, GameSource } from "./types";
 
@@ -38,6 +38,8 @@ export class LocalGame implements GameSource {
   private act = false;
   private act2 = false;
   private paused = false;
+  /** Hayatta kal: yeni saha/mekân sonuç ve tekrar bitince (geri sayıma geçerken) uygulanır */
+  private pending: { layout?: QuadLayout; venue?: VenueId } = {};
 
   /** Hayatta kal modu: hep sen kaçarsın, her kaçışta bot güçlenir ve saha değişir; yakalanınca biter. */
   readonly survival: { streak: number; best: number; over: boolean } | null;
@@ -85,6 +87,12 @@ export class LocalGame implements GameSource {
       this.act = false;
       this.act2 = false;
     }
+    // Sonuç ekranının son adımı: sıradaki chase yeni sahada kurulsun
+    if (e.phase === "result" && e.tick + 1 >= e.phaseEndTick && (this.pending.layout || this.pending.venue)) {
+      if (this.pending.layout) e.layout = this.pending.layout;
+      if (this.pending.venue) e.venue = this.pending.venue;
+      this.pending = {};
+    }
     this.prev = new Map([...e.players].map(([id, p]) => [id, clonePlayer(p)]));
     const v = e.version;
     const events = e.step(inputs);
@@ -102,11 +110,11 @@ export class LocalGame implements GameSource {
           this.bots.get(BOT_ID)?.tune(sv.streak / 7);
           // Bir sonraki chase farklı bir sahada
           const pool = LAYOUTS.filter((l) => l.id !== e.layout.id);
-          e.layout = pool[Math.floor(Math.random() * pool.length)];
+          this.pending.layout = pool[Math.floor(Math.random() * pool.length)];
           // Her 3 kaçışta mekân da değişir
           if (sv.streak % 3 === 0) {
             const vs = VENUES.filter((v) => v.id !== e.venue);
-            e.venue = vs[Math.floor(Math.random() * vs.length)].id;
+            this.pending.venue = vs[Math.floor(Math.random() * vs.length)].id;
           }
         } else {
           sv.over = true;

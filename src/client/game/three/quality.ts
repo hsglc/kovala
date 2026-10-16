@@ -63,6 +63,9 @@ export class Pipeline {
   readonly renderer: THREE.WebGLRenderer;
   /** Tuvali şu an kullanan sahne (ön ısıtma, gerçek maç gelince çekilir) */
   owner: unknown = null;
+  /** true iken kalite düşürme ertelenir (chase ortasında gölgelendirici derlemesi donma yapar) */
+  hold = false;
+  private pendingDown = false;
   private composer: EffectComposer | null = null;
   private renderPass: RenderPass | null = null;
   private ao: N8AOPostPass | null = null;
@@ -189,7 +192,22 @@ export class Pipeline {
     for (const d of this.window) if (d > lim) slow++;
     const ratio = slow / this.window.length;
     this.window.length = 0;
-    if (ratio < 0.4) return;
+    if (ratio < 0.4) {
+      if (this.pendingDown && !this.hold) {
+        this.pendingDown = false;
+        this.stepDown();
+      }
+      return;
+    }
+    if (this.hold) {
+      this.pendingDown = true;
+      return;
+    }
+    this.pendingDown = false;
+    this.stepDown();
+  }
+
+  private stepDown() {
     if (this.tier === 2) {
       this.tier = 1;
       this.applyTier();
@@ -206,7 +224,13 @@ export class Pipeline {
   }
 
   render(scene: THREE.Scene, camera: THREE.Camera) {
-    this.adapt(performance.now());
+    const now = performance.now();
+    if (this.pendingDown && !this.hold) {
+      this.pendingDown = false;
+      this.stepDown();
+      this.lastT = now;
+    }
+    this.adapt(now);
     if (this.composer && this.scene === scene && this.camera === camera) this.composer.render();
     else this.renderer.render(scene, camera);
   }

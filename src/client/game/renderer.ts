@@ -4,7 +4,7 @@ import type { QuadLayout } from "../../shared/maps";
 import type { PlayerState } from "../../shared/sim";
 import { TEAM_COLORS, memberName, memberTeam } from "../lib/text";
 import type { Projected } from "./three/Scene3D";
-import { ROLE_COLOR, ROLE_ICON, ROLE_NAME } from "./roles";
+import { ROLE_COLOR } from "./roles";
 
 export interface View {
   w: number;
@@ -117,35 +117,20 @@ export function drawOverlay(
     const mine = id === selfId;
     const name = memberName(state, id);
     if (live && role) {
-      const badge = `${ROLE_ICON[role]} ${mine ? "SEN · " : ""}${ROLE_NAME[role]}`;
-      ctx.font = "800 14px 'Barlow Condensed', system-ui, sans-serif";
-      const bw = ctx.measureText(badge).width + 22;
-      const bh = 22;
-      const lx = Math.max(bw / 2 + 4, Math.min(v.w - bw / 2 - 4, pr.x));
-      const by = pr.y - bh - 6;
+      // Yalnızca isim; rol, rol rengindeki alt çizgi ve ayak altındaki halkadan anlaşılır
+      const label = mine ? "Sen" : name;
+      ctx.font = "700 13px 'Barlow Condensed', system-ui, sans-serif";
+      const tw = ctx.measureText(label).width + 18;
+      const lx = Math.max(tw / 2 + 4, Math.min(v.w - tw / 2 - 4, pr.x));
+      const ty = pr.y - 18;
+      ctx.fillStyle = "rgba(8, 14, 26, 0.72)";
+      roundRect(ctx, lx - tw / 2, ty, tw, 18, 6);
+      ctx.fill();
       ctx.fillStyle = ROLE_COLOR[role];
-      ctx.strokeStyle = "rgba(10, 14, 22, 0.85)";
-      ctx.lineWidth = 2;
-      roundRect(ctx, lx - bw / 2, by, bw, bh, 7);
+      roundRect(ctx, lx - tw / 2 + 4, ty + 15, tw - 8, 3, 1.5);
       ctx.fill();
-      ctx.stroke();
-      // ok
-      ctx.beginPath();
-      ctx.moveTo(pr.x - 6, by + bh - 1);
-      ctx.lineTo(pr.x + 6, by + bh - 1);
-      ctx.lineTo(pr.x, by + bh + 6);
-      ctx.closePath();
-      ctx.fill();
-      ctx.fillStyle = "#0b0f18";
-      ctx.fillText(badge, lx, by + bh / 2 + 1);
-      if (!mine) {
-        ctx.font = "600 12px 'Barlow Condensed', system-ui, sans-serif";
-        ctx.fillStyle = "rgba(255,255,255,0.92)";
-        ctx.strokeStyle = "rgba(0,0,0,0.6)";
-        ctx.lineWidth = 3;
-        ctx.strokeText(name, lx, by - 8);
-        ctx.fillText(name, lx, by - 8);
-      }
+      ctx.fillStyle = "#f4f7fb";
+      ctx.fillText(label, lx, ty + 8.5);
     } else {
       ctx.font = "600 12px 'Barlow Condensed', system-ui, sans-serif";
       const label = name + (mine ? " (sen)" : "");

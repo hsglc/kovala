@@ -33,6 +33,8 @@ interface FigEntry {
   last: number;
   team: number;
   fit: string;
+  /** sahadan çıktığı için gizlendi */
+  off?: boolean;
 }
 
 export interface Projected {
@@ -49,6 +51,10 @@ export class Scene3D {
   private camera = new THREE.PerspectiveCamera(48, 1, 0.1, 80);
   private world = new THREE.Group();
   private figures = new Map<string, FigEntry>();
+  private occPts: THREE.Vector3[] = [];
+  private occPool: THREE.Vector3[] = [];
+  private projOut = new Map<string, Projected>();
+  private projV = new THREE.Vector3();
   private layoutId = "";
   private sun: THREE.DirectionalLight;
   private hemi: THREE.HemisphereLight;
@@ -502,12 +508,25 @@ export class Scene3D {
         this.reachRing.scale.setScalar(rr / 0.53);
       }
     }
+    // Sahadan çıkan oyuncunun figürü gizlenir, silinmez (3'e 3'te sırası gelince yeniden kurulmasın);
+    // yalnızca odadan ayrılanınki atılır.
     for (const [id, e] of this.figures) {
-      if (!seen.has(id)) {
+      if (seen.has(id)) {
+        if (e.off) {
+          e.off = false;
+          e.obj.visible = true;
+        }
+        continue;
+      }
+      if (state && !state.members.some((m) => m.id === id)) {
         this.scene.remove(e.obj);
         this.figures.delete(id);
+      } else if (!e.off) {
+        e.off = true;
+        e.obj.visible = false;
       }
     }
+    this.pipe.hold = phase === "chase";
 
     // Kenar uyarısı
     for (const m of this.edgeGlow) (m.material as THREE.MeshBasicMaterial).opacity = 0;
@@ -537,14 +556,23 @@ export class Scene3D {
       }
     }
 
-    const occ: THREE.Vector3[] = [];
-    for (const p of players.values()) occ.push(new THREE.Vector3(p.x, p.h + 1.0, p.y), new THREE.Vector3(p.x, p.h + 1.6, p.y));
+    const occ = this.occPts;
+    occ.length = 0;
+    let oi = 0;
+    for (const p of players.values()) {
+      for (const hh of [1.0, 1.6]) {
+        const vv = this.occPool[oi] ?? (this.occPool[oi] = new THREE.Vector3());
+        oi++;
+        occ.push(vv.set(p.x, p.h + hh, p.y));
+      }
+    }
     this.updateOcclusion(occ);
     this.pipe.render(this.scene, this.camera);
 
     // Etiket konumları (başın üstü)
-    const out = new Map<string, Projected>();
-    const v = new THREE.Vector3();
+    const out = this.projOut;
+    out.clear();
+    const v = this.projV;
     for (const [id, p] of players) {
       v.set(p.x, 1.95 + p.h, p.y).project(this.camera);
       const sx = ((v.x + 1) / 2) * this.w;

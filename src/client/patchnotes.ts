@@ -12,6 +12,19 @@ export interface PatchNote {
 
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: "0.26.4",
+    date: "16 Eki 2026",
+    time: "16:55",
+    title: "Akıcı oyun",
+    items: [
+      "Botun yol hesabı yalnızca gereken çevrede yapılıyor: kare başına yük yarıya indi",
+      "Hayatta kal modunda yeni sahaya geçişteki donma giderildi; tekrar artık doğru sahada oynuyor",
+      "Grafik kalitesi düşmesi gerekirse chase ortasında değil arada yapılıyor",
+      "3'e 3'te sahaya giren oyuncu yeniden kurulmuyor, takılma yok",
+      "Karakterlerin üstünde artık yalnızca isim var",
+    ],
+  },
+  {
     version: "0.26.3",
     date: "16 Eki 2026",
     time: "16:23",
