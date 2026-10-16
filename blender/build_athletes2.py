@@ -57,14 +57,14 @@ SHAPE = {
         "measure-shoulder-dist-decr": 0.5, "torso-vshape-decr": 0.3, "measure-neck-circ-decr": 0.6, "measure-bust-circ-decr": 0.1,
         "chin-width-decr": 0.35, "chin-prominent-decr": 0.25, "head-oval": 0.4, "forehead-temple-incr": 0.2,
         "nose-scale-horiz-decr": 0.25, "nose-point-width-decr": 0.3, "mouth-upperlip-volume-incr": 0.35,
-        "mouth-lowerlip-volume-incr": 0.3, "eyebrows-trans-up": 0.25,
+        "mouth-lowerlip-volume-incr": 0.3, "eyebrows-trans-up": 0.25, "bulge-decr": 1.0,
     },
     "m": {
         "measure-shoulder-dist-incr": 0.6, "torso-vshape-incr": 0.8, "torso-muscle-dorsi-incr": 0.7,
         "torso-muscle-pectoral-incr": 0.55, "measure-neck-circ-incr": 0.65, "hip-scale-horiz-decr": 0.2,
         "measure-waist-circ-decr": 0.12, "chin-width-incr": 0.45, "chin-prominent-incr": 0.3, "head-square": 0.45,
         "chin-jaw-drop-incr": 0.2, "eyebrows-trans-down": 0.3, "eyebrows-trans-forward": 0.35, "nose-scale-horiz-incr": 0.15,
-        "forehead-nubian-incr": 0.2,
+        "forehead-nubian-incr": 0.2, "bulge-decr": 1.0,
     },
 }
 
@@ -1062,13 +1062,15 @@ def garments(body, rig, sex, eyes=None):
 
     # -- Üstler --
     def tank(p, d, v):
-        if is_hand(d) or arm_t(p, d) is not None or d in HEADS or d in LEG or d in FOOT:
+        at = arm_t(p, d)
+        # omuz başı (kolun en üstü) askı bölgesine girebilir; kolun geri kalanı açık
+        if is_hand(d) or (at is not None and at > 0.12) or d in HEADS or d in LEG or d in FOOT:
             return -0.05
-        if not body_part(d):
+        if at is None and not body_part(d):
             return -0.05
         hem = p.z - (hipZ + 0.05)
         sd = side(p)
-        so = halfNeck + (0.04 if sex == "f" else 0.055)
+        so = halfNeck + (0.055 if sex == "f" else 0.07)
         si = halfNeck + 0.008
         arm = max(so - sd, (armpitZ - 0.01) - p.z)
         k = 0.5 + 0.5 * math.tanh(front(p) / 0.03)

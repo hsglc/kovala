@@ -12,6 +12,20 @@ export interface PatchNote {
 
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: "0.28.0",
+    date: "16 Eki 2026",
+    time: "20:26",
+    title: "Yeni sporcular",
+    items: [
+      "Kadın ve erkek artık bariz farklı: kadın 1,68 m narin ve ince belli, erkek 1,85 m geniş omuzlu ve kaslı",
+      "Kıyafetler yeniden kesildi: düz etek, kol ve paça ağızları; kumaş göğüs ucu, göbek ve kasık detayını göstermiyor; şort bel bandı tişörtün içinden taşmıyor",
+      "Askılı atlet artık gerçekten askılı",
+      "Saç: alında yuvarlanan gerçek saç çizgisi, taranmış tel deseni, mat yüzey; erkekte kademeli ense, kadında sarkan tutamlı at kuyruğu",
+      "Yüz: kadında ince kemerli kaş ve dudak rengi, erkekte kalın kaş ve sakal gölgesi; yanak, burun ve kulakta doğal kızarıklık",
+      "Cilde gözenek ve ince kırışık dokusu",
+    ],
+  },
+  {
     version: "0.27.2",
     date: "16 Eki 2026",
     time: "20:14",
