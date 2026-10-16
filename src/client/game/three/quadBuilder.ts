@@ -555,7 +555,7 @@ export function buildFloor(layout: QuadLayout): THREE.Group {
   x.fillText("EVADE", 512, 512);
   // başlangıç plakaları
   if (layout.plates) {
-    const cols = ["#ff5a4f", "#35b8ff"];
+    const cols = ["#ff3b2f", "#2f6bff"];
     layout.plates.forEach(([px, py], i) => {
       const cx = px * step;
       const cy = py * step;

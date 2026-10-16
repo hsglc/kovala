@@ -12,6 +12,20 @@ export interface PatchNote {
 
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: "0.15.0",
+    date: "16 Eki 2026",
+    time: "10:42",
+    title: "VS görünümü ve sıralama",
+    items: [
+      "Baştan yeni tasarım: ekran dövüş oyunu VS ekranı gibi çapraz bölünür; üst kırmızı kovalayan, alt mavi kaçan, aradaki beyaz çizgide ◆ ●'yi kovalar.",
+      "Menüler arena zeminine yapıştırılmış bantlar: siyah gaffer, sarı uyarı bandı, beyaz ad bandı, kontrplak antrenman bandı; üstlerinde keçeli kalem yazısı.",
+      "Rakip arama artık VS ekranı: sen ve dönen harflerle aranan rakip. Lobi, gardırop, görevler ve oyun içi skorbord aynı dile geçti.",
+      "Yeni: Sıralama. Hızlı Maç'lar puanlanır (herkes 1000 ile başlar); Bu hafta ve Puan tabloları, kendi sıran.",
+      "Antrenman ayarları tek dokunuşla açılan bir sayfada: bot, format ve 9 sahanın kuşbakışı resmi.",
+      "Yazı tipleri artık uygulamayla birlikte geliyor; internet yavaşken de doğru görünür.",
+    ],
+  },
+  {
     version: "0.14.0",
     date: "16 Eki 2026",
     time: "10:21",

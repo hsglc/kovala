@@ -90,6 +90,8 @@ export class MatchEngine {
   tick = 0;
   phase: Phase = "lobby";
   members: Member[] = [];
+  /** Maç başladığındaki kadro (kopan oyuncular dahil; sıralama için) */
+  roster: Member[] = [];
   host: string | null = null;
   chases = 16;
   /** Chase'ler arası dinlenme: "official" 25 sn, "quick" 5 sn */
@@ -226,6 +228,7 @@ export class MatchEngine {
     if (!this.canStart()) return false;
     // Kopmuş oyuncuları temizle.
     this.members = this.members.filter((m) => m.connected);
+    this.roster = this.members.map((m) => ({ ...m }));
     this.layout =
       this.layoutChoice === "random"
         ? LAYOUTS[Math.floor(this.rnd() * LAYOUTS.length) % LAYOUTS.length]

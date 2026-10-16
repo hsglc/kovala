@@ -1,8 +1,9 @@
-import { isValidRoomCode, randomRoomCode } from "../shared/protocol";
+import { isValidPid, isValidRoomCode, randomRoomCode } from "../shared/protocol";
 import type { Env } from "./env";
 
 export { Room } from "./room";
 export { Matchmaker } from "./matchmaker";
+export { Ladder } from "./ladder";
 
 const json = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), {
@@ -16,6 +17,12 @@ export default {
     const path = url.pathname;
 
     if (path === "/api/health") return json({ ok: true });
+
+    if (path === "/api/ladder" && request.method === "GET") {
+      const stub = env.LADDER.get(env.LADDER.idFromName("global"));
+      const pid = url.searchParams.get("pid");
+      return json(await stub.view(isValidPid(pid) ? pid : null));
+    }
 
     if (path === "/api/room" && request.method === "POST") {
       return json({ code: randomRoomCode() });

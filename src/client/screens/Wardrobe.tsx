@@ -48,7 +48,7 @@ export function Wardrobe({ onBack }: Props) {
         <span className={`wr-saved ${saved ? "on" : ""}`}>Kaydedildi ✓</span>
       </header>
 
-      <div className="wr-stage">
+      <div className="wr-stage" data-team={team}>
         <canvas ref={canvasRef} className="wr-canvas" />
         <div className="wr-team">
           <button className={team === 0 ? "on red" : ""} onClick={() => setTeam(0)}>

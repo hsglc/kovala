@@ -1,8 +1,8 @@
 import type { ChaseRecord, Member, PublicState, Team } from "../../shared/engine";
 
 export const TEAM_NAMES = ["Kırmızı", "Mavi"] as const;
-export const TEAM_COLORS = ["#ff5a4f", "#35b8ff"] as const;
-export const TEAM_DARK = ["#a8302a", "#1a6fa3"] as const;
+export const TEAM_COLORS = ["#ff3b2f", "#2f6bff"] as const;
+export const TEAM_DARK = ["#b0201a", "#173fb0"] as const;
 
 export function teamName(t: Team | number) {
   return TEAM_NAMES[t as 0 | 1];

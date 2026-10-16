@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { BotLevel } from "../../shared/bot";
 import { ROOM_CODE_ALPHABET, ROOM_CODE_LENGTH } from "../../shared/protocol";
 import { LAYOUTS, LEVEL_LABEL } from "../../shared/maps";
 import { fitItem, REGIONS } from "../../shared/outfit";
-import { getFit, getName, setName } from "../lib/identity";
-import { LedClock, QuadThumb } from "../ui/QuadThumb";
+import { getFit, getName, getPid, setName } from "../lib/identity";
+import { QuadThumb } from "../ui/QuadThumb";
+import { VsBg } from "../ui/VsBg";
 import { getProgress } from "../lib/progress";
 import { unlockAudio } from "../lib/sound";
 import { CURRENT_VERSION, PATCH_NOTES } from "../patchnotes";
@@ -21,7 +22,7 @@ interface Props {
   onWardrobe: () => void;
 }
 
-type Sheet = null | "rules" | "notes" | "missions";
+type Sheet = null | "rules" | "notes" | "missions" | "practice" | "ladder";
 
 export function Home({ offline, initialCode, busy, error, onQuick, onCreate, onJoin, onPractice, onWardrobe }: Props) {
   const [name, setNameState] = useState(getName());
@@ -70,201 +71,250 @@ export function Home({ offline, initialCode, busy, error, onQuick, onCreate, onJ
     .map((it) => it.name);
 
   return (
-    <div className="page home">
-      <header className="masthead">
-        <img className="logo-mark" src="/favicon.svg" alt="" width="44" height="44" />
-        <h1 className="wordmark">EVADE</h1>
-        <button className="version" onClick={() => setSheet("notes")} aria-label="Yama notları">
-          v{CURRENT_VERSION}
-        </button>
-      </header>
+    <div className="vs-home">
+      {/* Çapraz bölünmüş VS ekranı: üst kırmızı (kovalayan), alt mavi (kaçan) */}
+      <VsBg />
 
-      <section className="arena-board" aria-label="Oyun vitrini">
-        <div className="board-quad">
-          <QuadThumb layout="quad" live />
-        </div>
-        <div className="board-side">
-          <LedClock />
-          <p className="board-copy">
-            Kovalayan <span className="mk-c">◆</span> yakalamaya, kaçan <span className="mk-e">●</span> 20 saniye dayanmaya çalışır.
-          </p>
-        </div>
-      </section>
-
-      <button className="career" onClick={() => setSheet("missions")}>
-        <span className="career-lvl">
-          <small>Seviye</small>
-          {prog.level}
-        </span>
-        <span className="career-body">
-          <span className="career-bar">
-            <i style={{ width: `${Math.round((prog.into / prog.need) * 100)}%` }} />
-          </span>
-          <span className="career-meta">
-            {prog.into}/{prog.need} XP, sonraki seviyeye {prog.need - prog.into}
-          </span>
-        </span>
-        <span className="career-go">Görevler</span>
-      </button>
-
-      <label className={`field ${nameError ? "error" : ""}`}>
-        <span>Sahada görünecek adın</span>
-        <input
-          id="name-input"
-          value={name}
-          maxLength={16}
-          placeholder="Ör. Hızlı Hüseyin"
-          autoComplete="nickname"
-          onChange={(e) => {
-            setNameState(e.target.value);
-            setNameError(false);
-          }}
-        />
-      </label>
-
-      {error && <div className="alert">{error}</div>}
-
-      {initialCode && (
-        <div className="invite">
-          <span>
-            <b>{initialCode}</b> odasına davet edildin
-          </span>
-          <button className="btn primary" disabled={busy} onClick={() => ensureName() && onJoin(initialCode)}>
-            Katıl
+      <div className="vs-top">
+        <div className="topbar">
+          <button className="lvl-chip" onClick={() => setSheet("missions")} aria-label={`Seviye ${prog.level}, görevler`}>
+            <b>{prog.level}</b>
+            <span className="lvl-rail">
+              <i style={{ width: `${Math.round((prog.into / prog.need) * 100)}%` }} />
+            </span>
+          </button>
+          <button className="ver-chip" onClick={() => setSheet("notes")}>
+            v{CURRENT_VERSION}
           </button>
         </div>
-      )}
-
-      {offline && (
-        <div className="invite">
-          <span>Bu önizlemede botla antrenman oynanır. Online maç canlı sürümde.</span>
-        </div>
-      )}
-
-      <div className="play-stack" hidden={offline}>
-        <button className="plate plate-quick" disabled={busy} onClick={() => ensureName() && onQuick()}>
-          <span className="plate-title">Hızlı maç</span>
-          <span className="plate-sub">Rastgele bir rakiple 1'e 1, hemen</span>
-          <span className="plate-icon" aria-hidden="true">
-            ⚡
-          </span>
-        </button>
-        <div className="plate-row">
-          <button className="plate plate-room" disabled={busy} onClick={() => ensureName() && onCreate()}>
-            <span className="plate-title">Oda kur</span>
-            <span className="plate-sub">Arkadaşlarınla, takım başına 6 kişi</span>
-          </button>
-          <form
-            className="plate plate-join"
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (code.length === ROOM_CODE_LENGTH && ensureName()) onJoin(code);
-            }}
-          >
-            <input
-              value={code}
-              placeholder="KOD"
-              inputMode="text"
-              autoCapitalize="characters"
-              autoCorrect="off"
-              spellCheck={false}
-              aria-label="Oda kodu"
-              onChange={(e) => setCode(cleanCode(e.target.value))}
-            />
-            <button className="join-go" disabled={busy || code.length !== ROOM_CODE_LENGTH}>
-              Odaya katıl
-            </button>
-          </form>
-        </div>
+        <h1 className="mega" aria-label="Evade">
+          <span className="mega-1">EVA</span>
+          <span className="mega-2">DE</span>
+        </h1>
+        <p className="mega-sub">20 saniye. Biri kovalar, biri kaçar.</p>
       </div>
 
-      <section className="ply practice">
-        <h2 className="ply-title">Botla antrenman</h2>
-        <div className="ply-grid">
-          <div className="ply-field">
-            <span>Bot</span>
-            <div className="seg">
-              {(["kolay", "orta", "zor"] as BotLevel[]).map((l) => (
-                <button key={l} className={level === l ? "on" : ""} onClick={() => setLevel(l)}>
-                  {l[0].toUpperCase() + l.slice(1)}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="ply-field">
-            <span>Format</span>
-            <div className="seg">
-              {[
-                [1, "1'e 1"],
-                [3, "3'e 3 takım"],
-              ].map(([n, label]) => (
-                <button key={n} className={squad === n ? "on" : ""} onClick={() => setSquad(n as number)}>
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-        <div className="ply-field">
-          <span>Saha</span>
-          <div className="pmap-row" role="listbox" aria-label="Saha">
-            {[{ id: "random", name: "Rastgele", level: 0 }, ...LAYOUTS].map((l) => (
-              <button
-                key={l.id}
-                role="option"
-                aria-selected={pmap === l.id}
-                className={`pmap ${pmap === l.id ? "on" : ""}`}
-                onClick={() => choosePmap(l.id)}
-              >
-                {l.id === "random" ? <span className="pmap-dice">?</span> : <QuadThumb layout={l.id} />}
-                <span className="pmap-name">
-                  {l.level > 0 && <span className={`pdot lvl-${l.level}`} title={LEVEL_LABEL[l.level as 1 | 2 | 3]} />}
-                  {l.name}
-                </span>
+      <div className="vs-bottom">
+        <label className={`tape tape-white name-tape ${nameError ? "error" : ""}`}>
+          <span className="marker">Adın</span>
+          <input
+            id="name-input"
+            value={name}
+            maxLength={16}
+            placeholder="buraya yaz"
+            autoComplete="nickname"
+            onChange={(e) => {
+              setNameState(e.target.value);
+              setNameError(false);
+            }}
+          />
+        </label>
+
+        {error && <div className="tape tape-alert">{error}</div>}
+
+        {initialCode && (
+          <button className="tape tape-go" disabled={busy} onClick={() => ensureName() && onJoin(initialCode)}>
+            <span className="tape-main">{initialCode} odasına katıl</span>
+            <span className="marker">davet edildin</span>
+          </button>
+        )}
+
+        {offline && <div className="tape">Bu önizlemede sadece botla antrenman var.</div>}
+
+        {!offline && (
+          <button className="tape tape-go big" disabled={busy} onClick={() => ensureName() && onQuick()}>
+            <span className="tape-main">Hızlı maç</span>
+            <span className="marker">rastgele rakip, 1'e 1</span>
+          </button>
+        )}
+
+        <div className="tape-row">
+          {!offline && (
+            <button className="tape" disabled={busy} onClick={() => ensureName() && onCreate()}>
+              <span className="tape-main">Oda kur</span>
+              <span className="marker">arkadaşlarla</span>
+            </button>
+          )}
+          {!offline && (
+            <form
+              className="tape code-tape"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (code.length === ROOM_CODE_LENGTH && ensureName()) onJoin(code);
+              }}
+            >
+              <input
+                value={code}
+                placeholder="KOD"
+                inputMode="text"
+                autoCapitalize="characters"
+                autoCorrect="off"
+                spellCheck={false}
+                aria-label="Oda kodu"
+                onChange={(e) => setCode(cleanCode(e.target.value))}
+              />
+              <button disabled={busy || code.length !== ROOM_CODE_LENGTH} aria-label="Odaya katıl">
+                Gir
               </button>
-            ))}
-          </div>
+            </form>
+          )}
         </div>
-        <button className="btn go" onClick={() => ensureName() && onPractice(level, pmap, squad)}>
-          Antrenmanı başlat
-        </button>
-      </section>
 
-      <button className="locker" onClick={onWardrobe}>
-        <span className="locker-hook" aria-hidden="true">
-          👕
-        </span>
-        <span className="locker-text">
-          <b>Gardırop</b>
-          <small>{fitSummary.join(", ")}</small>
-        </span>
-        <span className="locker-open">Aç</span>
-      </button>
-
-      <nav className="links">
-        <button className="link-btn" onClick={() => setSheet("rules")}>
-          Nasıl oynanır?
+        <button className="tape tape-ply" onClick={() => ensureName() && setSheet("practice")}>
+          <span className="tape-main">Antrenman</span>
+          <span className="marker">botlara karşı, 9 saha</span>
         </button>
-        <button className="link-btn" onClick={() => setSheet("notes")}>
-          Yama notları
-        </button>
-      </nav>
 
-      <footer className="foot">World Chase Tag'den esinlenilmiştir; resmî bir ürün değildir.</footer>
+        <div className="tape-row">
+          <button className="tape" onClick={onWardrobe}>
+            <span className="tape-main">Gardırop</span>
+            <span className="marker clip">{fitSummary[0] ?? "kıyafetler"}</span>
+          </button>
+          <button className="tape" onClick={() => setSheet("ladder")}>
+            <span className="tape-main">Sıralama</span>
+            <span className="marker">bu hafta</span>
+          </button>
+        </div>
+
+        <nav className="small-links">
+          <button onClick={() => setSheet("rules")}>Nasıl oynanır</button>
+          <button onClick={() => setSheet("missions")}>Görevler</button>
+          <button onClick={() => setSheet("notes")}>Yama notları</button>
+        </nav>
+        <footer className="foot">World Chase Tag'den esinlenilmiştir; resmî bir ürün değildir.</footer>
+      </div>
 
       {sheet && (
         <div className="sheet-backdrop" onClick={() => setSheet(null)}>
           <div className="sheet" onClick={(e) => e.stopPropagation()} role="dialog">
             <div className="sheet-head">
-              <h2>{sheet === "rules" ? "Nasıl oynanır?" : sheet === "missions" ? "Görevler" : "Yama notları"}</h2>
+              <h2>{SHEET_TITLE[sheet]}</h2>
               <button className="icon-btn" onClick={() => setSheet(null)} aria-label="Kapat">
                 ✕
               </button>
             </div>
-            {sheet === "rules" ? <Rules /> : sheet === "missions" ? <Missions /> : <Notes />}
+            {sheet === "rules" && <Rules />}
+            {sheet === "missions" && <Missions />}
+            {sheet === "notes" && <Notes />}
+            {sheet === "ladder" && <LadderSheet />}
+            {sheet === "practice" && (
+              <div className="sheet-body practice-sheet">
+                <div className="opt">
+                  <span className="marker">Bot</span>
+                  <div className="seg">
+                    {(["kolay", "orta", "zor"] as BotLevel[]).map((l) => (
+                      <button key={l} className={level === l ? "on" : ""} onClick={() => setLevel(l)}>
+                        {l[0].toUpperCase() + l.slice(1)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="opt">
+                  <span className="marker">Format</span>
+                  <div className="seg">
+                    {[
+                      [1, "1'e 1"],
+                      [3, "3'e 3 takım"],
+                    ].map(([n, label]) => (
+                      <button key={n} className={squad === n ? "on" : ""} onClick={() => setSquad(n as number)}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="opt">
+                  <span className="marker">Saha</span>
+                  <div className="pmap-grid" role="listbox" aria-label="Saha">
+                    {[{ id: "random", name: "Rastgele", level: 0 }, ...LAYOUTS].map((l) => (
+                      <button
+                        key={l.id}
+                        role="option"
+                        aria-selected={pmap === l.id}
+                        className={`pmap ${pmap === l.id ? "on" : ""}`}
+                        onClick={() => choosePmap(l.id)}
+                      >
+                        {l.id === "random" ? <span className="pmap-dice">?</span> : <QuadThumb layout={l.id} />}
+                        <span className="pmap-name">{l.name}</span>
+                        {l.level > 0 && <span className={`pmap-lvl lvl-${l.level}`}>{LEVEL_LABEL[l.level as 1 | 2 | 3]}</span>}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <button className="tape tape-go big" onClick={() => onPractice(level, pmap, squad)}>
+                  <span className="tape-main">Başlat</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+const SHEET_TITLE: Record<Exclude<Sheet, null>, string> = {
+  rules: "Nasıl oynanır?",
+  missions: "Görevler",
+  notes: "Yama notları",
+  practice: "Antrenman",
+  ladder: "Sıralama",
+};
+
+interface LadderRowView {
+  name: string;
+  rating: number;
+  wins: number;
+  losses: number;
+  wweek: number;
+}
+
+function LadderSheet() {
+  const [tab, setTab] = useState<"weekly" | "top">("weekly");
+  const [data, setData] = useState<{ top: LadderRowView[]; weekly: LadderRowView[]; me: (LadderRowView & { rank: number }) | null } | null>(null);
+  const [err, setErr] = useState(false);
+  useEffect(() => {
+    fetch(`/api/ladder?pid=${encodeURIComponent(getPid())}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then(setData)
+      .catch(() => setErr(true));
+  }, []);
+  const rows = data ? (tab === "weekly" ? data.weekly : data.top) : [];
+  return (
+    <div className="sheet-body">
+      <div className="seg ladder-tabs">
+        <button className={tab === "weekly" ? "on" : ""} onClick={() => setTab("weekly")}>
+          Bu hafta
+        </button>
+        <button className={tab === "top" ? "on" : ""} onClick={() => setTab("top")}>
+          Puan
+        </button>
+      </div>
+      <p className="hint">
+        {tab === "weekly"
+          ? "Bu hafta Hızlı Maç'ta en çok kazananlar. Tablo her pazartesi sıfırlanır."
+          : "Hızlı Maç puanı: herkes 1000 ile başlar, güçlü rakibi yenmek daha çok puan getirir."}
+      </p>
+      {err && <p className="hint">Sıralama şu an yüklenemedi. İnternet bağlantını kontrol edip tekrar aç.</p>}
+      {data && rows.length === 0 && <p className="hint">Henüz kimse yok. İlk Hızlı Maç'ı kazanan zirveye yerleşir.</p>}
+      <ol className="ladder">
+        {rows.map((r, i) => (
+          <li key={i} className={i < 3 ? `podium p${i + 1}` : ""}>
+            <span className="lad-rank">{i + 1}</span>
+            <span className="lad-name">{r.name}</span>
+            <span className="lad-val">{tab === "weekly" ? `${r.wweek} galibiyet` : r.rating}</span>
+          </li>
+        ))}
+      </ol>
+      {data?.me && (
+        <div className="lad-me">
+          <span>Sen: {data.me.rank}. sıra</span>
+          <b>{data.me.rating} puan</b>
+          <span>
+            {data.me.wins} G, {data.me.losses} M
+          </span>
+        </div>
+      )}
+      {data && !data.me && <p className="hint">Hızlı Maç oynayınca sen de tabloya girersin.</p>}
     </div>
   );
 }

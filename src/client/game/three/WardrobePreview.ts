@@ -26,7 +26,7 @@ export class WardrobePreview {
     key.castShadow = true;
     key.shadow.mapSize.set(1024, 1024);
     this.scene.add(key);
-    const rim = new THREE.DirectionalLight(0x35b8ff, 1.4);
+    const rim = new THREE.DirectionalLight(0x2f6bff, 1.4);
     rim.position.set(-3, 2.5, -3);
     this.scene.add(rim);
     // Kaide
@@ -57,7 +57,7 @@ export class WardrobePreview {
       .then((tpl) => {
         if (this.disposed || this.key !== k) return;
         if (this.athlete) this.scene.remove(this.athlete.root);
-        const a = new Athlete(tpl, team === 0 ? 0xff5a4f : 0x35b8ff, team === 0 ? 0xa8302a : 0x1a6fa3, 0xffffff, fit);
+        const a = new Athlete(tpl, team === 0 ? 0xff3b2f : 0x2f6bff, team === 0 ? 0xb0201a : 0x173fb0, 0xffffff, fit);
         a.setRing(0xffffff, 0);
         a.root.traverse((o) => {
           if ((o as THREE.Mesh).isMesh) (o as THREE.Mesh).castShadow = true;

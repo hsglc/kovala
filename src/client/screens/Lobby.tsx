@@ -5,6 +5,7 @@ import { LAYOUTS, LEVEL_LABEL } from "../../shared/maps";
 import { TEAM_COLORS, memberName, secs, sortedTeam, teamName } from "../lib/text";
 import { unlockAudio } from "../lib/sound";
 import { QuadThumb } from "../ui/QuadThumb";
+import { VsBg } from "../ui/VsBg";
 import type { GameSource } from "../net/types";
 
 interface Props {
@@ -42,6 +43,7 @@ export function Lobby({ source, state: s, onLeave }: Props) {
 
   return (
     <div className="page lobby">
+      <VsBg split={[34, 24]} live={false} />
       <header className="lobby-head">
         <button className="link-btn" onClick={onLeave}>
           ← {local ? "Ana menü" : "Odadan çık"}

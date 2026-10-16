@@ -11,9 +11,13 @@
   "durable_objects": {
     "bindings": [
       { "name": "ROOMS", "class_name": "Room" },
-      { "name": "MATCHMAKER", "class_name": "Matchmaker" }
+      { "name": "MATCHMAKER", "class_name": "Matchmaker" },
+      { "name": "LADDER", "class_name": "Ladder" }
     ]
   },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Room", "Matchmaker"] }],
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["Room", "Matchmaker"] },
+    { "tag": "v2", "new_sqlite_classes": ["Ladder"] }
+  ],
   "observability": { "enabled": true }
 }

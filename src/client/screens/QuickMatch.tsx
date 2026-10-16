@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
-import { QuadThumb } from "../ui/QuadThumb";
+import { VsBg } from "../ui/VsBg";
+
+const SCRAMBLE = "ABCÇDEFGĞHIİKLMNOÖPRSŞTUÜVYZ";
 
 interface Props {
   wsBase: string;
@@ -52,30 +54,37 @@ export function QuickMatch({ wsBase, pid, name, onMatched, onCancel, onPractice 
     };
   }, [wsBase, pid, name, onMatched]);
 
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 90);
+    return () => clearInterval(id);
+  }, []);
+  const opp = Array.from({ length: 5 }, (_, i) => SCRAMBLE[(tick * (i + 3) + i * 7) % SCRAMBLE.length]).join("");
+
   return (
-    <div className="page center-page">
-      <div className="searching">
-        <div className="radar" aria-hidden="true">
-          <QuadThumb layout="quad" />
-          <span className="sweep" />
-        </div>
-        <h2>Rakip aranıyor</h2>
-        <p className="led led-small">
-          <span className="led-on">{String(elapsed).padStart(2, "0")} sn</span>
-        </p>
-        {error && <p className="muted">{error}</p>}
-        {elapsed >= 20 && (
-          <p className="hint center">
-            Şu an pek kimse yok gibi. Bir arkadaşını davet edebilir ya da beklerken botla ısınabilirsin.
-          </p>
-        )}
-        <div className="row">
-          <button className="btn" onClick={onCancel}>
-            Vazgeç
+    <div className="qm">
+      <VsBg split={[52, 46]} />
+      <div className="qm-me">
+        <span className="marker">sen</span>
+        <b>{name}</b>
+      </div>
+      <div className="qm-vs" aria-hidden="true">
+        VS
+      </div>
+      <div className="qm-opp">
+        <b className="qm-scramble" aria-label="Rakip aranıyor">
+          {opp}
+        </b>
+        <span className="marker">rakip aranıyor, {elapsed} sn</span>
+        {error && <span className="qm-err">{error}</span>}
+        {elapsed >= 20 && <p className="qm-hint">Şu an pek kimse yok. Bir arkadaşını davet et ya da beklerken botla ısın.</p>}
+        <div className="qm-actions">
+          <button className="tape" onClick={onCancel}>
+            <span className="tape-main">Vazgeç</span>
           </button>
           {elapsed >= 20 && (
-            <button className="btn ghost" onClick={onPractice}>
-              Botla oyna
+            <button className="tape tape-go" onClick={onPractice}>
+              <span className="tape-main">Botla oyna</span>
             </button>
           )}
         </div>

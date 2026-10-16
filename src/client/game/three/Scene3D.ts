@@ -152,7 +152,7 @@ export class Scene3D {
     for (let i = 0; i < 4; i++) {
       const m = new THREE.Mesh(
         new THREE.PlaneGeometry(1, 1),
-        new THREE.MeshBasicMaterial({ color: 0xff5a4f, transparent: true, opacity: 0, depthWrite: false }),
+        new THREE.MeshBasicMaterial({ color: 0xff3b2f, transparent: true, opacity: 0, depthWrite: false }),
       );
       m.rotation.x = -Math.PI / 2;
       m.position.y = 0.014;
@@ -165,8 +165,8 @@ export class Scene3D {
     const led = (col: number) => new THREE.MeshBasicMaterial({ color: col });
     const off = 1.8;
     const sides: [number, number, number, number, number][] = [
-      [QUAD_SIZE / 2, -off, QUAD_SIZE + off * 2, 0.12, 0xff5a4f],
-      [QUAD_SIZE / 2, QUAD_SIZE + off, QUAD_SIZE + off * 2, 0.12, 0x35b8ff],
+      [QUAD_SIZE / 2, -off, QUAD_SIZE + off * 2, 0.12, 0xff3b2f],
+      [QUAD_SIZE / 2, QUAD_SIZE + off, QUAD_SIZE + off * 2, 0.12, 0x2f6bff],
       [-off, QUAD_SIZE / 2, 0.12, QUAD_SIZE + off * 2, 0xf5b83d],
       [QUAD_SIZE + off, QUAD_SIZE / 2, 0.12, QUAD_SIZE + off * 2, 0xf5b83d],
     ];
@@ -254,8 +254,8 @@ export class Scene3D {
     let e = this.figures.get(id);
     if (!e || e.team !== team || (e.ath && e.fit !== fit)) {
       if (e) this.scene.remove(e.obj);
-      const shirt = team === 0 ? 0xff5a4f : 0x35b8ff;
-      const shorts = team === 0 ? 0xa8302a : 0x1a6fa3;
+      const shirt = team === 0 ? 0xff3b2f : 0x2f6bff;
+      const shorts = team === 0 ? 0xb0201a : 0x173fb0;
       const ringColor = id === selfId ? 0xffffff : parseInt(TEAM_DARK[team as 0 | 1].slice(1), 16);
       let fig: Figure3D | null = null;
       let ath: Athlete | null = null;

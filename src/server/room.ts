@@ -216,6 +216,7 @@ export class Room extends DurableObject<Env> {
     }
     const events = e.step(inputs);
     for (const ev of events) {
+      if (ev.type === "finished") this.reportLadder();
       if (ev.type === "chaseStart" || ev.type === "chaseEnd") {
         // Önceki chase'ten kalan input'lar yeni chase'e taşınmasın.
         for (const [id, q] of this.queues) {
@@ -250,6 +251,18 @@ export class Room extends DurableObject<Env> {
   private stopLoop() {
     if (this.loop) clearInterval(this.loop);
     this.loop = null;
+  }
+
+  /** Hızlı maçta 1'e 1 sonuç sıralamaya işlenir. */
+  private reportLadder() {
+    const e = this.engine;
+    if (!this.quick || e.winner === null) return;
+    if (e.roster.length !== 2) return;
+    const w = e.roster.find((m) => m.team === e.winner);
+    const l = e.roster.find((m) => m.team !== e.winner);
+    if (!w || !l) return;
+    const stub = this.env.LADDER.get(this.env.LADDER.idFromName("global"));
+    this.ctx.waitUntil(stub.report({ pid: w.id, name: w.name }, { pid: l.id, name: l.name }).then(() => undefined).catch(() => undefined));
   }
 
   private async afterChange() {

@@ -149,7 +149,13 @@ async function main() {
   const QB = new RoomClient({ wsBase: WS_BASE, code: c1, pid: "quickBBBB02", name: "QB", quick: true });
   await waitFor(() => QA.getState()?.phase === "countdown", 5000, "hızlı maç otomatik başladı");
   assert(true, "hızlı maç odası otomatik başladı");
-  QA.close(); QB.close();
+  // Rakip ayrılınca hükmen galibiyet sıralamaya işlenir
+  QB.close();
+  await waitFor(() => QA.getState()?.phase === "finished", 8000, "hükmen bitti");
+  await sleep(500);
+  const lad = await (await fetch(`${WS_BASE.replace("ws", "http")}/api/ladder?pid=quickAAAA01`)).json();
+  assert(lad.me && lad.me.wins >= 1 && lad.me.rating > 1000, "sıralama: kazananın puanı arttı " + JSON.stringify(lad.me));
+  QA.close();
   console.log("\nTÜM E2E TESTLERİ GEÇTİ");
   process.exit(0);
 }
