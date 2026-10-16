@@ -7,7 +7,7 @@ export const SNAPSHOT_EVERY = 2;
 /** İstemci input'larını kaç tick'te bir paketleyip yollar (30/2 = 15 mesaj/sn). */
 export const INPUT_SEND_EVERY = 2;
 /** Rakibi kaç tick geriden çizeriz (interpolasyon tamponu, ~100 ms). */
-export const INTERP_TICKS = 3;
+export const INTERP_TICKS = 4; // 15 Hz anlık görüntü + mobil ağ titremesi için ~170 ms tampon
 /** Tag kararında en fazla kaç tick geriye sarılır (lag kompanzasyonu, ~200 ms). */
 export const MAX_REWIND_TICKS = 3;
 

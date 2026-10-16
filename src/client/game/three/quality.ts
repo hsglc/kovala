@@ -78,8 +78,7 @@ export class Pipeline {
   private h = 1;
   private exposure = 1;
   // Uyarlanır kalite ölçümü
-  private frames = 0;
-  private slow = 0;
+  private window: number[] = [];
   private lastT = 0;
 
   constructor(
@@ -171,18 +170,23 @@ export class Pipeline {
 
   /** Kare süresini sürekli izler; yavaşsa kademeyi düşürür (oturum içinde geri yükseltmez — titreşim olmasın). */
   private adapt(now: number) {
+    // Yavaş kare: hem 26 ms'den uzun hem de penceredeki en hızlı karenin 1,45 katından uzun.
+    // Böylece pil tasarrufunda sabit 30 FPS'e kilitli telefon "zorlanıyor" sayılmaz; yalnızca takılma sayılır.
     if (this.lastT) {
       const dt = now - this.lastT;
       if (dt < 250) {
-        this.frames++;
-        if (dt > 26) this.slow++;
+        this.window.push(dt);
       }
     }
     this.lastT = now;
-    if (this.frames < 90) return;
-    const ratio = this.slow / this.frames;
-    this.frames = 0;
-    this.slow = 0;
+    if (this.window.length < 90) return;
+    let best = Infinity;
+    for (const d of this.window) best = Math.min(best, d);
+    const lim = Math.max(26, best * 1.45);
+    let slow = 0;
+    for (const d of this.window) if (d > lim) slow++;
+    const ratio = slow / this.window.length;
+    this.window.length = 0;
     if (ratio < 0.4) return;
     if (this.tier === 2) {
       this.tier = 1;

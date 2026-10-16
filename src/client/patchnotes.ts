@@ -12,6 +12,20 @@ export interface PatchNote {
 
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: "0.20.3",
+    date: "16 Eki 2026",
+    time: "12:35",
+    title: "Akıcılık paketi 1",
+    items: [
+      "Saha ve çevre tek parça çiziliyor: kare başına çizim çağrısı ~780'den ~220'ye indi, telefonda kasma belirgin azaldı",
+      "Engel saydamlaşması artık her karede yüzlerce üçgen taramıyor; kutu testiyle 3 karede bir hesaplanıyor",
+      "Karakterler ve engellerin ışık hesapları önceden hazırlanıyor; maç başında ve engel ilk saydamlaştığında oyun bir an donmuyor",
+      "Zıplama, tırmanma ve atlamada yükseklik artık ekran hızında akıyor; dikey hareketteki titreme gitti (antrenman ve online)",
+      "Online: rakip hareketi için ara bellek biraz büyüdü, mobil ağda rakip takılmıyor; ping her güncellendiğinde arayüz yeniden çizilmiyor",
+      "Pil tasarrufunda 30 FPS'e kilitli telefonlar artık yanlışlıkla düşük kaliteye geçmiyor",
+    ],
+  },
+  {
     version: "0.20.2",
     date: "16 Eki 2026",
     time: "12:17",

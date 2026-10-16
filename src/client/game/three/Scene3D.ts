@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { Pipeline, skyEnvironment } from "./quality";
+import { cloneMaterialsOnce, mergeStatic } from "./merge";
 import { PLAYER_RADIUS, QUAD_SIZE, SPEED_EVADER } from "../../../shared/constants";
 import type { PublicState } from "../../../shared/engine";
 import type { Obstacle, QuadLayout } from "../../../shared/maps";
@@ -95,6 +96,7 @@ export class Scene3D {
     this.mats = makeMaterials();
     this.rig = new CameraRig(this.camera);
     this.pipe.attach(this.scene, this.camera);
+    if (import.meta.env.DEV) (globalThis as { __evade3d?: unknown }).__evade3d = { renderer: this.renderer, scene: this.scene };
     // Blender sporcu modeli yüklenince mevcut basit figürleri değiştir
     loadAthlete()
       .then(() => {
@@ -178,6 +180,7 @@ export class Scene3D {
       });
     }
     const v = buildVenue(id, this.mats.steel);
+    mergeStatic(v.group);
     this.venueGroup = v.group;
     this.scene.add(v.group);
     (this.scene.background as THREE.Color).setHex(v.background);
@@ -206,56 +209,99 @@ export class Scene3D {
   private sunOffset: [number, number, number] | null = null;
 
   private buildLayout(layout: QuadLayout) {
+    this.world.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (m.geometry) m.geometry.dispose();
+      if (m.material) for (const mt of Array.isArray(m.material) ? m.material : [m.material]) mt.dispose();
+    });
     this.world.clear();
+    this.occ.clear();
     this.obstacleGroups = [];
     this.faded.clear();
     if (this.floorGroup) this.scene.remove(this.floorGroup);
     this.floorGroup = buildFloor(layout);
+    mergeStatic(this.floorGroup);
     this.scene.add(this.floorGroup);
     for (const o of layout.obstacles) {
       const g = buildObstacle(o, this.mats);
-      // Saydamlaşabilsin diye her engelin malzemeleri kendine ait
+      // Parçaları malzemeye göre tek mesh'e indir, sonra saydamlaşabilsin diye engelin malzemeleri kendine ait olsun
+      mergeStatic(g);
+      cloneMaterialsOnce(g);
+      this.world.add(g);
+      this.obstacleGroups.push(g);
+      const mats: THREE.MeshStandardMaterial[] = [];
       g.traverse((c) => {
         const m = c as THREE.Mesh;
         if (!m.isMesh) return;
-        m.material = Array.isArray(m.material) ? m.material.map((x) => x.clone()) : (m.material as THREE.Material).clone();
+        for (const mt of Array.isArray(m.material) ? m.material : [m.material]) if (!mats.includes(mt as THREE.MeshStandardMaterial)) mats.push(mt as THREE.MeshStandardMaterial);
       });
-      this.world.add(g);
-      this.obstacleGroups.push(g);
+      g.updateMatrixWorld(true);
+      this.occ.set(g, { box: new THREE.Box3().setFromObject(g), mats, opacity: 1, want: 1 });
     }
   }
 
-  /** Kamera ile oyuncu arasına giren engeli saydamlaştır. */
+  private occ = new Map<THREE.Group, { box: THREE.Box3; mats: THREE.MeshStandardMaterial[]; opacity: number; want: number }>();
+  private occFrame = 0;
+  private occDir = new THREE.Vector3();
+  private occHit = new THREE.Vector3();
+
+  /**
+   * Kamera ile oyuncu arasına giren engeli saydamlaştır.
+   * Engel başına bir kutu ile ışın testi (üçgen değil), 3 karede bir; malzemelere yalnızca solma sürerken dokunulur.
+   */
   private updateOcclusion(targets: THREE.Vector3[]) {
-    const hit = new Set<THREE.Group>();
-    for (const t of targets) {
-      const dir = t.clone().sub(this.camera.position);
-      const len = dir.length();
-      this.ray.set(this.camera.position, dir.normalize());
-      this.ray.far = len - 0.3;
-      const res = this.ray.intersectObjects(this.obstacleGroups, true);
-      for (const r of res) {
-        let o: THREE.Object3D | null = r.object;
-        while (o && !this.obstacleGroups.includes(o as THREE.Group)) o = o.parent;
-        if (o) hit.add(o as THREE.Group);
+    if (this.occFrame++ % 3 === 0) {
+      for (const st of this.occ.values()) st.want = 1;
+      const cam = this.camera.position;
+      for (const t of targets) {
+        this.occDir.copy(t).sub(cam);
+        const len = this.occDir.length();
+        this.ray.set(cam, this.occDir.normalize());
+        for (const st of this.occ.values()) {
+          const p = this.ray.ray.intersectBox(st.box, this.occHit);
+          if (p && p.distanceTo(cam) < len - 0.3 && !st.box.containsPoint(t)) st.want = 0.28;
+        }
       }
     }
-    for (const g of this.obstacleGroups) {
-      const want = hit.has(g) ? 0.28 : 1;
-      g.traverse((c) => {
-        const m = c as THREE.Mesh;
-        if (!m.isMesh) return;
-        for (const mat of Array.isArray(m.material) ? m.material : [m.material]) {
-          const sm = mat as THREE.MeshStandardMaterial;
-          const cur = sm.opacity ?? 1;
-          const next = cur + (want - cur) * 0.25;
-          sm.transparent = next < 0.99;
-          sm.opacity = next;
-          sm.depthWrite = next > 0.9;
-        }
-        m.castShadow = true;
-      });
+    for (const st of this.occ.values()) {
+      if (Math.abs(st.opacity - st.want) < 0.004) {
+        if (st.opacity === st.want) continue;
+        st.opacity = st.want;
+      } else st.opacity += (st.want - st.opacity) * 0.25;
+      const o = st.opacity;
+      for (const sm of st.mats) {
+        sm.transparent = o < 0.99;
+        sm.opacity = o;
+        sm.depthWrite = o > 0.9;
+      }
     }
+  }
+
+  // ---------- Gölgelendirici ön derleme ----------
+  // İlk kez görünen malzeme kare ortasında derlenir ve oyunu bir an dondurur.
+  // Sporcu, gölgelendiricileri arka planda (paralel derleme) hazırlanana kadar gizli kalır.
+  private warmUp(obj: THREE.Object3D) {
+    obj.visible = false;
+    let shown = false;
+    const show = () => {
+      if (shown) return;
+      shown = true;
+      obj.visible = true;
+    };
+    obj.visible = true;
+    const job = this.renderer.compileAsync(obj, this.camera, this.scene);
+    obj.visible = false;
+    job.then(show, show);
+    setTimeout(show, 1500);
+  }
+
+  /** Engel malzemelerinin hem opak hem saydam (solma) sürümlerini önceden derle. */
+  private warmLayout() {
+    const mats = [...this.occ.values()].flatMap((st) => st.mats);
+    for (const m of mats) m.transparent = true;
+    this.renderer.compileAsync(this.scene, this.camera).catch(() => {});
+    for (const m of mats) m.transparent = false;
+    this.renderer.compileAsync(this.scene, this.camera).catch(() => {});
   }
 
   // ---------- Çerçeve ----------
@@ -279,6 +325,7 @@ export class Scene3D {
         obj = fig.root;
       }
       e = { fig, ath, obj, phase: 0, run: 0, lx: p.x, ly: p.y, heading: Math.atan2(p.fy, p.fx), last: now, team, fit };
+      if (ath) this.warmUp(obj);
       this.figures.set(id, e);
       this.scene.add(obj);
     }
@@ -296,10 +343,12 @@ export class Scene3D {
     if (venue !== this.venueId) {
       this.venueId = venue;
       this.applyVenue(venue);
+      this.warmLayout();
     }
     if (layout.id !== this.layoutId) {
       this.layoutId = layout.id;
       this.buildLayout(layout);
+      this.warmLayout();
     }
     const dtMs = this.lastNow ? Math.min(100, now - this.lastNow) : 16;
     this.lastNow = now;

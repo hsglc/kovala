@@ -149,7 +149,9 @@ export class RoomClient implements GameSource {
     if (data === "pong") {
       const r = performance.now() - this.pingSentAt;
       this.rtt = this.rtt === null ? r : this.rtt * 0.7 + r * 0.3;
-      this.emit();
+      // Oyun ekranı ping'i kendi döngüsünde okur; maç sırasında tüm arayüzü yeniden çizdirme
+      const ph = this.state?.phase;
+      if (ph !== "countdown" && ph !== "chase" && ph !== "result") this.emit();
       return;
     }
     let msg: ServerMsg;
@@ -321,7 +323,8 @@ export class RoomClient implements GameSource {
       const pp = this.predPrev;
       const sx = pp && Math.hypot(pp.x - this.pred.x, pp.y - this.pred.y) < 1 ? pp.x + (this.pred.x - pp.x) * t : this.pred.x;
       const sy = pp && Math.hypot(pp.x - this.pred.x, pp.y - this.pred.y) < 1 ? pp.y + (this.pred.y - pp.y) * t : this.pred.y;
-      self = { ...this.pred, x: sx + this.offX, y: sy + this.offY };
+      const sh = pp && Math.abs(pp.h - this.pred.h) < 1.5 ? pp.h + (this.pred.h - pp.h) * t : this.pred.h;
+      self = { ...this.pred, x: sx + this.offX, y: sy + this.offY, h: sh };
       players.set(this.selfId, self);
     }
     return { players, tick: this.serverTick(now), self: role && this.pred ? this.pred : self };
@@ -351,7 +354,7 @@ export class RoomClient implements GameSource {
         out.set(id, pb);
         continue;
       }
-      out.set(id, { ...pb, x: lerp(pa.x, pb.x, t), y: lerp(pa.y, pb.y, t) });
+      out.set(id, { ...pb, x: lerp(pa.x, pb.x, t), y: lerp(pa.y, pb.y, t), h: lerp(pa.h, pb.h, t), hv: lerp(pa.hv, pb.hv, t) });
     }
     return out;
   }

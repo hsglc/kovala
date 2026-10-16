@@ -71,7 +71,7 @@ export function GameScreen({ source, state, onLeave }: Props) {
 
     const resize = () => {
       const rect = wrap.getBoundingClientRect();
-      const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
       canvas.width = Math.round(rect.width * dpr);
       canvas.height = Math.round(rect.height * dpr);
       canvas.style.width = rect.width + "px";
@@ -237,6 +237,8 @@ export function GameScreen({ source, state, onLeave }: Props) {
     let lastAk = 0;
     let lastPing = -2;
     let lastChaseTick = -1;
+    let lastTime = "";
+    let lastLow = "";
     // Yavaş çekim tekrar: chase boyunca son 2,5 sn kaydedilir, sonuç ekranında %45 hızla oynatılır
     const rec: { t: number; players: Map<string, PlayerState> }[] = [];
     let replay: { start: number; base: number; frames: typeof rec } | null = null;
@@ -257,7 +259,8 @@ export function GameScreen({ source, state, onLeave }: Props) {
       lastChaseTick = s.chaseStartTick;
       void me; void other; void dtc; void cam; void updateCamera;
       if (s.phase === "chase") {
-        rec.push({ t: now, players: new Map([...f.players].map(([id, p]) => [id, { ...p }])) });
+        // frame() her karede yeni nesneler döndürür; kopyalamaya gerek yok
+        rec.push({ t: now, players: f.players });
         while (rec.length && now - rec[0].t > 2500) rec.shift();
       }
       if (s.phase === "result" && lastPhase === "chase" && rec.length > 10) {
@@ -298,9 +301,14 @@ export function GameScreen({ source, state, onLeave }: Props) {
       let t = 20;
       if (s.phase === "chase") t = Math.max(0, (s.phaseEndTick - f.tick) / 30);
       else if (s.phase === "result" && s.last) t = Math.max(0, 20 - s.last.ticks / 30);
-      if (timeRef.current) {
-        timeRef.current.textContent = t.toFixed(1).replace(".", ",");
-        timeRef.current.dataset.low = s.phase === "chase" && t < 5 ? "1" : "0";
+      // DOM'a yalnızca değer değişince yaz (her karede yazmak yeniden yerleşim/boyama tetikler)
+      const tText = t.toFixed(1).replace(".", ",");
+      const tLow = s.phase === "chase" && t < 5 ? "1" : "0";
+      if (timeRef.current && (tText !== lastTime || tLow !== lastLow)) {
+        timeRef.current.textContent = tText;
+        timeRef.current.dataset.low = tLow;
+        lastTime = tText;
+        lastLow = tLow;
       }
 
       // Geri sayım

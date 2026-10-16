@@ -135,8 +135,9 @@ export class LocalGame implements GameSource {
     for (const [id, p] of this.engine.players) {
       const a = this.prev.get(id);
       if (a && Math.hypot(a.x - p.x, a.y - p.y) < 2) {
-        players.set(id, { ...p, x: a.x + (p.x - a.x) * t, y: a.y + (p.y - a.y) * t });
-      } else players.set(id, p);
+        // Yükseklik de ara değerlenir: tırmanma/atlama 30 Hz basamakla değil, ekran hızında akar
+        players.set(id, { ...p, x: a.x + (p.x - a.x) * t, y: a.y + (p.y - a.y) * t, h: a.h + (p.h - a.h) * t });
+      } else players.set(id, { ...p });
     }
     return { players, tick: this.engine.tick + t, self: this.engine.players.get(this.selfId) ?? null };
   }
