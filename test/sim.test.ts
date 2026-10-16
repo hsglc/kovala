@@ -319,3 +319,16 @@ describe("takım maçı (3'e 3)", () => {
     expect(e.pick(m2.id, m2.id)).toBe(false);
   });
 });
+
+describe("hayatta kal", () => {
+  it("zorlanmış kaçan ile başlar ve endMatch maçı bitirir", () => {
+    const e = new MatchEngine(seeded(3));
+    e.join("meeeeeee", "Ben");
+    e.join("botttttt", "Bot");
+    e.chases = 99;
+    e.start("meeeeeee", "meeeeeee");
+    expect(e.evaderId).toBe("meeeeeee");
+    e.endMatch(e.member("botttttt")!.team);
+    expect(e.phase).toBe("finished");
+  });
+});

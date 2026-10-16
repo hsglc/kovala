@@ -397,7 +397,9 @@ export function GameScreen({ source, state, onLeave }: Props) {
   const mates = myTeam !== undefined ? s.members.filter((m) => m.team === myTeam && m.connected) : [];
   const activeMate = pickRole === "chaser" ? s.chaserId : pickRole === "evader" ? s.evaderId : null;
   const showPick = !!pickRole && mates.length > 1;
-  const chaseLabel = s.sd ? "SUDDEN DEATH" : `CHASE ${Math.min(s.chaseNo + 1, s.chases)}/${s.chases}`;
+  const chaseLabel = source.survival
+    ? `SERİ ${source.survival.streak}`
+    : s.sd ? "SUDDEN DEATH" : `CHASE ${Math.min(s.chaseNo + 1, s.chases)}/${s.chases}`;
   const last = s.last;
 
   // Tarayıcı onay penceresi yerine sayfa içi iki dokunuşlu onay.

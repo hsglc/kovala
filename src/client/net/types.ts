@@ -35,5 +35,7 @@ export interface GameSource {
   start(): void;
   /** Takım maçı: geri sayımda sahaya girecek takım arkadaşını seç */
   pick(id: string): void;
+  /** Hayatta kal modu durumu (sadece tek kişilik) */
+  readonly survival?: { streak: number; best: number; over: boolean } | null;
   close(): void;
 }

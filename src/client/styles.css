@@ -2289,3 +2289,61 @@ body:has(.game) {
 .pmap-lvl.lvl-2 {
   color: var(--ink);
 }
+
+/* Hayatta kal */
+.tape-red,
+.vs-bottom > .tape-red {
+  background: var(--weave), var(--red);
+  --rot: -1.4deg;
+}
+
+.tape-red .marker {
+  color: var(--white);
+}
+
+.surv-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 18px 20px 20px;
+  background: var(--weave), var(--black);
+  clip-path: var(--torn);
+}
+
+.surv-card > .marker {
+  font-size: 26px;
+  color: var(--yellow);
+}
+
+.surv-num {
+  font-family: var(--display);
+  font-weight: 900;
+  font-size: 170px;
+  line-height: 0.8;
+  color: var(--white);
+  -webkit-text-stroke: 4px var(--ink);
+  paint-order: stroke fill;
+  text-shadow: 8px 8px 0 var(--red);
+}
+
+.surv-label {
+  font-family: var(--display);
+  font-weight: 900;
+  font-size: 30px;
+}
+
+.surv-best {
+  margin: 8px 0 6px;
+  padding: 2px 12px;
+  background: var(--yellow);
+  color: var(--ink);
+  font-family: var(--marker);
+  font-size: 20px;
+  rotate: -2deg;
+}
+
+.surv-best b {
+  font-family: var(--display);
+  font-size: 26px;
+}

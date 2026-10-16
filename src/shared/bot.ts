@@ -151,6 +151,19 @@ export class Bot {
     this.cfg = LEVELS[level];
   }
 
+  /** Zorluğu sürekli ayarla (Hayatta kal modu): 0 kolay … 1 en zor. */
+  tune(k: number) {
+    const a = LEVELS.kolay;
+    const b = LEVELS.zor;
+    const t = Math.max(0, Math.min(1, k));
+    this.cfg = {
+      period: Math.round(a.period + (b.period - a.period) * t),
+      speed: a.speed + (b.speed - a.speed) * t,
+      noise: a.noise + (b.noise - a.noise) * t,
+      dashChance: a.dashChance + (b.dashChance - a.dashChance) * t,
+    };
+  }
+
   reset() {
     this.t = 0;
     this.dir = [0, 0];

@@ -223,7 +223,13 @@ export class MatchEngine {
     );
   }
 
-  start(by: string | null): boolean {
+  /** Tek kişilik modlar için: maçı hemen bitir. */
+  endMatch(winner: Team) {
+    if (!this.inMatch()) return;
+    this.finish(winner, "score");
+  }
+
+  start(by: string | null, evaderId?: string): boolean {
     if (by !== null && by !== this.host) return false;
     if (!this.canStart()) return false;
     // Kopmuş oyuncuları temizle.
@@ -244,7 +250,9 @@ export class MatchEngine {
     this.winReason = null;
     this.lastUsed = [-1, -1];
     this.lastWinner = null;
-    const evTeam: Team = this.rnd() < 0.5 ? 0 : 1;
+    const forced = evaderId ? this.member(evaderId) : undefined;
+    const evTeam: Team = forced ? forced.team : this.rnd() < 0.5 ? 0 : 1;
+    if (forced) this.lastUsed[forced.team] = this.teamMembers(forced.team).indexOf(forced) - 1;
     const ev = this.nextFrom(evTeam);
     const ch = this.nextFrom(evTeam === 0 ? 1 : 0);
     if (!ev || !ch) return false;

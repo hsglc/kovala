@@ -20,7 +20,8 @@ type Screen =
   | { k: "quick" }
   | { k: "wardrobe" }
   | { k: "room"; code: string; quick: boolean }
-  | { k: "practice"; level: BotLevel; map?: string; squad?: number };
+  | { k: "practice"; level: BotLevel; map?: string; squad?: number }
+  | { k: "survival"; n: number };
 
 /** Önizleme derlemesinde (artifact) sunucu yok: sadece botla antrenman. */
 const OFFLINE = import.meta.env.VITE_OFFLINE === "1";
@@ -116,8 +117,11 @@ function AppScreens() {
           onJoin={(code) => setScreen({ k: "room", code, quick: false })}
           onPractice={(level, map, squad) => setScreen({ k: "practice", level, map, squad })}
           onWardrobe={() => setScreen({ k: "wardrobe" })}
+          onSurvival={() => setScreen({ k: "survival", n: Date.now() })}
         />
       );
+    case "survival":
+      return <Survival key={screen.n} onLeave={() => home()} />;
     case "wardrobe":
       return <Wardrobe onBack={() => home()} />;
     case "quick":
@@ -182,6 +186,20 @@ function OnlineRoom({ code, quick, onLeave }: { code: string; quick: boolean; on
       {status === "reconnecting" && <div className="toast">Bağlantı koptu, yeniden bağlanılıyor…</div>}
     </>
   );
+}
+
+function Survival({ onLeave }: { onLeave: () => void }) {
+  const [source, setSource] = useState<LocalGame | null>(null);
+  useEffect(() => {
+    const g = new LocalGame(getPid(), getName() || "Sen", "kolay", 99, "isinma", 1, "survival");
+    setSource(g);
+    return () => g.close();
+  }, []);
+  const state = useSourceState(source);
+  useProgressTracker(source?.selfId, state);
+  if (!source || !state) return null;
+  const inMatch = state.phase === "countdown" || state.phase === "chase" || state.phase === "result";
+  return inMatch ? <GameScreen source={source} state={state} onLeave={onLeave} /> : <Lobby source={source} state={state} onLeave={onLeave} />;
 }
 
 function Practice({ level, map, squad, onLeave }: { level: BotLevel; map?: string; squad?: number; onLeave: () => void }) {

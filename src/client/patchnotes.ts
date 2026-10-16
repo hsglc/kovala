@@ -12,6 +12,17 @@ export interface PatchNote {
 
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: "0.16.0",
+    date: "16 Eki 2026",
+    time: "10:46",
+    title: "Hayatta kal modu",
+    items: [
+      "Yeni tek kişilik meydan okuma: Hayatta kal. Hep sen kaçarsın; yakalanana ya da sahadan çıkana kadar kaç chase dayanabilirsin?",
+      "Her başarılı kaçışta kovalayan bot biraz daha hızlı ve isabetli olur, saha da değişir. 7. chase'ten sonra en zor hâlinde.",
+      "Rekorun cihazda saklanır ve ana sayfada görünür; skorbordda seri sayacı var.",
+    ],
+  },
+  {
     version: "0.15.0",
     date: "16 Eki 2026",
     time: "10:42",

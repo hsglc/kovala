@@ -2,7 +2,7 @@ import { getFit } from "../lib/identity";
 import { TICK_RATE } from "../../shared/constants";
 import { Bot, type BotLevel } from "../../shared/bot";
 import { MatchEngine, type PublicState, type TickInput } from "../../shared/engine";
-import type { QuadLayout } from "../../shared/maps";
+import { LAYOUTS, type QuadLayout } from "../../shared/maps";
 import { clonePlayer, quantizeInput, type PlayerState } from "../../shared/sim";
 import type { ConnStatus, FrameData, GameSource } from "./types";
 
@@ -38,8 +38,12 @@ export class LocalGame implements GameSource {
   private act2 = false;
   private paused = false;
 
-  constructor(pid: string, name: string, level: BotLevel, chases = 16, layoutId = "random", teamSize = 1) {
+  /** Hayatta kal modu: hep sen kaçarsın, her kaçışta bot güçlenir ve saha değişir; yakalanınca biter. */
+  readonly survival: { streak: number; best: number; over: boolean } | null;
+
+  constructor(pid: string, name: string, level: BotLevel, chases = 16, layoutId = "random", teamSize = 1, mode: "match" | "survival" = "match") {
     this.selfId = pid;
+    this.survival = mode === "survival" ? { streak: 0, best: getBest(), over: false } : null;
     this.engine.join(pid, name, getFit());
     if (teamSize <= 1) {
       this.engine.join(BOT_ID, BOT_NAMES[level], BOT_FITS[level]);
@@ -53,7 +57,8 @@ export class LocalGame implements GameSource {
     }
     this.engine.setChases(pid, chases);
     this.engine.layoutChoice = layoutId;
-    this.engine.start(pid);
+    if (this.survival) this.startSurvival();
+    else this.engine.start(pid);
     this.state = this.engine.publicState();
   }
 
@@ -82,6 +87,26 @@ export class LocalGame implements GameSource {
     const v = e.version;
     const events = e.step(inputs);
     if (events.some((x) => x.type === "chaseStart")) for (const b of this.bots.values()) b.reset();
+    if (this.survival) {
+      for (const ev of events) {
+        if (ev.type !== "chaseEnd") continue;
+        const sv = this.survival;
+        if (ev.record.winner === "evader" && ev.record.evader === this.selfId) {
+          sv.streak++;
+          if (sv.streak > sv.best) {
+            sv.best = sv.streak;
+            setBest(sv.best);
+          }
+          this.bots.get(BOT_ID)?.tune(sv.streak / 7);
+          // Bir sonraki chase farklı bir sahada
+          const pool = LAYOUTS.filter((l) => l.id !== e.layout.id);
+          e.layout = pool[Math.floor(Math.random() * pool.length)];
+        } else {
+          sv.over = true;
+          e.endMatch(e.member(BOT_ID)!.team);
+        }
+      }
+    }
     if (e.version !== v) {
       this.state = e.publicState();
       this.emit();
@@ -159,7 +184,24 @@ export class LocalGame implements GameSource {
     this.state = this.engine.publicState();
     this.emit();
   }
+  private startSurvival() {
+    const sv = this.survival!;
+    sv.streak = 0;
+    sv.over = false;
+    sv.best = getBest();
+    this.bots.get(BOT_ID)?.tune(0);
+    this.engine.chases = 99;
+    this.engine.layoutChoice = "isinma";
+    this.engine.start(this.selfId, this.selfId);
+  }
+
   start() {
+    if (this.survival) {
+      this.startSurvival();
+      this.state = this.engine.publicState();
+      this.emit();
+      return;
+    }
     this.engine.start(this.selfId);
     this.state = this.engine.publicState();
     this.emit();
@@ -175,4 +217,21 @@ export class LocalGame implements GameSource {
   close() {
     this.listeners.clear();
   }
+}
+
+const BEST_KEY = "evade:survival-best";
+function getBest(): number {
+  try {
+    return Number(localStorage.getItem(BEST_KEY)) || 0;
+  } catch {
+    return 0;
+  }
+}
+function setBest(n: number) {
+  try {
+    localStorage.setItem(BEST_KEY, String(n));
+  } catch {}
+}
+export function survivalBest() {
+  return getBest();
 }

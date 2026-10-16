@@ -7,6 +7,7 @@ import { getFit, getName, getPid, setName } from "../lib/identity";
 import { QuadThumb } from "../ui/QuadThumb";
 import { VsBg } from "../ui/VsBg";
 import { getProgress } from "../lib/progress";
+import { survivalBest } from "../net/LocalGame";
 import { unlockAudio } from "../lib/sound";
 import { CURRENT_VERSION, PATCH_NOTES } from "../patchnotes";
 
@@ -20,11 +21,12 @@ interface Props {
   onJoin: (code: string) => void;
   onPractice: (level: BotLevel, map: string, squad: number) => void;
   onWardrobe: () => void;
+  onSurvival: () => void;
 }
 
 type Sheet = null | "rules" | "notes" | "missions" | "practice" | "ladder";
 
-export function Home({ offline, initialCode, busy, error, onQuick, onCreate, onJoin, onPractice, onWardrobe }: Props) {
+export function Home({ offline, initialCode, busy, error, onQuick, onCreate, onJoin, onPractice, onWardrobe, onSurvival }: Props) {
   const [name, setNameState] = useState(getName());
   const [code, setCode] = useState(initialCode ?? "");
   const [level, setLevel] = useState<BotLevel>("orta");
@@ -163,6 +165,11 @@ export function Home({ offline, initialCode, busy, error, onQuick, onCreate, onJ
         <button className="tape tape-ply" onClick={() => ensureName() && setSheet("practice")}>
           <span className="tape-main">Antrenman</span>
           <span className="marker">botlara karşı, 9 saha</span>
+        </button>
+
+        <button className="tape tape-red" onClick={() => ensureName() && onSurvival()}>
+          <span className="tape-main">Hayatta kal</span>
+          <span className="marker">yakalanana kadar kaç. Rekorun: {survivalBest()} chase</span>
         </button>
 
         <div className="tape-row">

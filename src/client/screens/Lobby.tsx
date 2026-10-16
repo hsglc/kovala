@@ -59,7 +59,11 @@ export function Lobby({ source, state: s, onLeave }: Props) {
         )}
       </header>
 
-      {finished && s.winner !== null && <MatchResult s={s} me={me} />}
+      {source.survival ? (
+        <SurvivalResult sv={source.survival} />
+      ) : (
+        finished && s.winner !== null && <MatchResult s={s} me={me} />
+      )}
 
       {!local && (
         <section className="teams">
@@ -90,7 +94,7 @@ export function Lobby({ source, state: s, onLeave }: Props) {
         </section>
       )}
 
-      <section className="ply settings">
+      {!source.survival && <section className="ply settings">
         <h2 className="ply-title">Maç ayarları</h2>
         <div className="setting">
           <span className="setting-label">Chase sayısı</span>
@@ -144,7 +148,7 @@ export function Lobby({ source, state: s, onLeave }: Props) {
             ))}
           </div>
         </div>
-      </section>
+      </section>}
 
       <div className="lobby-actions">
         {isHost ? (
@@ -157,7 +161,7 @@ export function Lobby({ source, state: s, onLeave }: Props) {
                 source.start();
               }}
             >
-              {finished ? "Rövanş" : "Maçı başlat"}
+              {source.survival ? "Tekrar dene" : finished ? "Rövanş" : "Maçı başlat"}
             </button>
             {!canStart && <p className="hint">Başlamak için her takımda en az bir oyuncu olmalı. Arkadaşına “Davet et” ile link gönder.</p>}
           </>
@@ -166,6 +170,21 @@ export function Lobby({ source, state: s, onLeave }: Props) {
         )}
       </div>
     </div>
+  );
+}
+
+function SurvivalResult({ sv }: { sv: { streak: number; best: number } }) {
+  const record = sv.streak > 0 && sv.streak >= sv.best;
+  return (
+    <section className="surv-card">
+      <span className="marker">{record ? "yeni rekor!" : "yakalandın"}</span>
+      <div className="surv-num">{sv.streak}</div>
+      <div className="surv-label">{sv.streak === 0 ? "ilk chase'te yakalandın" : "chase üst üste kaçtın"}</div>
+      <div className="surv-best">
+        Rekorun <b>{sv.best}</b>
+      </div>
+      <p className="hint">Her kaçışta kovalayan güçlenir ve saha değişir. 7. chase'ten sonra bot en zor hâline gelir.</p>
+    </section>
   );
 }
 
