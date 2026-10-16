@@ -1,0 +1,19 @@
+<!doctype html><html><body style="margin:0;background:#111">
+<script type="module">
+import * as THREE from "three";
+import { buildObstacle, buildFloor, makeMaterials } from "/src/client/game/three/quadBuilder.ts";
+import { getLayout } from "/src/shared/maps.ts";
+const r = new THREE.WebGLRenderer({ antialias: true }); r.setSize(innerWidth, innerHeight); r.shadowMap.enabled = true;
+document.body.appendChild(r.domElement);
+const sc = new THREE.Scene(); sc.background = new THREE.Color(0x0d1220);
+sc.add(new THREE.HemisphereLight(0xdde8ff, 0x202028, 1.2));
+const d = new THREE.DirectionalLight(0xffffff, 2.2); d.position.set(4, 10, 6); d.castShadow = true;
+d.shadow.mapSize.set(2048,2048); Object.assign(d.shadow.camera,{left:-8,right:8,top:8,bottom:-8}); d.target.position.set(6,0,6); sc.add(d, d.target);
+const L = getLayout("quad"); const mats = makeMaterials();
+sc.add(buildFloor(L)); for (const o of L.obstacles) sc.add(buildObstacle(o, mats));
+const cam = new THREE.PerspectiveCamera(40, innerWidth/innerHeight, 0.1, 100);
+const p = new URLSearchParams(location.search);
+const [cx,cy,cz,tx,ty,tz] = (p.get("v")||"6,9,15,6,0,6").split(",").map(Number);
+cam.position.set(cx,cy,cz); cam.lookAt(tx,ty,tz);
+r.render(sc, cam); window.done = true;
+</script></body></html>

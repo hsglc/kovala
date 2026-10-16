@@ -15,7 +15,11 @@ export interface Obstacle {
   h: number;
   /** Yükseklik (metre). Verilmezse türün varsayılanı: duvar 1,85, kutu 0,7, bar 1,15. */
   hgt?: number;
+  /** Görsel modül (resmî WCT Quad parçaları). Fiziği değiştirmez. */
+  mod?: QuadModule;
 }
+
+export type QuadModule = "mountain" | "sisters" | "ridge" | "loadingbay" | "tiltedcube" | "lazyboy";
 
 export interface QuadLayout {
   id: string;
@@ -42,6 +46,7 @@ const SPAWNS: [number, number][] = [
 const w = (x: number, y: number, ww: number, h: number): Obstacle => ({ kind: "wall", x, y, w: ww, h });
 const b = (x: number, y: number, ww: number, h: number, hgt?: number): Obstacle => ({ kind: "box", x, y, w: ww, h, hgt });
 const r = (x: number, y: number, ww: number, h: number): Obstacle => ({ kind: "bar", x, y, w: ww, h });
+const m = (o: Obstacle, mod: QuadModule): Obstacle => ({ ...o, mod });
 
 export const LAYOUTS: QuadLayout[] = [
   {
@@ -56,23 +61,23 @@ export const LAYOUTS: QuadLayout[] = [
       [10.9, 1.1],
     ],
     obstacles: [
-      // Merkez kule
-      w(5.4, 5.4, 1.2, 1.2),
-      // Köşe kuleleri (döngü noktaları)
-      w(2.4, 2.4, 1.0, 1.0),
-      w(8.6, 8.6, 1.0, 1.0),
-      // Uzun tek duvarlar (tic-tac için)
-      w(2.0, 7.9, 0.3, 2.1),
-      w(9.7, 2.0, 0.3, 2.1),
-      // Platform altı kayma boşlukları
-      r(5.1, 2.6, 1.8, 0.45),
-      r(5.1, 8.95, 1.8, 0.45),
-      // Yüksek vault blokları (1,0 m)
-      b(8.5, 2.6, 1.2, 0.6, 1.0),
-      b(2.3, 8.8, 1.2, 0.6, 1.0),
-      // Alçak bloklar (0,7 m, üstüne zıplanır)
-      b(3.0, 5.3, 0.6, 1.4, 0.7),
-      b(8.4, 5.3, 0.6, 1.4, 0.7),
+      // The Mountain: merkezdeki eğimli etekli 1,85 m kule
+      m(w(5.4, 5.4, 1.2, 1.2), "mountain"),
+      // The Sisters: köşelerde yan yana ikiz kuleler
+      m(w(2.4, 2.4, 1.0, 1.0), "sisters"),
+      m(w(8.6, 8.6, 1.0, 1.0), "sisters"),
+      // The Ridge: uzun tic-tac duvarları, sırtında çelik tutamak
+      m(w(2.0, 7.9, 0.3, 2.1), "ridge"),
+      m(w(9.7, 2.0, 0.3, 2.1), "ridge"),
+      // Loading Bay: altından kayılan yükseltilmiş platform
+      m(r(5.1, 2.6, 1.8, 0.45), "loadingbay"),
+      m(r(5.1, 8.95, 1.8, 0.45), "loadingbay"),
+      // Tilted Cube: eğik üstlü 1,0 m vault bloğu
+      m(b(8.5, 2.6, 1.2, 0.6, 1.0), "tiltedcube"),
+      m(b(2.3, 8.8, 1.2, 0.6, 1.0), "tiltedcube"),
+      // Lazy Boy: yaslanmış koltuk gibi eğimli 0,7 m blok
+      m(b(3.0, 5.3, 0.6, 1.4, 0.7), "lazyboy"),
+      m(b(8.4, 5.3, 0.6, 1.4, 0.7), "lazyboy"),
     ],
   },
   {

@@ -12,6 +12,21 @@ export interface PatchNote {
 
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: "0.8.0",
+    date: "16 Eki 2026",
+    time: "08:03",
+    title: "Resmî Quad engelleri",
+    items: [
+      "Resmî Quad haritasındaki engeller gerçek WCT modülleri gibi yeniden modellendi:",
+      "The Mountain: ortada eğimli etekli, tepesi huş platformlu 1,85 m kule.",
+      "The Sisters: köşelerde yan yana ikiz kuleler, tutunma çıtaları ve çelik kuşaklar.",
+      "The Ridge: sırtında çelik boru, uçlarında açık iskele çaprazları olan uzun tic-tac duvarları.",
+      "Loading Bay: altından kayılan platform; uçlarda kapalı bölmeler, sarı-siyah uyarı bandı.",
+      "Tilted Cube: eğik üstlü vault bloğu. Lazy Boy: yaslanmış koltuk biçimli alçak blok.",
+      "Engellerin ölçüleri ve hamle davranışları değişmedi.",
+    ],
+  },
+  {
     version: "0.7.0",
     date: "16 Eki 2026",
     time: "08:00",
