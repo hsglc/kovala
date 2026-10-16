@@ -1,6 +1,6 @@
-import { CLIMB_COST, DIVE_COST, JUKE_COST, KICK_COST, PLAYER_RADIUS, QUAD_SIZE } from "./constants";
+import { CLIMB_COST, DIVE_COST, JUKE_COST, KICK_COST, PLAYER_RADIUS, ROLL_COST, QUAD_SIZE } from "./constants";
 import type { QuadLayout } from "./maps";
-import { ACT_CLIMB, ACT_KICK, nearWall, parkourPreview, wallJumpDir, type Input, type PlayerState } from "./sim";
+import { ACT_CLIMB, ACT_KICK, ACT_ROLL, groundAt, nearWall, parkourPreview, wallJumpDir, type Input, type PlayerState } from "./sim";
 
 /** Botla antrenman ve testlerde kullanılan basit yapay zekâ. */
 
@@ -208,6 +208,10 @@ export class Bot {
         act = false;
         act2 = false;
       }
+    }
+    // Yüksekten düşerken takla at (sert inişte hız kaybetme)
+    if (!act && self.hv < -2 && self.h - groundAt(self.x, self.y, layout) > 0.5 && self.st >= ROLL_COST) {
+      if (parkourPreview(self, { mx: dx, my: dy, act: true, act2: false }, layout) === ACT_ROLL) act = true;
     }
     return { mx: dx * this.cfg.speed, my: dy * this.cfg.speed, act, act2 };
   }

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { CLIMB_COST, DIVE_COST, JUKE_COST, JUMP_COST, KICK_COST } from "../../shared/constants";
+import { CHAIN_KICK_COST, CLIMB_COST, DIVE_COST, FEINT_COST, JUKE_COST, JUMP_COST, KICK_COST, ROLL_COST } from "../../shared/constants";
 import type { PublicState } from "../../shared/engine";
-import { ACT_CLIMB, ACT_JUMP, ACT_KICK, ACT_KONG, ACT_SLIDE, ACT_STUMBLE, ACT_VAULT, parkourPreview, type PlayerState } from "../../shared/sim";
+import { ACT_CLIMB, ACT_JUMP, ACT_KICK, ACT_KONG, ACT_SLIDE, ACT_STUMBLE, ACT_VAULT, parkourPreview, ACT_ROLL, groundAt, type PlayerState } from "../../shared/sim";
 import { TEAM_COLORS, memberName, resultLine, resultTitle, teamName } from "../lib/text";
 import { music } from "../lib/music";
 import { recordMove } from "../lib/progress";
@@ -320,13 +320,30 @@ export function GameScreen({ source, state, onLeave }: Props) {
       let disabled2 = !active;
       if (active && f.self) {
         const kind = parkourPreview(f.self, { mx: move.mx, my: move.my, act: false, act2: false }, layout);
+        const air = f.self.h > groundAt(f.self.x, f.self.y, layout) + 0.35;
         label =
-          kind === ACT_CLIMB ? "TIRMAN" : kind === ACT_VAULT ? "ATLA" : kind === ACT_SLIDE ? "KAY" : kind === ACT_KICK ? "DUVAR" : "ZIPLA";
-        const cost = kind === ACT_CLIMB ? CLIMB_COST : kind === ACT_KICK ? KICK_COST : kind === ACT_JUMP ? JUMP_COST : 0;
-        const busy = f.self.cd > 0 || f.self.ak !== 0;
+          kind === ACT_ROLL
+            ? "TAKLA"
+            : kind === ACT_CLIMB
+              ? "TIRMAN"
+              : kind === ACT_VAULT
+                ? "ATLA"
+                : kind === ACT_SLIDE
+                  ? "KAY"
+                  : kind === ACT_KICK
+                    ? air
+                      ? "TIC-TAC"
+                      : "DUVAR"
+                    : "ZIPLA";
+        const cost =
+          kind === ACT_CLIMB ? CLIMB_COST : kind === ACT_KICK ? (air ? CHAIN_KICK_COST : KICK_COST) : kind === ACT_JUMP ? JUMP_COST : kind === ACT_ROLL ? ROLL_COST : 0;
+        const busy = air ? false : f.self.cd > 0 || f.self.ak !== 0;
         disabled = f.self.st < cost || busy;
-        const cost2 = myRole === "chaser" ? DIVE_COST : JUKE_COST;
-        disabled2 = f.self.st < cost2 || busy;
+        const feint = myRole === "evader" && Math.hypot(move.mx, move.my) < 0.05 && Math.hypot(f.self.vx, f.self.vy) > 2;
+        if (myRole === "evader") label2 = feint ? "SAHTE" : "SIÇRA";
+        const cost2 = myRole === "chaser" ? DIVE_COST : feint ? FEINT_COST : JUKE_COST;
+        const busy2 = f.self.cd > 0 || f.self.ak !== 0;
+        disabled2 = f.self.st < cost2 || busy2;
         if (f.self.ak !== lastAk && f.self.ak !== 0 && f.self.ak !== ACT_STUMBLE) {
           recordMove(f.self.ak);
           if (f.self.ak === ACT_VAULT || f.self.ak === ACT_KONG || f.self.ak === ACT_CLIMB || f.self.ak === ACT_JUMP || f.self.ak === ACT_SLIDE) sfx.vault();

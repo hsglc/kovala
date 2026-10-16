@@ -63,6 +63,19 @@ export const STUMBLE_TIME = 0.5;
 export const JUKE_SPEED = 9.6;
 export const JUKE_TIME = 0.14;
 export const JUKE_COST = 24;
+/** Takla: yüksekten inerken PARKUR; hızı koruyup öne yuvarlanırsın */
+export const ROLL_SPEED = 6.2;
+export const ROLL_TIME = 0.42;
+export const ROLL_COST = 6;
+/** Taklasız sert iniş (dikey hız bu değerin altında): hız yarıya düşer */
+export const HARD_LANDING_V = -7;
+/** Havadayken duvara tekrar sıçrama (tic-tac zinciri): yarı maliyet, %12 daha hızlı */
+export const CHAIN_KICK_COST = 7;
+export const CHAIN_KICK_BOOST = 1.12;
+/** Sahte çıkış: kaçan, joystick boştayken SIÇRA → yavaşlar, sonra geldiği yöne fırlar */
+export const FEINT_TIME = 0.24;
+export const FEINT_COST = 18;
+export const FEINT_EXIT = 1.18;
 
 /** Engel yükseklikleri (metre). Fizik ve çizim aynı değeri kullanır. */
 /** Resmî Quad: en yüksek engel 1,85 m. */

@@ -12,6 +12,19 @@ export interface PatchNote {
 
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: "0.17.0",
+    date: "16 Eki 2026",
+    time: "10:55",
+    title: "Yeni hamleler: takla, tic-tac zinciri, sahte çıkış",
+    items: [
+      "TAKLA: yüksekten (duvar tepesi, zıplama) inerken PARKUR'a bas; öne yuvarlanıp hızını korursun.",
+      "Sert iniş: takla atmadan duvardan atlarsan kısa süre tökezlersin. Botlar da takla atar.",
+      "TIC-TAC zinciri: duvardan sıçradıktan sonra havadayken yanında başka bir duvar varsa yarı enerjiyle, %12 daha hızlı ikinci sıçrama.",
+      "SAHTE: kaçan, koşarken joystick'i bırakıp SIÇRA'ya basarsa durur gibi yapar ve geldiği yöne fırlar.",
+      "Yeni görevler: 3 takla, 2 sahte çıkış. Yılan Yolu'nda duvarlar uzadı, kaçış yolları açıldı.",
+    ],
+  },
+  {
     version: "0.16.0",
     date: "16 Eki 2026",
     time: "10:46",

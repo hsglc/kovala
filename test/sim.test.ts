@@ -332,3 +332,35 @@ describe("hayatta kal", () => {
     expect(e.phase).toBe("finished");
   });
 });
+
+describe("yeni hamleler", () => {
+  const L = getLayout("isinma");
+  const fall = (roll: boolean) => {
+    const p = createPlayer(1.5, 1.5, 1, 0);
+    p.h = 1.85;
+    p.vx = 5;
+    let pressed = false;
+    for (let i = 0; i < 40; i++) {
+      const act = roll && !pressed && p.hv < 0;
+      if (act) pressed = true;
+      stepPlayer(p, { mx: 1, my: 0, act, act2: false }, "evader", L);
+    }
+    return p;
+  };
+  it("taklasız sert iniş yavaşlatır, takla hızı korur", () => {
+    const a = fall(false);
+    const b = fall(true);
+    expect(b.x).toBeGreaterThan(a.x + 0.3);
+  });
+  it("sahte çıkış geldiği yöne fırlatır", () => {
+    const p = createPlayer(4, 1.5, 1, 0);
+    for (let i = 0; i < 20; i++) stepPlayer(p, { mx: 1, my: 0, act: false, act2: false }, "evader", L);
+    stepPlayer(p, { mx: 0, my: 0, act: false, act2: true }, "evader", L);
+    let minVx = 0;
+    for (let i = 0; i < 9; i++) {
+      stepPlayer(p, { mx: 0, my: 0, act: false, act2: false }, "evader", L);
+      minVx = Math.min(minVx, p.vx);
+    }
+    expect(minVx).toBeLessThan(-5.5);
+  });
+});

@@ -22,6 +22,15 @@ import {
   TOP_DRAIN,
   TAG_MAX_DH,
   KICK_COST,
+  ROLL_SPEED,
+  ROLL_TIME,
+  ROLL_COST,
+  HARD_LANDING_V,
+  CHAIN_KICK_COST,
+  CHAIN_KICK_BOOST,
+  FEINT_TIME,
+  FEINT_COST,
+  FEINT_EXIT,
   KICK_RANGE,
   KICK_SPEED,
   KICK_TIME,
@@ -67,6 +76,8 @@ export const ACT_STUMBLE = 6;
 export const ACT_JUKE = 7;
 export const ACT_SLIDE = 8;
 export const ACT_JUMP = 9;
+export const ACT_ROLL = 10; // takla (iniş)
+export const ACT_FEINT = 11; // sahte çıkış
 
 export type Role = "chaser" | "evader";
 
@@ -217,6 +228,12 @@ export const wallBehind = (x: number, y: number, _dx: number, _dy: number, layou
 
 /** PARKUR tuşu şu an ne yapar? (UI etiketi ve sim için aynı mantık) */
 export function parkourPreview(p: PlayerState, input: Input, layout: QuadLayout): number {
+  // Havada iniyorsan: yanında duvar varsa zincir sıçrama, yoksa iniş taklası
+  const gnd = groundAt(p.x, p.y, layout);
+  if (p.h > gnd + 0.35 && p.hv < 0.5) {
+    if (nearWall(p.x, p.y, layout)) return ACT_KICK;
+    return ACT_ROLL;
+  }
   const l = Math.hypot(input.mx, input.my);
   const dx = l > 0.05 ? input.mx / l : p.fx;
   const dy = l > 0.05 ? input.my / l : p.fy;
@@ -320,7 +337,7 @@ export function stepPlayer(p: PlayerState, input: Input, role: Role, layout: Qua
   const maxSpeed = role === "chaser" ? SPEED_CHASER : SPEED_EVADER;
   const accel = role === "chaser" ? ACCEL_CHASER : ACCEL_EVADER;
   let started = 0;
-  p.cd = Math.max(0, p.cd - DT);
+  if (!(p.ak === ACT_KICK && p.cd < 0)) p.cd = Math.max(0, p.cd - DT);
   const il = Math.hypot(input.mx, input.my);
   const free = p.ak === 0;
   if (il > 0.05 && free) {
@@ -332,10 +349,28 @@ export function stepPlayer(p: PlayerState, input: Input, role: Role, layout: Qua
   const speed = Math.hypot(p.vx, p.vy);
 
   // ---- Aksiyon başlatma ----
-  if (free && p.cd <= 0) {
+  // Zıplama/sıçrama havasındayken de PARKUR basılabilir (takla, tic-tac zinciri)
+  const inAir = (p.ak === ACT_JUMP || p.ak === ACT_KICK || p.ak === 0) && p.h > groundAt(p.x, p.y, layout) + 0.35;
+  if (input.act && inAir && (p.ak !== 0 || p.cd <= 0)) {
+    const kind = parkourPreview(p, input, layout);
+    if (kind === ACT_ROLL && p.st >= ROLL_COST) {
+      begin(p, ACT_ROLL, dx, dy, ROLL_COST);
+      started = ACT_ROLL;
+    } else if (kind === ACT_KICK && p.st >= CHAIN_KICK_COST && (p.ak !== ACT_KICK || p.at > 0.12)) {
+      const n = nearWall(p.x, p.y, layout)!;
+      const jd = wallJumpDir(dx, dy, n);
+      begin(p, ACT_KICK, jd[0], jd[1], CHAIN_KICK_COST);
+      p.hv = 3.6;
+      p.cd = -1; // zincir işareti: bu sıçrama daha hızlı
+      started = ACT_KICK;
+    }
+  } else if (free && p.cd <= 0) {
     if (input.act2) {
       if (role === "chaser" && p.st >= DIVE_COST) {
         begin(p, ACT_DIVE, dx, dy, DIVE_COST);
+      } else if (role === "evader" && il < 0.05 && Math.hypot(p.vx, p.vy) > 2 && p.st >= FEINT_COST) {
+        // Sahte çıkış: joystick bırakılmışken SIÇRA → dur, geldiğin yöne fırla
+        begin(p, ACT_FEINT, -p.fx, -p.fy, FEINT_COST);
       } else if (role === "evader" && p.st >= JUKE_COST) {
         begin(p, ACT_JUKE, dx, dy, JUKE_COST);
       }
@@ -400,10 +435,24 @@ export function stepPlayer(p: PlayerState, input: Input, role: Role, layout: Qua
       p.vy = p.dy * k;
       break;
     }
-    case ACT_KICK:
-      p.vx = p.dx * KICK_SPEED;
-      p.vy = p.dy * KICK_SPEED;
+    case ACT_KICK: {
+      const k = p.cd < 0 ? KICK_SPEED * CHAIN_KICK_BOOST : KICK_SPEED;
+      p.vx = p.dx * k;
+      p.vy = p.dy * k;
       break;
+    }
+    case ACT_ROLL:
+      p.vx = p.dx * ROLL_SPEED;
+      p.vy = p.dy * ROLL_SPEED;
+      break;
+    case ACT_FEINT: {
+      // İlk yarı: fren (sahte), ikinci yarı: ters yöne patlama
+      const half = p.at < FEINT_TIME * 0.5;
+      const k = half ? maxSpeed * 0.15 : maxSpeed * FEINT_EXIT;
+      p.vx = p.dx * k;
+      p.vy = p.dy * k;
+      break;
+    }
     case ACT_DIVE:
       p.vx = p.dx * DIVE_SPEED;
       p.vy = p.dy * DIVE_SPEED;
@@ -470,6 +519,14 @@ export function stepPlayer(p: PlayerState, input: Input, role: Role, layout: Qua
     p.hv -= GRAVITY * DT;
     p.h += p.hv * DT;
     if (p.h <= g2) {
+      // Sert iniş: takla atmadan yüksekten düştüysen hızın yarıya iner
+      if (p.hv < HARD_LANDING_V && p.ak !== ACT_ROLL && p.ak !== ACT_KICK) {
+        // Sert iniş: kısa tökezleme
+        p.ak = ACT_STUMBLE;
+        p.at = STUMBLE_TIME * 0.55;
+        p.vx *= 0.4;
+        p.vy *= 0.4;
+      }
       p.h = g2;
       p.hv = 0;
     }
@@ -516,7 +573,15 @@ export function stepPlayer(p: PlayerState, input: Input, role: Role, layout: Qua
         break;
       }
       case ACT_KICK:
-        if (p.at >= KICK_TIME - 1e-9) end(1, 0.1);
+        if (p.at >= KICK_TIME - 1e-9) end(p.cd < 0 ? CHAIN_KICK_BOOST : 1, 0.1);
+        break;
+      case ACT_ROLL:
+        // Yere değmeden bitmez; indikten sonra kısa yuvarlanma
+        if (p.at >= ROLL_TIME - 1e-9 && p.h <= groundAt(p.x, p.y, layout) + 1e-6) end(1.05, 0.05);
+        else if (p.at >= ROLL_TIME * 3) end(1, 0.05);
+        break;
+      case ACT_FEINT:
+        if (p.at >= FEINT_TIME - 1e-9) end(FEINT_EXIT);
         break;
       case ACT_SLIDE: {
         const clear = !overlapsAny(p.x, p.y, layout, "bar");

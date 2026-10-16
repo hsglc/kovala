@@ -217,9 +217,9 @@ const ALL_LAYOUTS: QuadLayout[] = [
     theme: "arena",
     spawns: SPAWNS,
     obstacles: [
-      m(w(2.4, 3.1, 4.6, 0.3), "ridge"),
-      m(w(5.0, 5.85, 4.6, 0.3), "ridge"),
-      m(w(2.4, 8.6, 4.6, 0.3), "ridge"),
+      m(w(2.0, 3.1, 5.8, 0.3), "ridge"),
+      m(w(4.2, 5.85, 5.8, 0.3), "ridge"),
+      m(w(2.0, 8.6, 5.8, 0.3), "ridge"),
       // Koridor içi engeller
       m(r(8.4, 3.05, 1.8, 0.45), "loadingbay"),
       m(b(2.6, 5.6, 1.2, 0.6, 1.0), "tiltedcube"),

@@ -11,6 +11,8 @@ import {
   ACT_SLIDE,
   ACT_STUMBLE,
   ACT_VAULT,
+  ACT_ROLL,
+  ACT_FEINT,
 } from "../../../shared/sim";
 import { cleanFit, fitItem } from "../../../shared/outfit";
 import type { FigureAnim } from "./figure3d";
@@ -67,6 +69,8 @@ const ACTION_CLIP: Record<number, { clip: string; dur: number; loop?: boolean }>
   [ACT_STUMBLE]: { clip: "stumble", dur: 0.5 },
   [ACT_JUKE]: { clip: "juke", dur: 0.14 },
   [ACT_KICK]: { clip: "wallkick", dur: 0.3 },
+  [ACT_ROLL]: { clip: "kong", dur: 0.42 },
+  [ACT_FEINT]: { clip: "juke", dur: 0.24 },
 };
 
 export class Athlete {
@@ -146,6 +150,23 @@ export class Athlete {
   update(a: FigureAnim, speed: number, dt: number) {
     this.root.rotation.y = Math.PI / 2 - a.heading;
     this.model.position.y = a.h;
+    // Takla: modeli kalça hizasında öne doğru bir tur döndür
+    if (a.pose === ACT_ROLL) {
+      const t = Math.min(1, a.at / 0.42);
+      const th = t * Math.PI * 2;
+      // Gövdeyi topa çevir (ezilmiş ölçek) ve merkezinden yuvarla; zeminin altına inmez
+      const tuck = Math.sin(t * Math.PI);
+      const sy = 1 - 0.45 * tuck;
+      const piv = 0.48 + (1 - tuck) * 0.4;
+      this.model.scale.set(1, sy, 1 - 0.2 * tuck);
+      this.model.rotation.x = th;
+      this.model.position.y = a.h + piv - piv * Math.cos(th);
+      this.model.position.z = -piv * Math.sin(th);
+    } else {
+      this.model.rotation.x = 0;
+      this.model.position.z = 0;
+      this.model.scale.set(1, 1, 1);
+    }
     this.ring.scale.setScalar(a.h > 0.3 ? 0.8 : 1);
 
     const ak = a.pose;

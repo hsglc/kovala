@@ -349,6 +349,15 @@ function Rules() {
           Kaçan <b>SIÇRA</b> ile ani yön değiştirir; kovalayan <b>DALIŞ</b> ile uzağa uzanır ama sonra tökezler.
         </li>
         <li>Kaçan daha çevik döner, kovalayan biraz daha hızlı koşar. Hamleler enerji harcar.</li>
+        <li>
+          Yüksekten düşerken <b>TAKLA</b> at: hızını korursun. Atmazsan sert iner, kısa süre tökezlersin.
+        </li>
+        <li>
+          Duvardan sıçradıktan sonra havadayken başka bir duvarın yanındaysan <b>TIC-TAC</b>: yarı enerjiyle daha hızlı ikinci sıçrama.
+        </li>
+        <li>
+          Kaçan, koşarken joystick'i bırakıp <b>SAHTE</b> tuşuna basarsa yavaşlıyormuş gibi yapar, sonra geldiği yöne fırlar.
+        </li>
       </ul>
       <h3>Kontroller</h3>
       <ul>

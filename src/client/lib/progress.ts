@@ -1,4 +1,4 @@
-import { ACT_CLIMB, ACT_DIVE, ACT_JUKE, ACT_KICK, ACT_KONG, ACT_SLIDE, ACT_VAULT } from "../../shared/sim";
+import { ACT_CLIMB, ACT_DIVE, ACT_FEINT, ACT_JUKE, ACT_KICK, ACT_KONG, ACT_ROLL, ACT_SLIDE, ACT_VAULT } from "../../shared/sim";
 import { getLayout } from "../../shared/maps";
 import type { ChaseRecord, PublicState } from "../../shared/engine";
 
@@ -29,7 +29,9 @@ type EventKind =
   | "win"
   | "hardEvade"
   | "teamWin"
-  | "fullHold";
+  | "fullHold"
+  | "roll"
+  | "feint";
 
 export const MISSION_POOL: Mission[] = [
   { id: "ev3", text: "3 chase'te kaç", goal: 3, xp: 90, ev: "evade" },
@@ -44,6 +46,8 @@ export const MISSION_POOL: Mission[] = [
   { id: "hard1", text: "Zor bir sahada bir chase'te kaç", goal: 1, xp: 110, ev: "hardEvade" },
   { id: "team1", text: "3'e 3 takım maçı kazan", goal: 1, xp: 150, ev: "teamWin" },
   { id: "chase12", text: "12 chase oyna", goal: 12, xp: 80, ev: "chase" },
+  { id: "roll3", text: "Yüksekten inerken 3 takla at", goal: 3, xp: 70, ev: "roll" },
+  { id: "feint2", text: "2 sahte çıkış yap", goal: 2, xp: 70, ev: "feint" },
 ];
 
 const KEY = "evade:progress";
@@ -154,6 +158,8 @@ const MOVE_EVENT: Record<number, EventKind> = {
   [ACT_SLIDE]: "slide",
   [ACT_DIVE]: "dive",
   [ACT_JUKE]: "juke",
+  [ACT_ROLL]: "roll",
+  [ACT_FEINT]: "feint",
 };
 
 /** Kendi oyuncunun bir hamleye başladığını bildirir. */
