@@ -2049,8 +2049,7 @@ body:has(.game) {
   rotate: -3deg;
 }
 
-.spectating,
-.leave-hint {
+.spectating {
   position: absolute;
   left: 50%;
   padding: 8px 16px;
@@ -2064,11 +2063,6 @@ body:has(.game) {
 
 .spectating {
   bottom: calc(150px + var(--safe-b));
-}
-
-.leave-hint {
-  top: calc(84px + var(--safe-t));
-  background: var(--red);
 }
 
 .hud-corner {
@@ -2544,4 +2538,105 @@ body:has(.game) {
 
 .wardrobe .wr-hint {
   color: var(--muted);
+}
+
+/* ---------- Çıkış onayı ---------- */
+
+.exit-btn svg {
+  translate: 1px 0;
+}
+
+.leave-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(8, 8, 12, 0.66);
+  animation: fade 0.16s ease both;
+  touch-action: none;
+}
+
+.leave-card {
+  width: min(360px, 100%);
+  padding: 0 22px 24px;
+  background: var(--weave), var(--black);
+  clip-path: var(--torn);
+  rotate: -1.4deg;
+  animation: leave-pop 0.24s cubic-bezier(0.2, 1.2, 0.35, 1) both;
+}
+
+.leave-hazard {
+  height: 16px;
+  margin: 0 -22px 18px;
+  background: repeating-linear-gradient(-45deg, var(--ink) 0 12px, var(--yellow) 12px 24px);
+}
+
+.leave-card h2 {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 900;
+  font-size: 46px;
+  line-height: 0.92;
+}
+
+.leave-card p {
+  margin: 10px 0 22px;
+  font-size: 16px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.leave-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.leave-actions button {
+  min-height: 58px;
+  border: 0;
+  font-family: var(--display);
+  font-weight: 900;
+  font-size: 27px;
+  line-height: 1;
+  clip-path: var(--torn);
+  transition: transform 0.1s ease;
+}
+
+.leave-actions button:active {
+  transform: translateY(2px) scale(0.97);
+}
+
+.leave-actions button:focus-visible {
+  outline: 3px solid var(--yellow);
+  outline-offset: -6px;
+}
+
+.leave-stay {
+  color: var(--ink);
+  background: var(--weave), var(--white);
+  rotate: 1deg;
+}
+
+.leave-go {
+  color: var(--white);
+  background: var(--weave), var(--red);
+  rotate: -1.2deg;
+}
+
+@keyframes leave-pop {
+  from {
+    opacity: 0;
+    scale: 0.9;
+    translate: 0 14px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .leave-scrim,
+  .leave-card {
+    animation: none;
+  }
 }

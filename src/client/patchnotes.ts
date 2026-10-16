@@ -12,6 +12,17 @@ export interface PatchNote {
 
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: "0.20.2",
+    date: "16 Eki 2026",
+    time: "12:17",
+    title: "Yeni çıkış penceresi",
+    items: [
+      "Çıkış tuşu yeni: kapıdan çıkış simgesine dokununca onay penceresi açılıyor, “Maça dön” ya da “Çık”",
+      "Pencere ne olacağını söylüyor: antrenmanda maç yarıda kalır, onlinede takımın sensiz devam eder ya da maçı hükmen kaybedersin, hayatta kal modunda serin biter",
+      "Antrenmanda pencere açıkken oyun duruyor; pencereye dokunmak karakteri yürütmüyor",
+    ],
+  },
+  {
     version: "0.20.1",
     date: "16 Eki 2026",
     time: "12:14",

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CHAIN_KICK_COST, CLIMB_COST, DIVE_COST, FEINT_COST, JUKE_COST, JUMP_COST, KICK_COST, ROLL_COST } from "../../shared/constants";
 import type { PublicState } from "../../shared/engine";
 import { ACT_CLIMB, ACT_JUMP, ACT_KICK, ACT_KONG, ACT_SLIDE, ACT_STUMBLE, ACT_VAULT, parkourPreview, ACT_ROLL, groundAt, type PlayerState } from "../../shared/sim";
@@ -9,6 +9,7 @@ import { isMuted, setMuted, sfx, unlockAudio, vibrate } from "../lib/sound";
 import type { GameSource } from "../net/types";
 import { computeView, drawOverlay, updateCamera, HUD_TOP, type Camera, type JoyVisual } from "./renderer";
 import { Scene3D } from "./three/Scene3D";
+import { ExitIcon, LeaveDialog } from "../ui/LeaveDialog";
 
 interface Props {
   source: GameSource;
@@ -31,6 +32,9 @@ export function GameScreen({ source, state, onLeave }: Props) {
   const muteRef = useRef<HTMLButtonElement>(null);
   const stateRef = useRef(state);
   stateRef.current = state;
+  // Çıkış penceresi açıkken oyun girdileri yok sayılır
+  const modalRef = useRef(false);
+  const resetInputRef = useRef<() => void>(() => {});
 
   // Ses ve titreşim: chase sonuçları
   const lastSeen = useRef<string>("");
@@ -143,6 +147,7 @@ export function GameScreen({ source, state, onLeave }: Props) {
     let usingTouch = false;
     const onTouchStart = (e: TouchEvent) => {
       usingTouch = true;
+      if (modalRef.current) return;
       unlockAudio();
       const r = rectOf();
       for (const t of Array.from(e.changedTouches)) {
@@ -170,7 +175,7 @@ export function GameScreen({ source, state, onLeave }: Props) {
     wrap.addEventListener("touchcancel", onTouchEnd);
 
     const onMouseDown = (e: MouseEvent) => {
-      if (usingTouch) return;
+      if (usingTouch || modalRef.current) return;
       if ((e.target as HTMLElement).closest("button")) return;
       unlockAudio();
       const r = rectOf();
@@ -193,7 +198,7 @@ export function GameScreen({ source, state, onLeave }: Props) {
     const ACT2_KEYS = ["Space", "KeyJ", "Enter"];
     const ACT_KEYS = ["ShiftLeft", "ShiftRight", "KeyK", "KeyE"];
     const onKey = (e: KeyboardEvent) => {
-      if (e.repeat) return;
+      if (e.repeat || modalRef.current) return;
       if (ACT2_KEYS.includes(e.code) || ACT_KEYS.includes(e.code)) {
         e.preventDefault();
         if (e.type === "keydown") {
@@ -218,6 +223,7 @@ export function GameScreen({ source, state, onLeave }: Props) {
     window.addEventListener("keydown", onKey);
     window.addEventListener("keyup", onKey);
     window.addEventListener("blur", onBlur);
+    resetInputRef.current = onBlur;
 
     const cam: Camera = { x: 6, y: 6, zoom: 0, init: false };
     let lastNow = 0;
@@ -419,17 +425,30 @@ export function GameScreen({ source, state, onLeave }: Props) {
     : s.sd ? "SUDDEN DEATH" : `CHASE ${Math.min(s.chaseNo + 1, s.chases)}/${s.chases}`;
   const last = s.last;
 
-  // Tarayıcı onay penceresi yerine sayfa içi iki dokunuşlu onay.
-  const [confirmLeave, setConfirmLeave] = useState(false);
-  useEffect(() => {
-    if (!confirmLeave) return;
-    const t = setTimeout(() => setConfirmLeave(false), 2500);
-    return () => clearTimeout(t);
-  }, [confirmLeave]);
-  const leave = () => {
-    if (confirmLeave) onLeave();
-    else setConfirmLeave(true);
+  // Çıkış: onay penceresi. Yerel oyunda pencere açıkken oyun durur.
+  const [askLeave, setAskLeave] = useState(false);
+  const openLeave = () => {
+    modalRef.current = true;
+    resetInputRef.current();
+    source.setPaused?.(true);
+    setAskLeave(true);
   };
+  const stay = useCallback(() => {
+    modalRef.current = false;
+    source.setPaused?.(false);
+    setAskLeave(false);
+  }, [source]);
+  const inMatch = s.phase === "countdown" || s.phase === "chase" || s.phase === "result";
+  const mateLeft = s.members.some((m) => m.id !== me && m.team === myTeam && m.connected);
+  const leaveText = source.survival
+    ? { title: "Seri bitsin mi?", body: `${source.survival.streak} kaçışlık serin burada biter. En iyin: ${source.survival.best}.` }
+    : source.kind === "local"
+      ? { title: "Antrenmandan çık?", body: "Maç yarıda kalır, bu maçın skoru sayılmaz." }
+      : !inMatch
+        ? { title: "Odadan çık?", body: "Arkadaşların odada kalır, kodla tekrar katılabilirsin." }
+        : mateLeft
+          ? { title: "Maçtan çık?", body: "Takımın sensiz devam eder. Geri dönemezsin." }
+          : { title: "Maçtan çık?", body: "Maçı hükmen kaybedersin, puan rakibe yazılır." };
 
   return (
     <div className="game" ref={wrapRef}>
@@ -437,8 +456,8 @@ export function GameScreen({ source, state, onLeave }: Props) {
       <canvas ref={canvasRef} className="game-canvas overlay" />
 
       <div className="hud-top">
-        <button className={`icon-btn ${confirmLeave ? "confirm" : ""}`} onClick={leave} aria-label="Maçtan çık">
-          ✕
+        <button className="icon-btn exit-btn" onClick={openLeave} aria-label="Maçtan çık" aria-haspopup="dialog">
+          <ExitIcon />
         </button>
         <div className="scorebug">
           <div className="sb-team" style={{ ["--c" as string]: TEAM_COLORS[0] }}>
@@ -524,7 +543,9 @@ export function GameScreen({ source, state, onLeave }: Props) {
 
       {s.phase === "chase" && !role && <div className="spectating">İzliyorsun · sıran gelince sahaya gireceksin</div>}
 
-      {confirmLeave && <div className="leave-hint">Çıkmak için ✕'e tekrar dokun</div>}
+      {askLeave && (
+        <LeaveDialog title={leaveText.title} body={leaveText.body} stayLabel="Maça dön" leaveLabel="Çık" onStay={stay} onLeave={onLeave} />
+      )}
 
       <div className="hud-corner">
         <span ref={pingRef} />

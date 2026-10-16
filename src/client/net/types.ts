@@ -38,5 +38,7 @@ export interface GameSource {
   pick(id: string): void;
   /** Hayatta kal modu durumu (sadece tek kişilik) */
   readonly survival?: { streak: number; best: number; over: boolean } | null;
+  /** Yerel oyunda simülasyonu durdur (çıkış penceresi açıkken) */
+  setPaused?(p: boolean): void;
   close(): void;
 }
