@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { QUAD_SIZE } from "../../../shared/constants";
+import { QUAD_H, QUAD_W } from "../../../shared/constants";
 import type { Obstacle, QuadLayout } from "../../../shared/maps";
 import { obstacleHeight } from "../../../shared/sim";
 
@@ -520,39 +520,47 @@ export function buildObstacle(o: Obstacle, mats: QuadMaterials): THREE.Group {
 export function buildFloor(layout: QuadLayout): THREE.Group {
   const g = new THREE.Group();
   const c = document.createElement("canvas");
-  c.width = c.height = 1024;
+  // Tuval sahanın en/boy oranında: 1 m = step piksel
+  const CW = 2048;
+  const step = CW / QUAD_W;
+  const CH = Math.round(QUAD_H * step);
+  c.width = CW;
+  c.height = CH;
   const x = c.getContext("2d")!;
   const arena = layout.theme === "arena";
   x.fillStyle = arena ? "#1b2433" : "#26395a";
-  x.fillRect(0, 0, 1024, 1024);
+  x.fillRect(0, 0, CW, CH);
   // ince kauçuk dokusu
-  for (let i = 0; i < 9000; i++) {
+  for (let i = 0; i < 26000; i++) {
     x.fillStyle = `rgba(255,255,255,${Math.random() * 0.035})`;
-    x.fillRect(Math.random() * 1024, Math.random() * 1024, 2, 2);
+    x.fillRect(Math.random() * CW, Math.random() * CH, 2, 2);
   }
   // metre çizgileri (çok silik)
   x.strokeStyle = "rgba(170,200,240,0.05)";
   x.lineWidth = 2;
-  const step = 1024 / QUAD_SIZE;
-  for (let i = step; i < 1024; i += step) {
+  for (let i = step; i < CW; i += step) {
     x.beginPath();
     x.moveTo(i, 0);
-    x.lineTo(i, 1024);
+    x.lineTo(i, CH);
+    x.stroke();
+  }
+  for (let i = step; i < CH; i += step) {
+    x.beginPath();
     x.moveTo(0, i);
-    x.lineTo(1024, i);
+    x.lineTo(CW, i);
     x.stroke();
   }
   // merkez logo halkası
   x.strokeStyle = "rgba(232,238,247,0.16)";
   x.lineWidth = 5;
   x.beginPath();
-  x.arc(512, 512, 150, 0, Math.PI * 2);
+  x.arc(CW / 2, CH / 2, 2.4 * step, 0, Math.PI * 2);
   x.stroke();
-  x.font = "italic 800 64px 'Barlow Condensed', system-ui, sans-serif";
+  x.font = `italic 800 ${Math.round(step * 1.1)}px 'Barlow Condensed', system-ui, sans-serif`;
   x.fillStyle = "rgba(232,238,247,0.10)";
   x.textAlign = "center";
   x.textBaseline = "middle";
-  x.fillText("EVADE", 512, 512);
+  x.fillText("EVADE", CW / 2, CH / 2);
   // başlangıç plakaları
   if (layout.plates) {
     const cols = ["#ff3b2f", "#2f6bff"];
@@ -571,9 +579,9 @@ export function buildFloor(layout: QuadLayout): THREE.Group {
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 8;
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(QUAD_SIZE, QUAD_SIZE), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.92 }));
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(QUAD_W, QUAD_H), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.92 }));
   floor.rotation.x = -Math.PI / 2;
-  floor.position.set(QUAD_SIZE / 2, 0, QUAD_SIZE / 2);
+  floor.position.set(QUAD_W / 2, 0, QUAD_H / 2);
   floor.receiveShadow = true;
   g.add(floor);
   return g;

@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { QUAD_SIZE } from "../../../shared/constants";
+import { QUAD_H, QUAD_W } from "../../../shared/constants";
 
 /**
  * Hedef-grubu (target group) kamerası. Uygulanan ilkeler:
@@ -20,8 +20,6 @@ export interface FrameTarget {
 const PITCH = THREE.MathUtils.degToRad(66);
 const MIN_DIST = 9.5;
 const MAX_DIST = 60;
-/** Rakip bu mesafeden uzaksa kadraja zorlanmaz (kenar oku gösterilir). */
-const MAX_PAIR = 6.5;
 
 export class CameraRig {
   center = new THREE.Vector3(6, 0, 6);
@@ -35,11 +33,19 @@ export class CameraRig {
 
   /** Güvenli kadraj (NDC): HUD üstte, tuşlar ve joystick altta. */
   private safe(portrait: boolean) {
-    return portrait ? { x: 0.82, top: 0.62, bottom: -0.5 } : { x: 0.7, top: 0.64, bottom: -0.62 };
+    // Joystick ve tuşlar sahanın üstünde durabilir: yalnızca üstteki skor tabelası için pay
+    return portrait ? { x: 0.92, top: 0.74, bottom: -0.92 } : { x: 0.94, top: 0.66, bottom: -0.94 };
   }
 
+  /**
+   * Kameranın yatay dönüşü (radyan). 0: kuzey yukarı. Her chase başında iki oyuncuyu ayıran çizgi
+   * ekranın uzun kenarına düşecek şekilde 0 ya da 90° seçilir; joystick de buna göre döner.
+   */
+  yaw = 0;
+
   private place(cam: THREE.PerspectiveCamera, center: THREE.Vector3, dist: number) {
-    cam.position.set(center.x, center.y + Math.sin(PITCH) * dist, center.z + Math.cos(PITCH) * dist);
+    const h = Math.cos(PITCH) * dist;
+    cam.position.set(center.x + Math.sin(this.yaw) * h, center.y + Math.sin(PITCH) * dist, center.z + Math.cos(this.yaw) * h);
     cam.lookAt(center);
     cam.updateMatrixWorld();
   }
@@ -60,7 +66,7 @@ export class CameraRig {
     return true;
   }
 
-  private wideCenter = new THREE.Vector3(QUAD_SIZE / 2, 0, QUAD_SIZE / 2);
+  private wideCenter = new THREE.Vector3(QUAD_W / 2, 0, QUAD_H / 2);
   private wideDist = 30;
   private goal = new THREE.Vector3();
   private pts: THREE.Vector3[] = Array.from({ length: 12 }, () => new THREE.Vector3());
@@ -71,13 +77,13 @@ export class CameraRig {
     const pts: THREE.Vector3[] = [];
     for (const [x, z] of [
       [-m, -m],
-      [QUAD_SIZE + m, -m],
-      [-m, QUAD_SIZE + m],
-      [QUAD_SIZE + m, QUAD_SIZE + m],
+      [QUAD_W + m, -m],
+      [-m, QUAD_H + m],
+      [QUAD_W + m, QUAD_H + m],
     ]) {
       pts.push(new THREE.Vector3(x, 0, z), new THREE.Vector3(x, 2.0, z));
     }
-    this.wideCenter.set(QUAD_SIZE / 2, 0, QUAD_SIZE / 2 + (portrait ? 0.4 : 0.2));
+    this.wideCenter.set(QUAD_W / 2, 0, QUAD_H / 2 + (portrait ? 0.4 : 0.2));
     this.wideDist = this.search(pts, this.wideCenter, portrait, MIN_DIST, MAX_DIST);
   }
 
@@ -107,46 +113,95 @@ export class CameraRig {
       this.fitKey = key;
     }
     let goalDist: number;
-    if (t.wide || !t.me) {
+    // Saha yatay dikdörtgen: uzun kenarı her zaman ekranın uzun kenarına (dikey telefonda 90° döner)
+    const yaw = portrait ? Math.PI / 2 : 0;
+    if (yaw !== this.yaw) {
+      this.yaw = yaw;
+      this.fitWide(portrait);
+    }
+    if (!t.me) {
+      // İzleyici: tüm saha
       this.goal.copy(this.wideCenter);
       goalDist = this.wideDist;
     } else {
       const me = t.me;
       const P = this.pts;
       let n = 0;
-      const half = portrait ? 5.0 : 6.5;
-      const lx = me.x + me.vx * 0.45;
-      const lz = me.y + me.vy * 0.45;
+      // En dar kadrajın yarı genişliği (m): yatayda ekran geniş olduğu için daha yakın
+      const half = t.wide ? (portrait ? 7 : 10) : portrait ? 5.5 : 8;
+      // Ekran eksenleri zeminde: sağ r, aşağı d (yaw'a göre)
+      const rx = Math.cos(this.yaw);
+      const rz = -Math.sin(this.yaw);
+      const ddx = Math.sin(this.yaw);
+      const ddz = Math.cos(this.yaw);
       P[n++].set(me.x, 0, me.y);
       P[n++].set(me.x, me.h + 2.0, me.y);
-      P[n++].set(lx, 0, lz);
-      P[n++].set(me.x, 0, me.y - 2.2);
-      P[n++].set(me.x, 0, me.y + 2.2);
+      if (!t.wide) {
+        P[n++].set(me.x + me.vx * 0.45, 0, me.y + me.vy * 0.45);
+        P[n++].set(me.x - ddx * 1.8, 0, me.y - ddz * 1.8);
+        P[n++].set(me.x + ddx * 1.8, 0, me.y + ddz * 1.8);
+      }
       const o = t.other;
-      if (o && Math.hypot(o.x - me.x, o.y - me.y) < MAX_PAIR) {
+      // İki oyuncu baştan sona birbirini görür: rakip her zaman kadrajda
+      if (o) {
         P[n++].set(o.x, 0, o.y);
         P[n++].set(o.x, o.h + 2.0, o.y);
       }
-      let x0 = Infinity;
-      let x1 = -Infinity;
-      let z0 = Infinity;
-      let z1 = -Infinity;
+      let u0 = Infinity;
+      let u1 = -Infinity;
+      let v0 = Infinity;
+      let v1 = -Infinity;
       for (let i = 0; i < n; i++) {
-        const p = P[i];
-        x0 = Math.min(x0, p.x);
-        x1 = Math.max(x1, p.x);
-        z0 = Math.min(z0, p.z);
-        z1 = Math.max(z1, p.z);
+        const u = P[i].x * rx + P[i].z * rz;
+        const v = P[i].x * ddx + P[i].z * ddz;
+        u0 = Math.min(u0, u);
+        u1 = Math.max(u1, u);
+        v0 = Math.min(v0, v);
+        v1 = Math.max(v1, v);
       }
-      // Sahanın çok dışını gösterme: merkez saha içinde kalır
-      const cx = Math.max(half - 0.6, Math.min(QUAD_SIZE - half + 0.6, (x0 + x1) / 2));
-      const cz = Math.max(2.5, Math.min(QUAD_SIZE - 2.5, (z0 + z1) / 2));
-      this.goal.set(cx, 0, cz);
-      // En az ~10 m genişlik: merkezin iki yanında (saha kenarında da kadraj sabit kalsın)
-      P[n++].set(cx - half, 0, cz);
-      P[n++].set(cx + half, 0, cz);
-      const pts = P.slice(0, n);
-      goalDist = Math.min(this.wideDist, this.search(pts, this.goal, portrait, MIN_DIST, this.wideDist));
+      // Sahanın ekran eksenlerindeki aralığı
+      let fu0 = Infinity;
+      let fu1 = -Infinity;
+      let fv0 = Infinity;
+      let fv1 = -Infinity;
+      for (const [x, z] of [
+        [0, 0],
+        [QUAD_W, 0],
+        [0, QUAD_H],
+        [QUAD_W, QUAD_H],
+      ]) {
+        const u = x * rx + z * rz;
+        const v = x * ddx + z * ddz;
+        fu0 = Math.min(fu0, u);
+        fu1 = Math.max(fu1, u);
+        fv0 = Math.min(fv0, v);
+        fv1 = Math.max(fv1, v);
+      }
+      let cv = Math.max(fv0 + 1, Math.min(fv1 - 1, (v0 + v1) / 2));
+      const base = n;
+      const fit = (cu: number) => {
+        const gx = rx * cu + ddx * cv;
+        const gz = rz * cu + ddz * cv;
+        this.goal.set(gx, 0, gz);
+        P[base].set(gx - rx * half, 0, gz - rz * half);
+        P[base + 1].set(gx + rx * half, 0, gz + rz * half);
+        return Math.min(this.wideDist, this.search(P.slice(0, base + 2), this.goal, portrait, 7, this.wideDist));
+      };
+      const cu0 = Math.max(fu0 + 1.5, Math.min(fu1 - 1.5, (u0 + u1) / 2));
+      goalDist = fit(cu0);
+      // Görünen genişlik sahadan darsa merkezi sahanın içine kaydır: kenarda boş zemin değil saha görünsün
+      const tanH = Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)) * this.camera.aspect * this.safe(portrait).x;
+      const vis = goalDist * tanH;
+      const mid = (fu0 + fu1) / 2;
+      const cu = vis * 2 >= fu1 - fu0 + 1 ? mid : Math.max(fu0 + vis - 0.5, Math.min(fu1 - vis + 0.5, cu0));
+      // Dikeyde de: görünen derinlik sahadan darsa merkezi içeri çek (saha dışı boş zemin görünmesin)
+      const tanV = Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2));
+      const visV = (goalDist * tanV) / Math.sin(PITCH) * 0.85;
+      const midV = (fv0 + fv1) / 2;
+      const cv2 = visV * 2 >= fv1 - fv0 ? midV : Math.max(fv0 + visV, Math.min(fv1 - visV, cv));
+      const moved = Math.abs(cu - cu0) > 0.05 || Math.abs(cv2 - cv) > 0.05;
+      cv = cv2;
+      if (moved) goalDist = fit(cu);
     }
     if (!this.init) {
       this.center.copy(this.goal);

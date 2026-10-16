@@ -1,11 +1,12 @@
-import { CLIMB_COST, DIVE_COST, JUKE_COST, KICK_COST, PLAYER_RADIUS, ROLL_COST, QUAD_SIZE } from "./constants";
+import { CLIMB_COST, DIVE_COST, JUKE_COST, KICK_COST, PLAYER_RADIUS, ROLL_COST, QUAD_H, QUAD_W } from "./constants";
 import type { QuadLayout } from "./maps";
 import { ACT_CLIMB, ACT_KICK, ACT_ROLL, groundAt, nearWall, parkourPreview, wallJumpDir, type Input, type PlayerState } from "./sim";
 
 /** Botla antrenman ve testlerde kullanılan basit yapay zekâ. */
 
 const CELL = 0.25;
-const N = Math.round(QUAD_SIZE / CELL);
+const NX = Math.round(QUAD_W / CELL);
+const NY = Math.round(QUAD_H / CELL);
 const INF = 1e9;
 
 interface Grid {
@@ -18,10 +19,10 @@ const gridCache = new Map<string, Grid>();
 function buildGrid(layout: QuadLayout): Grid {
   const cached = gridCache.get(layout.id);
   if (cached) return cached;
-  const cells = new Uint8Array(N * N);
+  const cells = new Uint8Array(NX * NY);
   const pad = PLAYER_RADIUS + 0.04;
-  for (let gy = 0; gy < N; gy++) {
-    for (let gx = 0; gx < N; gx++) {
+  for (let gy = 0; gy < NY; gy++) {
+    for (let gx = 0; gx < NX; gx++) {
       const x = (gx + 0.5) * CELL;
       const y = (gy + 0.5) * CELL;
       let v = 0;
@@ -30,7 +31,7 @@ function buildGrid(layout: QuadLayout): Grid {
           v = Math.max(v, o.kind === "wall" ? 2 : 1);
         }
       }
-      cells[gy * N + gx] = v;
+      cells[gy * NX + gx] = v;
     }
   }
   const g = { cells };
@@ -38,18 +39,19 @@ function buildGrid(layout: QuadLayout): Grid {
   return g;
 }
 
-const toCell = (v: number) => Math.max(0, Math.min(N - 1, Math.floor(v / CELL)));
+const toCellX = (v: number) => Math.max(0, Math.min(NX - 1, Math.floor(v / CELL)));
+const toCellY = (v: number) => Math.max(0, Math.min(NY - 1, Math.floor(v / CELL)));
 
 let HEAP_I = new Int32Array(0);
 let HEAP_P = new Float32Array(0);
 
 /** Bir noktadan tüm hücrelere en kısa yol mesafesi (Dijkstra, 8 komşu). */
 function distanceField(grid: Grid, sx: number, sy: number, boxCost: number): Float32Array {
-  const dist = new Float32Array(N * N).fill(INF);
-  const start = toCell(sy) * N + toCell(sx);
+  const dist = new Float32Array(NX * NY).fill(INF);
+  const start = toCellY(sy) * NX + toCellX(sx);
   dist[start] = 0;
   // Tipli dizilerle ikili yığın (her hücre en fazla 8 kez itilir).
-  const cap = N * N * 8;
+  const cap = NX * NY * 8;
   const hi = HEAP_I.length >= cap ? HEAP_I : (HEAP_I = new Int32Array(cap));
   const hp = HEAP_P.length >= cap ? HEAP_P : (HEAP_P = new Float32Array(cap));
   let size = 0;
@@ -88,19 +90,19 @@ function distanceField(grid: Grid, sx: number, sy: number, boxCost: number): Flo
       hp[c] = lp;
     }
     if (d > dist[i]) continue;
-    const cx = i % N;
-    const cy = (i / N) | 0;
+    const cx = i % NX;
+    const cy = (i / NX) | 0;
     for (let oy = -1; oy <= 1; oy++) {
       for (let ox = -1; ox <= 1; ox++) {
         if (!ox && !oy) continue;
         const nx = cx + ox;
         const ny = cy + oy;
-        if (nx < 0 || ny < 0 || nx >= N || ny >= N) continue;
-        const ni = ny * N + nx;
+        if (nx < 0 || ny < 0 || nx >= NX || ny >= NY) continue;
+        const ni = ny * NX + nx;
         const c = grid.cells[ni];
         if (c === 2) continue;
         // çaprazda köşe kesmeyi engelle
-        if (ox && oy && (grid.cells[cy * N + nx] === 2 || grid.cells[ny * N + cx] === 2)) continue;
+        if (ox && oy && (grid.cells[cy * NX + nx] === 2 || grid.cells[ny * NX + cx] === 2)) continue;
         const step = (ox && oy ? Math.SQRT2 : 1) * CELL * (c === 1 ? boxCost : 1);
         const nd = d + step;
         if (nd < dist[ni]) {
@@ -114,8 +116,8 @@ function distanceField(grid: Grid, sx: number, sy: number, boxCost: number): Flo
 }
 
 function sample(field: Float32Array, x: number, y: number): number {
-  if (x < 0 || y < 0 || x > QUAD_SIZE || y > QUAD_SIZE) return -INF;
-  return field[toCell(y) * N + toCell(x)];
+  if (x < 0 || y < 0 || x > QUAD_W || y > QUAD_H) return -INF;
+  return field[toCellY(y) * NX + toCellX(x)];
 }
 
 export type BotLevel = "kolay" | "orta" | "zor";
@@ -142,7 +144,7 @@ export class Bot {
   private goalField: Float32Array | null = null;
 
   private field(grid: Grid, layout: QuadLayout, x: number, y: number): Float32Array {
-    const key = `${layout.id}:${toCell(x)}:${toCell(y)}`;
+    const key = `${layout.id}:${toCellX(x)}:${toCellY(y)}`;
     if (key !== this.cacheKey || !this.cacheField) {
       this.cacheField = distanceField(grid, x, y, 1.4);
       this.cacheKey = key;
@@ -242,9 +244,9 @@ export class Bot {
     let ix = 0;
     let iy = 0;
     if (fx < m) ix = 1;
-    else if (fx > QUAD_SIZE - m) ix = -1;
+    else if (fx > QUAD_W - m) ix = -1;
     if (fy < m) iy = 1;
-    else if (fy > QUAD_SIZE - m) iy = -1;
+    else if (fy > QUAD_H - m) iy = -1;
     if (ix || iy) {
       if (ix) dx = ix * Math.max(Math.abs(dx), 0.6);
       if (iy) dy = iy * Math.max(Math.abs(dy), 0.6);
@@ -261,7 +263,7 @@ export class Bot {
       // Aksiyon sonunda saha dışında kalacaksa basma.
       const ex = self.x + dx * 2.0;
       const ey = self.y + dy * 2.0;
-      if (ex < 0.4 || ey < 0.4 || ex > QUAD_SIZE - 0.4 || ey > QUAD_SIZE - 0.4) {
+      if (ex < 0.4 || ey < 0.4 || ex > QUAD_W - 0.4 || ey > QUAD_H - 0.4) {
         act = false;
         act2 = false;
       }
@@ -280,8 +282,8 @@ export class Bot {
 
   private decideChase(grid: Grid, self: PlayerState, other: PlayerState, layout: QuadLayout) {
     const lead = 0.25;
-    const tx = Math.max(0.2, Math.min(QUAD_SIZE - 0.2, other.x + other.vx * lead));
-    const ty = Math.max(0.2, Math.min(QUAD_SIZE - 0.2, other.y + other.vy * lead));
+    const tx = Math.max(0.2, Math.min(QUAD_W - 0.2, other.x + other.vx * lead));
+    const ty = Math.max(0.2, Math.min(QUAD_H - 0.2, other.y + other.vy * lead));
     // Hedefin mesafe alanı: bottan hedefe giden en kısa yönü seç.
     const field = this.field(grid, layout, tx, ty);
     let best: [number, number] = [tx - self.x, ty - self.y];
@@ -327,7 +329,7 @@ export class Bot {
       const cx = o.x + o.w / 2;
       const cy = o.y + o.h / 2;
       const r = Math.hypot(o.w, o.h) / 2 + 0.65;
-      if (cx - r < 0.7 || cy - r < 0.7 || cx + r > QUAD_SIZE - 0.7 || cy + r > QUAD_SIZE - 0.7) continue;
+      if (cx - r < 0.7 || cy - r < 0.7 || cx + r > QUAD_W - 0.7 || cy + r > QUAD_H - 0.7) continue;
       const dm = Math.hypot(cx - self.x, cy - self.y);
       const dc = Math.hypot(cx - other.x, cy - other.y);
       if (dm > 9 || dc < dm - 0.6) continue;
@@ -362,7 +364,7 @@ export class Bot {
     const goal = Math.hypot(other.x - self.x, other.y - self.y) < 6.5 ? this.orbitGoal(self, other, layout) : null;
     let goalField: Float32Array | null = null;
     if (goal) {
-      const gk = `${layout.id}:${toCell(goal[0])}:${toCell(goal[1])}`;
+      const gk = `${layout.id}:${toCellX(goal[0])}:${toCellY(goal[1])}`;
       if (gk !== this.goalKey || !this.goalField) {
         this.goalField = distanceField(grid, goal[0], goal[1], 1.4);
         this.goalKey = gk;
@@ -389,7 +391,7 @@ export class Bot {
         }
         score += v * (reach === 2.0 ? 0.6 : 1) * (goal ? 0.25 : 1);
         // kenarlardan uzak dur
-        const edge = Math.min(px, py, QUAD_SIZE - px, QUAD_SIZE - py);
+        const edge = Math.min(px, py, QUAD_W - px, QUAD_H - py);
         if (edge < 1.5) score -= (1.5 - edge) * 4;
       }
       if (!ok) continue;
@@ -415,7 +417,7 @@ export class Bot {
         const jd = wallJumpDir(this.dir[0], this.dir[1], n);
         const lx = self.x + jd[0] * 3;
         const ly = self.y + jd[1] * 3;
-        if (lx > 0.6 && ly > 0.6 && lx < QUAD_SIZE - 0.6 && ly < QUAD_SIZE - 0.6) this.wantAct = true;
+        if (lx > 0.6 && ly > 0.6 && lx < QUAD_W - 0.6 && ly < QUAD_H - 0.6) this.wantAct = true;
       }
     } else if (pk === ACT_CLIMB && self.st >= CLIMB_COST && self.cd <= 0 && dist > 2.5 && this.rnd() < 0.35) {
       this.wantAct = true;

@@ -3167,3 +3167,160 @@ body:has(.game) {
     animation: none;
   }
 }
+
+/* ---------- Yatay oyun ---------- */
+
+.rot-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 65;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+  background: rgba(10, 10, 14, 0.9);
+  text-align: center;
+  touch-action: none;
+}
+
+.rot-scrim h2 {
+  margin: 8px 0 0;
+  font-family: var(--display);
+  font-weight: 900;
+  font-size: 44px;
+  line-height: 0.95;
+}
+
+.rot-scrim p {
+  margin: 0;
+  max-width: 320px;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.rot-scrim .rot-hint {
+  color: var(--yellow);
+}
+
+/* Dikey telefon simgesi yana yatar */
+.rot-phone {
+  width: 62px;
+  height: 104px;
+  border: 5px solid var(--white);
+  border-radius: 14px;
+  position: relative;
+  animation: rot-turn 2.2s ease-in-out infinite;
+}
+
+.rot-phone span {
+  position: absolute;
+  inset: 8px;
+  border-radius: 6px;
+  background: linear-gradient(162deg, var(--red) 0 50%, var(--white) 50% 52%, var(--blue) 52%);
+}
+
+@keyframes rot-turn {
+  0%,
+  25% {
+    rotate: 0deg;
+  }
+  55%,
+  85% {
+    rotate: -90deg;
+  }
+  100% {
+    rotate: 0deg;
+  }
+}
+
+.rot-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(300px, 100%);
+  margin-top: 8px;
+}
+
+.rot-actions button {
+  height: 56px;
+  border: 0;
+  font-family: var(--display);
+  font-weight: 900;
+  font-size: 26px;
+  clip-path: var(--torn);
+}
+
+.rot-go {
+  background: var(--weave), var(--yellow);
+  color: var(--ink);
+}
+
+.rot-stay {
+  background: var(--weave), rgba(255, 255, 255, 0.12);
+  color: var(--white);
+  font-size: 20px !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rot-phone {
+    animation: none;
+    rotate: -90deg;
+  }
+}
+
+/* Alçak yatay ekran (telefon yan): her şey biraz küçülür, çentik tarafında pay bırakılır */
+@media (orientation: landscape) and (max-height: 520px) {
+  .hud-top {
+    top: calc(6px + var(--safe-t));
+    left: calc(8px + env(safe-area-inset-left, 0px));
+    right: calc(8px + env(safe-area-inset-right, 0px));
+  }
+
+  .banner {
+    top: 55%;
+    width: min(60vw, 520px);
+  }
+
+  .banner-title {
+    font-size: clamp(54px, 15vh, 84px);
+  }
+
+  .banner-digit {
+    font-size: 64px;
+    margin: 0 0 4px;
+  }
+
+  .banner-line {
+    scale: 0.85;
+  }
+
+  .game .action-cluster,
+  .game[data-portrait="0"] .action-cluster {
+    right: calc(18px + env(safe-area-inset-right, 0px));
+    bottom: calc(18px + var(--safe-b));
+  }
+
+  .action-btn {
+    width: 92px;
+    height: 92px;
+    font-size: 24px;
+  }
+
+  .action-btn.secondary {
+    width: 72px;
+    height: 72px;
+    font-size: 14px;
+  }
+
+  .control-hint {
+    left: calc(16px + env(safe-area-inset-left, 0px));
+    font-size: 15px;
+  }
+
+  .rot-scrim h2 {
+    font-size: 34px;
+  }
+}

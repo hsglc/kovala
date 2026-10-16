@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { QUAD_SIZE } from "../../shared/constants";
+import { QUAD_H, QUAD_W } from "../../shared/constants";
 import { getLayout, type QuadLayout } from "../../shared/maps";
 
-const Q = QUAD_SIZE;
-const H = Q / 2;
+const QW = QUAD_W;
+const QH = QUAD_H;
 
 /** Sahanın kuşbakışı çizimi. `live` açıksa kovalayan ◆ kaçanı ● bir döngü boyunca kovalar. */
 export function QuadThumb({ layout, live = false, className = "" }: { layout: QuadLayout | string; live?: boolean; className?: string }) {
@@ -12,13 +12,16 @@ export function QuadThumb({ layout, live = false, className = "" }: { layout: Qu
   const animate = live && !reduce;
   // Merkez etrafında dolanan sekiz şeklinde bir rota
   const a = 1.4;
-  const z = Q - 1.4;
-  const route = `M${H} ${a} C ${z} ${a} ${z} ${H} ${H} ${H} C ${a} ${H} ${a} ${z} ${H} ${z} C ${z} ${z} ${z} ${H} ${H} ${H} C ${a} ${H} ${a} ${a} ${H} ${a} Z`;
+  const xr = QW - 1.4;
+  const yb = QH - 1.4;
+  const mx = QW / 2;
+  const my = QH / 2;
+  const route = `M${mx} ${a} C ${xr} ${a} ${xr} ${my} ${mx} ${my} C ${a} ${my} ${a} ${yb} ${mx} ${yb} C ${xr} ${yb} ${xr} ${my} ${mx} ${my} C ${a} ${my} ${a} ${a} ${mx} ${a} Z`;
   return (
-    <svg className={`quad-thumb ${className}`} viewBox={`-0.6 -0.6 ${Q + 1.2} ${Q + 1.2}`} role="img" aria-label={`${L.name} sahası`}>
-      <rect x="-0.6" y="-0.6" width={Q + 1.2} height={Q + 1.2} rx="0.5" className="qt-floor" />
-      <rect x="0" y="0" width={Q} height={Q} className="qt-line" />
-      <circle cx={H} cy={H} r="1.6" className="qt-ring" />
+    <svg className={`quad-thumb ${className}`} viewBox={`-0.6 -0.6 ${QW + 1.2} ${QH + 1.2}`} role="img" aria-label={`${L.name} sahası`}>
+      <rect x="-0.6" y="-0.6" width={QW + 1.2} height={QH + 1.2} rx="0.5" className="qt-floor" />
+      <rect x="0" y="0" width={QW} height={QH} className="qt-line" />
+      <circle cx={QW / 2} cy={QH / 2} r="2.4" className="qt-ring" />
       {L.plates?.map(([x, y], i) => (
         <rect key={i} x={x - 0.45} y={y - 0.45} width="0.9" height="0.9" className={i === 0 ? "qt-plate-c" : "qt-plate-e"} />
       ))}

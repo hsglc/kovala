@@ -12,6 +12,36 @@ export interface PatchNote {
 
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: "0.26.0",
+    date: "16 Eki 2026",
+    time: "15:52",
+    title: "Yatay oyun ve geniş saha",
+    items: [
+      "Maç artık yatay oynanıyor: telefon dikeyse “Telefonu yan çevir” ekranı çıkar, antrenmanda oyun sen çevirene kadar bekler; Android'de tam ekran yatay kilit, isteyen Dikey devam et diyebilir",
+      "Saha yatay telefona göre yeniden şekillendi: 30 × 17 m geniş dikdörtgen; yatayda ekranı kenardan kenara dolduruyor",
+      "Engel sayısı alanla birlikte arttı: kolay haritalarda 26, Resmî Quad ve Labirent'te 40, Kafes'te 56 engel",
+      "İki oyuncu chase boyunca birbirini hep görüyor: kamera ikinizi de kadrajda tutuyor, uzaklaştıkça açılıyor, yaklaştıkça yakınlaşıyor",
+      "Joystick ve tuşlar artık sahanın üstünde duruyor; onlar için boşluk bırakılmadı, saha tüm ekranı kullanıyor",
+      "Başlangıç noktaları 9-15 m arası: geniş sahada chase koşu yarışına dönmüyor",
+      "Dikey telefonda saha 90° dönüyor; joystick yönü ekrana göre kalıyor",
+      "Yatay ekranda skor tabelası, geri sayım ve tuşlar ekrana göre küçüldü; çentik tarafında pay var",
+    ],
+  },
+  {
+    version: "0.26.0",
+    date: "16 Eki 2026",
+    time: "15:38",
+    title: "Yatay oyun + daha yakın kamera",
+    items: [
+      "Maç artık yatay oynanıyor: telefon dikeyse “Telefonu yan çevir” ekranı çıkar, antrenmanda oyun sen çevirene kadar bekler",
+      "Android'de Yatay oyna tuşu tam ekrana geçip yatay kilitler; iPhone'da telefonu yan çevirmen yeterli (döndürme kilidi kapalı olmalı)",
+      "İstersen Dikey devam et ile dikey oynamaya devam edebilirsin",
+      "Kamera daha yakın: chase'te saha ekranı tamamen dolduruyor, karakterler daha büyük; kenara gidince kamera uzaklaşmıyor, seni takip ediyor",
+      "Geri sayımda tüm saha yerine sen ve rakibin kadrajda; kenarlarda boşluk kalmıyor",
+      "Yatay ekranda skor, geri sayım ve tuşlar ekrana göre küçüldü; çentik tarafında pay var",
+    ],
+  },
+  {
     version: "0.25.0",
     date: "16 Eki 2026",
     time: "15:31",

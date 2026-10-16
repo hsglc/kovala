@@ -1,4 +1,4 @@
-import { JUKE_COST, QUAD_SIZE, STAMINA_MAX } from "../../shared/constants";
+import { JUKE_COST, QUAD_H, QUAD_W, STAMINA_MAX } from "../../shared/constants";
 import type { PublicState } from "../../shared/engine";
 import type { QuadLayout } from "../../shared/maps";
 import type { PlayerState } from "../../shared/sim";
@@ -31,8 +31,8 @@ export interface Camera {
  * Böylece chase başında ve kovalama sırasında rakip hep kadrajda.
  */
 export function updateCamera(cam: Camera, me: { x: number; y: number } | null, other: { x: number; y: number } | null, dtMs: number) {
-  let tx = QUAD_SIZE / 2;
-  let ty = QUAD_SIZE / 2;
+  let tx = QUAD_W / 2;
+  let ty = QUAD_H / 2;
   let zoom = 0.3;
   if (me && other) {
     const d = Math.hypot(other.x - me.x, other.y - me.y);
@@ -49,8 +49,8 @@ export function updateCamera(cam: Camera, me: { x: number; y: number } | null, o
     tx = other.x;
     ty = other.y;
   }
-  tx = Math.max(-1, Math.min(QUAD_SIZE + 1, tx));
-  ty = Math.max(-1, Math.min(QUAD_SIZE + 1, ty));
+  tx = Math.max(-1, Math.min(QUAD_W + 1, tx));
+  ty = Math.max(-1, Math.min(QUAD_H + 1, ty));
   if (!cam.init) {
     cam.x = tx;
     cam.y = ty;

@@ -10,6 +10,7 @@ import type { GameSource } from "../net/types";
 import { computeView, drawOverlay, updateCamera, HUD_TOP, type Camera, type JoyVisual } from "./renderer";
 import { Scene3D } from "./three/Scene3D";
 import { ExitIcon, LeaveDialog } from "../ui/LeaveDialog";
+import { RotatePrompt, goLandscape, leaveLandscape, useRotatePrompt } from "../ui/RotatePrompt";
 
 interface Props {
   source: GameSource;
@@ -105,6 +106,16 @@ export function GameScreen({ source, state, onLeave }: Props) {
       if (l > 1) {
         mx /= l;
         my /= l;
+      }
+      // Ekran yönünden saha yönüne: kamera döndüyse joystick de döner (yukarı her zaman ekranda yukarı)
+      const yaw = scene.yaw;
+      if (yaw) {
+        const c = Math.cos(yaw);
+        const s2 = Math.sin(yaw);
+        const wx = c * mx + s2 * my;
+        const wy = -s2 * mx + c * my;
+        mx = wx;
+        my = wy;
       }
       move = { mx, my };
       source.setMove(mx, my);
@@ -434,17 +445,26 @@ export function GameScreen({ source, state, onLeave }: Props) {
 
   // Çıkış: onay penceresi. Yerel oyunda pencere açıkken oyun durur.
   const [askLeave, setAskLeave] = useState(false);
+  // Yatay oyun: dikey tutuluyorsa "yan çevir" katmanı; yerel oyunda çevrilene kadar bekler
+  const rot = useRotatePrompt();
+  useEffect(() => {
+    modalRef.current = askLeave || rot.shown;
+    if (rot.shown) resetInputRef.current();
+    source.setPaused?.(askLeave || rot.shown);
+  }, [askLeave, rot.shown, source]);
+  // Maç ekranı açılırken (Başlat dokunuşunun hemen ardından) Android'de tam ekran yatay kilidi dene; çıkınca bırak
+  useEffect(() => {
+    if (!matchMedia("(pointer: coarse)").matches) return;
+    void goLandscape();
+    return () => leaveLandscape();
+  }, []);
   const openLeave = () => {
-    modalRef.current = true;
     resetInputRef.current();
-    source.setPaused?.(true);
     setAskLeave(true);
   };
   const stay = useCallback(() => {
-    modalRef.current = false;
-    source.setPaused?.(false);
     setAskLeave(false);
-  }, [source]);
+  }, []);
   const inMatch = s.phase === "countdown" || s.phase === "chase" || s.phase === "result";
   const mateLeft = s.members.some((m) => m.id !== me && m.team === myTeam && m.connected);
   const leaveText = source.survival
@@ -548,6 +568,8 @@ export function GameScreen({ source, state, onLeave }: Props) {
       )}
 
       {s.phase === "chase" && !role && <div className="spectating">İzliyorsun · sıran gelince sahaya gireceksin</div>}
+
+      {rot.shown && !askLeave && <RotatePrompt online={source.kind === "online"} onPortrait={rot.keepPortrait} />}
 
       {askLeave && (
         <LeaveDialog title={leaveText.title} body={leaveText.body} stayLabel="Maça dön" leaveLabel="Çık" onStay={stay} onLeave={onLeave} />

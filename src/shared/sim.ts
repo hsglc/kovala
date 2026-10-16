@@ -35,7 +35,8 @@ import {
   KICK_SPEED,
   KICK_TIME,
   PLAYER_RADIUS,
-  QUAD_SIZE,
+  QUAD_W,
+  QUAD_H,
   SLIDE_MAX_TIME,
   SLIDE_MIN_TIME,
   SLIDE_SPEED,
@@ -536,8 +537,8 @@ export function stepPlayer(p: PlayerState, input: Input, role: Role, layout: Qua
   if (p.ak === 0 || p.ak === ACT_STUMBLE) {
     if (p.x < 0) { p.x = 0; if (p.vx < 0) p.vx = 0; }
     if (p.y < 0) { p.y = 0; if (p.vy < 0) p.vy = 0; }
-    if (p.x > QUAD_SIZE) { p.x = QUAD_SIZE; if (p.vx > 0) p.vx = 0; }
-    if (p.y > QUAD_SIZE) { p.y = QUAD_SIZE; if (p.vy > 0) p.vy = 0; }
+    if (p.x > QUAD_W) { p.x = QUAD_W; if (p.vx > 0) p.vx = 0; }
+    if (p.y > QUAD_H) { p.y = QUAD_H; if (p.vy > 0) p.vy = 0; }
   }
 
   // ---- Aksiyon bitişi ----

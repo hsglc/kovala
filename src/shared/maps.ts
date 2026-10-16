@@ -1,4 +1,4 @@
-import { OUT_MARGIN, QUAD_SIZE } from "./constants";
+import { OUT_MARGIN, QUAD_H, QUAD_W } from "./constants";
 
 /**
  * wall: yüksek engel; tırmanılır, geçilemez.
@@ -232,7 +232,7 @@ const ALL_LAYOUTS: QuadLayout[] = [
 ];
 
 /* ---------- Büyük saha ----------
- * Düzenler 12 m Quad için çizildi. Saha QUAD_SIZE'a (16 m) büyür:
+ * Düzenler 12 m Quad için çizildi. Saha QUAD_W × QUAD_H'ye (yatay dikdörtgen) büyür:
  * 1. Engel merkezleri orantılı yayılır, boyutları gerçek ekipman ölçüsünde kalır.
  * 2. Açılan boşluğa, alan oranında (≈1,8×) yeni engel eklenir: haritanın kendi parça
  *    paletinden, merkeze göre nokta simetrik çiftler hâlinde (iki başlangıç köşesi eşit kalsın),
@@ -240,7 +240,8 @@ const ALL_LAYOUTS: QuadLayout[] = [
  *    sunucu ve istemci aynı haritayı üretir.
  */
 const BASE = 12;
-const K = QUAD_SIZE / BASE;
+const KX = QUAD_W / BASE;
+const KY = QUAD_H / BASE;
 /** Seviyeye göre engeller arası en dar koridor (m) */
 const LANE: Record<1 | 2 | 3, number> = { 1: 1.7, 2: 1.45, 3: 1.25 };
 
@@ -256,11 +257,14 @@ function seededRnd(seed: number) {
     return x / 4294967296;
   };
 }
-/** Kenara yakın noktalar kenara olan uzaklığını korur, ötekiler orantılı yayılır. */
-function spreadPt(v: number) {
-  if (v <= 1.5) return v;
-  if (v >= BASE - 1.5) return v + (QUAD_SIZE - BASE);
-  return v * K;
+/**
+ * Doğma noktaları: geniş sahada köşeden köşeye başlamak chase'i koşu yarışına çevirirdi.
+ * Orta bantta, kenardan 1 m içeride bir ızgara; eşleştirme 9-15 m arası çiftleri seçer.
+ */
+function spawnGrid(): [number, number][] {
+  const out: [number, number][] = [];
+  for (const fx of [0.2, 0.35, 0.5, 0.65, 0.8]) for (const y of [1, QUAD_H / 2, QUAD_H - 1]) out.push([+(QUAD_W * fx).toFixed(2), +y.toFixed(2)]);
+  return out;
 }
 function gapBetween(a: Obstacle, b: Obstacle) {
   const dx = Math.max(0, Math.max(a.x, b.x) - Math.min(a.x + a.w, b.x + b.w));
@@ -274,8 +278,9 @@ function ptDist(o: Obstacle, x: number, y: number) {
 }
 
 function grow(L: QuadLayout): QuadLayout {
-  if ((QUAD_SIZE as number) === BASE) return L;
-  const Q = QUAD_SIZE;
+  if ((QUAD_W as number) === BASE && (QUAD_H as number) === BASE) return L;
+  const W = QUAD_W;
+  const H = QUAD_H;
   // Birbirine değen parçalar (ör. L duvar) tek grup olarak taşınır; uzun duvarlar (≥3 m) sahayla uzar
   const n = L.obstacles.length;
   const group = L.obstacles.map((_, i) => i);
@@ -292,46 +297,52 @@ function grow(L: QuadLayout): QuadLayout {
     const y1 = Math.max(...mem.map((o) => o.y + o.h));
     const cx = (x0 + x1) / 2;
     const cy = (y0 + y1) / 2;
-    shift.set(r, [cx * K - cx, cy * K - cy]);
+    shift.set(r, [cx * KX - cx, cy * KY - cy]);
   }
   const spread = L.obstacles.map((o, i) => {
     const [dx, dy] = shift.get(root(i))!;
     let { x, y, w: ow, h: oh } = o;
     const solo = L.obstacles.every((e, j) => j === i || root(j) !== root(i));
     if (solo && o.kind === "wall" && Math.max(ow, oh) >= 3) {
-      // Uzun duvar: merkezini koruyarak uzun kenarını büyüt
+      // Uzun duvar: merkezini koruyarak uzun kenarını o eksenin oranında büyüt (en çok 1,8 kat)
       const cx = x + ow / 2;
       const cy = y + oh / 2;
-      if (ow >= oh) ow *= K;
-      else oh *= K;
+      if (ow >= oh) ow *= Math.min(1.8, KX);
+      else oh *= Math.min(1.8, KY);
       x = cx - ow / 2;
       y = cy - oh / 2;
     }
     return { ...o, w: +ow.toFixed(2), h: +oh.toFixed(2), x: +(x + dx).toFixed(2), y: +(y + dy).toFixed(2) };
   });
-  const spawns = L.spawns.map(([x, y]) => [spreadPt(x), spreadPt(y)] as [number, number]);
-  const plates = L.plates?.map(([x, y]) => [spreadPt(x), spreadPt(y)] as [number, number]) as QuadLayout["plates"];
+  const spawns = spawnGrid();
+  const plates = L.plates
+    ? ([
+        [+(W * 0.3).toFixed(2), +(H * 0.78).toFixed(2)],
+        [+(W * 0.7).toFixed(2), +(H * 0.22).toFixed(2)],
+      ] as QuadLayout["plates"])
+    : undefined;
   const keepClear: [number, number][] = [...spawns, ...(plates ?? [])];
   const lane = LANE[L.level];
   const rnd = seededRnd(hashStr(L.id));
-  const out = [...spread];
-  const target = Math.round(L.obstacles.length * K * K);
+  // Yayılmış özgün engellerden doğma noktasına çakışanları at
+  const out = spread.filter((o) => keepClear.every(([x, y]) => ptDist(o, x, y) >= 1.0));
+  const target = Math.round(L.obstacles.length * KX * KY);
   const fits = (o: Obstacle) => {
-    if (o.x < 0.9 || o.y < 0.9 || o.x + o.w > Q - 0.9 || o.y + o.h > Q - 0.9) return false;
+    if (o.x < 0.9 || o.y < 0.9 || o.x + o.w > W - 0.9 || o.y + o.h > H - 0.9) return false;
     for (const e of out) if (gapBetween(o, e) < lane) return false;
     for (const [x, y] of keepClear) if (ptDist(o, x, y) < 1.4) return false;
     return true;
   };
-  for (let tries = 0; tries < 6000 && out.length < target; tries++) {
+  for (let tries = 0; tries < 9000 && out.length < target; tries++) {
     const t = L.obstacles[Math.floor(rnd() * L.obstacles.length)];
     const rot = rnd() < 0.5;
     const ww = rot ? t.h : t.w;
     const hh = rot ? t.w : t.h;
-    const cx = 1 + rnd() * (Q - 2);
-    const cy = 1 + rnd() * (Q - 2);
+    const cx = 1 + rnd() * (W - 2);
+    const cy = 1 + rnd() * (H - 2);
     const a: Obstacle = { ...t, w: ww, h: hh, x: +(cx - ww / 2).toFixed(2), y: +(cy - hh / 2).toFixed(2) };
-    // Merkeze göre 180° döndürülmüş eşi (aynı en/boy)
-    const bb: Obstacle = { ...a, x: +(Q - a.x - a.w).toFixed(2), y: +(Q - a.y - a.h).toFixed(2) };
+    // Merkeze göre 180° döndürülmüş eşi (aynı en/boy): iki başlangıç tarafı eşit
+    const bb: Obstacle = { ...a, x: +(W - a.x - a.w).toFixed(2), y: +(H - a.y - a.h).toFixed(2) };
     if (!fits(a)) continue;
     out.push(a);
     if (gapBetween(a, bb) < lane || !fits(bb)) {
@@ -353,17 +364,18 @@ export function getLayout(id: string): QuadLayout {
 }
 
 /** Birbirinden en az `minDist` uzak iki doğma noktası seçer. rnd: 0..1 üreteci. */
-export function pickSpawnPair(layout: QuadLayout, rnd: () => number, minDist = 7 * K): [[number, number], [number, number]] {
+export function pickSpawnPair(layout: QuadLayout, rnd: () => number, minDist = 9, maxDist = 15): [[number, number], [number, number]] {
   const pairs: [[number, number], [number, number]][] = [];
   for (const a of layout.spawns) {
     for (const c of layout.spawns) {
       if (a === c) continue;
-      if (Math.hypot(a[0] - c[0], a[1] - c[1]) >= minDist) pairs.push([a, c]);
+      const d = Math.hypot(a[0] - c[0], a[1] - c[1]);
+      if (d >= minDist && d <= maxDist) pairs.push([a, c]);
     }
   }
   return pairs[Math.floor(rnd() * pairs.length) % pairs.length];
 }
 
 export function insideQuad(x: number, y: number): boolean {
-  return x >= -OUT_MARGIN && x <= QUAD_SIZE + OUT_MARGIN && y >= -OUT_MARGIN && y <= QUAD_SIZE + OUT_MARGIN;
+  return x >= -OUT_MARGIN && x <= QUAD_W + OUT_MARGIN && y >= -OUT_MARGIN && y <= QUAD_H + OUT_MARGIN;
 }

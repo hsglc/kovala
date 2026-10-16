@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CHASE_TICKS, PLAYER_RADIUS, QUAD_SIZE, SPEED_EVADER, TICK_RATE } from "../src/shared/constants";
+import { CHASE_TICKS, PLAYER_RADIUS, QUAD_H, QUAD_W, SPEED_EVADER, TICK_RATE } from "../src/shared/constants";
 import { LAYOUTS, getLayout, type QuadLayout } from "../src/shared/maps";
 import { ACT_CLIMB, ACT_KICK, ACT_VAULT, ACT_KONG, canVault, createPlayer, isTag, quantizeInput, stepPlayer, type Input } from "../src/shared/sim";
 import { MatchEngine } from "../src/shared/engine";
@@ -31,8 +31,8 @@ describe("haritalar", () => {
       for (const o of l.obstacles) {
         expect(o.x).toBeGreaterThanOrEqual(0);
         expect(o.y).toBeGreaterThanOrEqual(0);
-        expect(o.x + o.w).toBeLessThanOrEqual(QUAD_SIZE);
-        expect(o.y + o.h).toBeLessThanOrEqual(QUAD_SIZE);
+        expect(o.x + o.w).toBeLessThanOrEqual(QUAD_W);
+        expect(o.y + o.h).toBeLessThanOrEqual(QUAD_H);
       }
     }
   });
@@ -343,7 +343,8 @@ describe("hayatta kal", () => {
 });
 
 describe("yeni hamleler", () => {
-  const L = getLayout("isinma");
+  // Hamle testleri harita tasarımından bağımsız: boş saha
+  const L: QuadLayout = { ...getLayout("isinma"), obstacles: [] };
   const fall = (roll: boolean) => {
     const p = createPlayer(1.5, 1.5, 1, 0);
     p.h = 1.85;

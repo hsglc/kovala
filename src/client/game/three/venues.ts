@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { QUAD_SIZE } from "../../../shared/constants";
+import { QUAD_H, QUAD_W } from "../../../shared/constants";
 import type { VenueId } from "../../../shared/venues";
 
 /**
@@ -21,7 +21,8 @@ export interface VenueLook {
   exposure: number;
 }
 
-const C = QUAD_SIZE / 2;
+const CX = QUAD_W / 2;
+const CZ = QUAD_H / 2;
 
 function canvasTex(size: number, draw: (x: CanvasRenderingContext2D, s: number) => void, repeat: number) {
   const c = document.createElement("canvas");
@@ -44,9 +45,9 @@ function rnd(seed: number) {
 }
 
 function ground(mat: THREE.Material) {
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), mat);
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(110, 90), mat);
   m.rotation.x = -Math.PI / 2;
-  m.position.set(C, -0.01, C);
+  m.position.set(CX, -0.01, CZ);
   m.receiveShadow = true;
   return m;
 }
@@ -67,12 +68,13 @@ function around(r: () => number, n: number, min: number, max: number): [number, 
   const out: [number, number][] = [];
   for (let i = 0; i < n; i++) {
     const side = Math.floor(r() * 4);
-    const along = -max + r() * (QUAD_SIZE + max * 2);
     const away = min + r() * (max - min);
-    if (side === 0) out.push([along, -away]);
-    else if (side === 1) out.push([along, QUAD_SIZE + away]);
-    else if (side === 2) out.push([-away, along]);
-    else out.push([QUAD_SIZE + away, along]);
+    const alongX = -max + r() * (QUAD_W + max * 2);
+    const alongZ = -max + r() * (QUAD_H + max * 2);
+    if (side === 0) out.push([alongX, -away]);
+    else if (side === 1) out.push([alongX, QUAD_H + away]);
+    else if (side === 2) out.push([-away, alongZ]);
+    else out.push([QUAD_W + away, alongZ]);
   }
   return out;
 }
@@ -85,10 +87,10 @@ function arena(steel: THREE.Material): VenueLook {
   const led = (col: number) => new THREE.MeshBasicMaterial({ color: col });
   const off = 1.8;
   const sides: [number, number, number, number, number][] = [
-    [C, -off, QUAD_SIZE + off * 2, 0.12, 0xff3b2f],
-    [C, QUAD_SIZE + off, QUAD_SIZE + off * 2, 0.12, 0x2f6bff],
-    [-off, C, 0.12, QUAD_SIZE + off * 2, 0xffd400],
-    [QUAD_SIZE + off, C, 0.12, QUAD_SIZE + off * 2, 0xffd400],
+    [CX, -off, QUAD_W + off * 2, 0.12, 0xff3b2f],
+    [CX, QUAD_H + off, QUAD_W + off * 2, 0.12, 0x2f6bff],
+    [-off, CZ, 0.12, QUAD_H + off * 2, 0xffd400],
+    [QUAD_W + off, CZ, 0.12, QUAD_H + off * 2, 0xffd400],
   ];
   for (const [x, z, w, d, col] of sides) {
     const m = new THREE.Mesh(new THREE.BoxGeometry(w, 0.9, d), board);
@@ -101,16 +103,16 @@ function arena(steel: THREE.Material): VenueLook {
   }
   for (const [x, z] of [
     [-off, -off],
-    [QUAD_SIZE + off, -off],
-    [-off, QUAD_SIZE + off],
-    [QUAD_SIZE + off, QUAD_SIZE + off],
+    [QUAD_W + off, -off],
+    [-off, QUAD_H + off],
+    [QUAD_W + off, QUAD_H + off],
   ]) {
     const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 7, 10), steel);
     pole.position.set(x, 3.5, z);
     g.add(pole);
     const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.3, 0.3), led(0xfff4dd));
     lamp.position.set(x, 7, z);
-    lamp.lookAt(C, 0, C);
+    lamp.lookAt(CX, 0, CZ);
     g.add(lamp);
   }
   return {
@@ -119,7 +121,7 @@ function arena(steel: THREE.Material): VenueLook {
     fog: [0x0a1020, 26, 60],
     hemi: [0xcfe0ff, 0x2a2214, 1.7],
     sun: [0xfff1dc, 2.4],
-    sunPos: [C - 4, 16, C - 6],
+    sunPos: [CX - 4, 16, CZ - 6],
     fill: [0x8fb6ff, 0.9],
     exposure: 1.05,
   };
@@ -149,10 +151,10 @@ function park(): VenueLook {
   const track = new THREE.MeshStandardMaterial({ color: 0xb8422f, roughness: 0.95 });
   const tw = 1.1;
   for (const [x, z, w, d] of [
-    [C, -tw / 2 - 0.15, QUAD_SIZE + 2.6, tw],
-    [C, QUAD_SIZE + tw / 2 + 0.15, QUAD_SIZE + 2.6, tw],
-    [-tw / 2 - 0.15, C, tw, QUAD_SIZE + 0.3],
-    [QUAD_SIZE + tw / 2 + 0.15, C, tw, QUAD_SIZE + 0.3],
+    [CX, -tw / 2 - 0.15, QUAD_W + 2.6, tw],
+    [CX, QUAD_H + tw / 2 + 0.15, QUAD_W + 2.6, tw],
+    [-tw / 2 - 0.15, CZ, tw, QUAD_H + 0.3],
+    [QUAD_W + tw / 2 + 0.15, CZ, tw, QUAD_H + 0.3],
   ]) {
     const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), track);
     m.rotation.x = -Math.PI / 2;
@@ -180,9 +182,9 @@ function park(): VenueLook {
   // Banklar
   const wood = new THREE.MeshStandardMaterial({ color: 0xc58a4a, roughness: 0.8 });
   for (const [x, z, rot] of [
-    [C - 3, -1.9, 0],
-    [C + 3, QUAD_SIZE + 1.9, 0],
-    [-1.9, C + 2, Math.PI / 2],
+    [CX - 3, -1.9, 0],
+    [CX + 3, QUAD_H + 1.9, 0],
+    [-1.9, CZ + 2, Math.PI / 2],
   ]) {
     const b = new THREE.Group();
     const seat = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.06, 0.45), wood);
@@ -200,7 +202,7 @@ function park(): VenueLook {
     fog: [0xbfe2ff, 30, 70],
     hemi: [0xffffff, 0x4c7a34, 2.0],
     sun: [0xfff4d6, 3.0],
-    sunPos: [C + 6, 18, C - 8],
+    sunPos: [CX + 6, 18, CZ - 8],
     fill: [0xbfe2ff, 0.6],
     exposure: 1.0,
   };
@@ -239,11 +241,12 @@ function depo(steel: THREE.Material): VenueLook {
   g.add(ground(new THREE.MeshStandardMaterial({ map: concrete, roughness: 0.95 })));
   // Sarı forklift şeritleri
   const yellow = new THREE.MeshBasicMaterial({ color: 0xffc400 });
-  for (const off of [-1.2, QUAD_SIZE + 1.2]) {
+  for (const i of [0, 1]) {
     for (const horiz of [true, false]) {
-      const m = new THREE.Mesh(new THREE.PlaneGeometry(horiz ? QUAD_SIZE + 4 : 0.12, horiz ? 0.12 : QUAD_SIZE + 4), yellow);
+      const off = horiz ? (i ? QUAD_H + 1.2 : -1.2) : i ? QUAD_W + 1.2 : -1.2;
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(horiz ? QUAD_W + 4 : 0.12, horiz ? 0.12 : QUAD_H + 4), yellow);
       m.rotation.x = -Math.PI / 2;
-      m.position.set(horiz ? C : off, 0.005, horiz ? off : C);
+      m.position.set(horiz ? CX : off, 0.005, horiz ? off : CZ);
       g.add(m);
     }
   }
@@ -286,10 +289,10 @@ function depo(steel: THREE.Material): VenueLook {
   const shade = new THREE.MeshStandardMaterial({ color: 0x2b2b2b, metalness: 0.6, roughness: 0.4 });
   const bulb = new THREE.MeshBasicMaterial({ color: 0xffd9a0 });
   for (const [x, z] of [
-    [C - 3.5, C - 3.5],
-    [C + 3.5, C - 3.5],
-    [C - 3.5, C + 3.5],
-    [C + 3.5, C + 3.5],
+    [CX - 3.5, CZ - 3.5],
+    [CX + 3.5, CZ - 3.5],
+    [CX - 3.5, CZ + 3.5],
+    [CX + 3.5, CZ + 3.5],
   ]) {
     const cone = new THREE.Mesh(new THREE.ConeGeometry(0.45, 0.35, 16, 1, true), shade);
     cone.position.set(x, 7.5, z);
@@ -307,7 +310,7 @@ function depo(steel: THREE.Material): VenueLook {
     fog: [0x1a140f, 22, 50],
     hemi: [0xffd7a8, 0x2e2418, 1.25],
     sun: [0xffcf8f, 1.6],
-    sunPos: [C - 3, 15, C - 2],
+    sunPos: [CX - 3, 15, CZ - 2],
     fill: [0xff9f55, 0.35],
     exposure: 1.1,
   };
@@ -343,10 +346,10 @@ function cati(steel: THREE.Material): VenueLook {
   const parapet = new THREE.MeshStandardMaterial({ color: 0x8c7f76, roughness: 0.9 });
   const o = 4.2;
   for (const [x, z, w, d] of [
-    [C, -o, QUAD_SIZE + o * 2, 0.3],
-    [C, QUAD_SIZE + o, QUAD_SIZE + o * 2, 0.3],
-    [-o, C, 0.3, QUAD_SIZE + o * 2],
-    [QUAD_SIZE + o, C, 0.3, QUAD_SIZE + o * 2],
+    [CX, -o, QUAD_W + o * 2, 0.3],
+    [CX, QUAD_H + o, QUAD_W + o * 2, 0.3],
+    [-o, CZ, 0.3, QUAD_H + o * 2],
+    [QUAD_W + o, CZ, 0.3, QUAD_H + o * 2],
   ]) {
     const m = new THREE.Mesh(new THREE.BoxGeometry(w, 1.0, d), parapet);
     m.position.set(x, 0.5, z);
@@ -387,7 +390,7 @@ function cati(steel: THREE.Material): VenueLook {
   const roof = new THREE.Mesh(new THREE.ConeGeometry(1.05, 0.6, 20), new THREE.MeshStandardMaterial({ color: 0x5c3d28 }));
   roof.position.y = 3.9;
   tank.add(barrel, roof);
-  tank.position.set(QUAD_SIZE + 3, 0, -2.6);
+  tank.position.set(QUAD_W + 3, 0, -2.6);
   g.add(shadowed(tank));
   return {
     group: g,
@@ -395,7 +398,7 @@ function cati(steel: THREE.Material): VenueLook {
     fog: [0xffa577, 28, 70],
     hemi: [0xffc7a0, 0x3a2a40, 1.5],
     sun: [0xffa260, 3.2],
-    sunPos: [C - 14, 7, C + 4],
+    sunPos: [CX - 14, 7, CZ + 4],
     fill: [0x8e7cff, 0.6],
     exposure: 1.08,
   };

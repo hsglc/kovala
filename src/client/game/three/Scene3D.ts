@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { gamePipeline, type Pipeline, skyEnvironment } from "./quality";
 import { cloneMaterialsOnce, mergeStatic } from "./merge";
-import { PLAYER_RADIUS, QUAD_SIZE, SPEED_EVADER } from "../../../shared/constants";
+import { PLAYER_RADIUS, QUAD_H, QUAD_W, SPEED_EVADER } from "../../../shared/constants";
 import type { PublicState } from "../../../shared/engine";
 import type { Obstacle, QuadLayout } from "../../../shared/maps";
 import { ACT_DIVE, ACT_KICK, ACT_JUKE, TAG_DISTANCE, chaserReach, groundAt, type PlayerState } from "../../../shared/sim";
@@ -158,6 +158,11 @@ export class Scene3D {
     return Promise.all(j).then(() => undefined);
   }
 
+  /** Kameranın yatay dönüşü: joystick ekrana göre olduğundan girdi buna göre çevrilir */
+  get yaw() {
+    return this.rig.yaw;
+  }
+
   /** Ön ısıtma: başka bir sahne tuvali devraldıysa çizme */
   get active() {
     return !this.disposed && this.pipe.owner === this;
@@ -170,10 +175,10 @@ export class Scene3D {
     const lineMat = new THREE.MeshBasicMaterial({ color: 0xe8eef7 });
     const lw = 0.1;
     for (const [x, z, w, d] of [
-      [QUAD_SIZE / 2, 0, QUAD_SIZE + lw, lw],
-      [QUAD_SIZE / 2, QUAD_SIZE, QUAD_SIZE + lw, lw],
-      [0, QUAD_SIZE / 2, lw, QUAD_SIZE + lw],
-      [QUAD_SIZE, QUAD_SIZE / 2, lw, QUAD_SIZE + lw],
+      [QUAD_W / 2, 0, QUAD_W + lw, lw],
+      [QUAD_W / 2, QUAD_H, QUAD_W + lw, lw],
+      [0, QUAD_H / 2, lw, QUAD_H + lw],
+      [QUAD_W, QUAD_H / 2, lw, QUAD_H + lw],
     ]) {
       const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), lineMat);
       m.rotation.x = -Math.PI / 2;
@@ -229,7 +234,7 @@ export class Scene3D {
     this.pipe.setExposure(v.exposure);
     // Mekâna uygun ortam haritası: gök/zemin rengi + güneş yönü → karakter ve metallerde tutarlı yansıma
     this.scene.environment?.dispose();
-    const sd = new THREE.Vector3(v.sunPos[0] - QUAD_SIZE / 2, v.sunPos[1], v.sunPos[2] - QUAD_SIZE / 2).normalize();
+    const sd = new THREE.Vector3(v.sunPos[0] - QUAD_W / 2, v.sunPos[1], v.sunPos[2] - QUAD_H / 2).normalize();
     this.scene.environment = skyEnvironment(this.renderer, v.hemi[0], v.hemi[1], sd, v.sun[0], 14);
     this.scene.environmentIntensity = 0.5;
     // Ortam haritası dolgu ışığının bir kısmını üstlenir
@@ -410,15 +415,15 @@ export class Scene3D {
     const z = Math.min(1, Math.max(0, (this.rig.dist - 10) / 24));
 
     // Güneş kamerayla gelir (gölge alanı dar ve keskin kalsın)
-    const so = this.sunOffset ?? [QUAD_SIZE / 2 - 5, 11, QUAD_SIZE / 2 - 4];
-    const ox = so[0] - QUAD_SIZE / 2;
-    const oz = so[2] - QUAD_SIZE / 2;
+    const so = this.sunOffset ?? [QUAD_W / 2 - 5, 11, QUAD_H / 2 - 4];
+    const ox = so[0] - QUAD_W / 2;
+    const oz = so[2] - QUAD_H / 2;
     const ol = Math.hypot(ox, so[1], oz) || 1;
     this.sun.position.set(cam.x + (ox / ol) * 14, (so[1] / ol) * 14, cam.y + (oz / ol) * 14);
     this.sun.target.position.set(cam.x, 0, cam.y);
     this.sun.shadow.camera.far = 50;
     const sc = this.sun.shadow.camera;
-    const sr = 11 + z * 6;
+    const sr = 13 + z * 8;
     sc.left = -sr;
     sc.right = sr;
     sc.top = sr;
@@ -497,7 +502,7 @@ export class Scene3D {
     for (const m of this.edgeGlow) (m.material as THREE.MeshBasicMaterial).opacity = 0;
     if (phase === "chase") {
       for (const p of players.values()) {
-        const near = [p.x, p.y, QUAD_SIZE - p.x, QUAD_SIZE - p.y];
+        const near = [p.x, p.y, QUAD_W - p.x, QUAD_H - p.y];
         near.forEach((v, i) => {
           if (v < 1.0) {
             const m = this.edgeGlow[i];
@@ -510,10 +515,10 @@ export class Scene3D {
               m.position.set(p.x, 0.016, 0);
               m.scale.set(3, 0.3, 1);
             } else if (i === 2) {
-              m.position.set(QUAD_SIZE, 0.016, p.y);
+              m.position.set(QUAD_W, 0.016, p.y);
               m.scale.set(0.3, 3, 1);
             } else {
-              m.position.set(p.x, 0.016, QUAD_SIZE);
+              m.position.set(p.x, 0.016, QUAD_H);
               m.scale.set(3, 0.3, 1);
             }
           }
