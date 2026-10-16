@@ -171,38 +171,6 @@ export function drawOverlay(
     }
   }
 
-  // Mini harita (sağ üst)
-  {
-    const mw = 72;
-    const mx = v.w - mw - 10;
-    const my = HUD_TOP + 2;
-    const ms = mw / QUAD_SIZE;
-    ctx.fillStyle = "rgba(9, 15, 28, 0.72)";
-    roundRect(ctx, mx - 3, my - 3, mw + 6, mw + 6, 6);
-    ctx.fill();
-    ctx.fillStyle = "#1b2a44";
-    ctx.fillRect(mx, my, mw, mw);
-    for (const o of layout.obstacles) {
-      ctx.fillStyle = o.kind === "wall" ? "#5b6d8f" : o.kind === "box" ? "#c98a1d" : "#7fe0ff";
-      ctx.fillRect(mx + o.x * ms, my + o.y * ms, Math.max(2, o.w * ms), Math.max(2, o.h * ms));
-    }
-    for (const [id, p] of players) {
-      const team = memberTeam(state, id) ?? 0;
-      ctx.fillStyle = TEAM_COLORS[team];
-      ctx.beginPath();
-      ctx.arc(mx + p.x * ms, my + p.y * ms, id === selfId ? 4 : 3, 0, Math.PI * 2);
-      ctx.fill();
-      if (id === selfId) {
-        ctx.strokeStyle = "#fff";
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-      }
-    }
-    ctx.strokeStyle = "rgba(255,255,255,0.5)";
-    ctx.lineWidth = 1;
-    ctx.strokeRect(mx + 0.5, my + 0.5, mw - 1, mw - 1);
-  }
-
   // Joystick
   if (!joy.active && phase === "chase") {
     const cx = joy.zoneX + Math.min(joy.zoneW * 0.5, 110);

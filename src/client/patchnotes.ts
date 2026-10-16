@@ -12,6 +12,15 @@ export interface PatchNote {
 
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: "0.20.1",
+    date: "16 Eki 2026",
+    time: "12:14",
+    title: "Mini harita kalktı",
+    items: [
+      "Sağ üstteki mini harita kaldırıldı; saha artık daha temiz, rakip ekran dışındaysa kenar oku yön gösteriyor",
+    ],
+  },
+  {
     version: "0.20.0",
     date: "16 Eki 2026",
     time: "12:04",
