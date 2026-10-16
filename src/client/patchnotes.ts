@@ -12,6 +12,18 @@ export interface PatchNote {
 
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: "0.23.1",
+    date: "16 Eki 2026",
+    time: "14:40",
+    title: "Hızlı başlangıç + kompakt antrenman",
+    items: [
+      "Maç artık hemen başlıyor: oyun tuvali maçlar arasında korunuyor, ışık ve kumaş hesapları her maçta baştan yapılmıyor",
+      "Ana ekrandayken oyun arka planda ısınıyor: karakter modelleri ve senin kombinin, botların kombinleri önceden hazır; Başlat'a basınca karakterler geri sayımda gecikmeden görünüyor",
+      "Antrenman ekranı yenilendi ve küçüldü: bot ve format yan yana, mekânlar tek sırada, sahalar kaydırılan şeritte",
+      "Başlat tuşu her zaman görünür, altında seçimlerinin özeti var",
+    ],
+  },
+  {
     version: "0.23.0",
     date: "16 Eki 2026",
     time: "14:07",

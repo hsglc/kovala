@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { BotLevel } from "../../shared/bot";
 import { ROOM_CODE_ALPHABET, ROOM_CODE_LENGTH } from "../../shared/protocol";
 import { LAYOUTS, LEVEL_LABEL } from "../../shared/maps";
@@ -7,7 +7,8 @@ import { getFit, getName, getPid, setName } from "../lib/identity";
 import { QuadThumb } from "../ui/QuadThumb";
 import { VsBg } from "../ui/VsBg";
 import { getProgress } from "../lib/progress";
-import { survivalBest } from "../net/LocalGame";
+import { BOT_FITS, survivalBest } from "../net/LocalGame";
+import { prewarmGame } from "../game/three/prewarm";
 import { VENUES } from "../../shared/venues";
 import { unlockAudio } from "../lib/sound";
 import { CURRENT_VERSION, PATCH_NOTES } from "../patchnotes";
@@ -40,6 +41,11 @@ export function Home({ offline, initialCode, busy, error, onQuick, onCreate, onJ
   });
   const [squad, setSquad] = useState<number>(1);
   const [venue, setVenue] = useState<string>("arena");
+  // Boştayken oyunu ısıt: modeller ve gölgelendiriciler hazır olsun, "Başlat" beklemesin
+  useEffect(() => {
+    const t = window.setTimeout(() => prewarmGame(getFit(), [BOT_FITS.orta, BOT_FITS.zor, BOT_FITS.kolay]), 700);
+    return () => window.clearTimeout(t);
+  }, []);
   const choosePmap = (id: string) => {
     setPmap(id);
     try {
@@ -47,6 +53,16 @@ export function Home({ offline, initialCode, busy, error, onQuick, onCreate, onJ
     } catch {}
   };
   const [sheet, setSheet] = useState<Sheet>(null);
+  const mapsRef = useRef<HTMLDivElement>(null);
+  const pl = LAYOUTS.find((l) => l.id === pmap);
+  const pmapLabel = pl ? `${pl.name} · ${LEVEL_LABEL[pl.level]}` : "Rastgele";
+  const venueName = VENUES.find((v) => v.id === venue)?.name ?? "";
+  const summary = `${level[0].toUpperCase() + level.slice(1)} bot, ${squad > 1 ? "3'e 3" : "1'e 1"}, ${venueName}, ${pl ? pl.name : "rastgele saha"}`;
+  useEffect(() => {
+    if (sheet !== "practice") return;
+    const el = mapsRef.current?.querySelector<HTMLElement>(".pmap.on");
+    el?.scrollIntoView({ block: "nearest", inline: "center" });
+  }, [sheet]);
   const [nameError, setNameError] = useState(false);
 
   const ensureName = () => {
@@ -195,7 +211,7 @@ export function Home({ offline, initialCode, busy, error, onQuick, onCreate, onJ
 
       {sheet && (
         <div className="sheet-backdrop" onClick={() => setSheet(null)}>
-          <div className="sheet" onClick={(e) => e.stopPropagation()} role="dialog">
+          <div className={`sheet ${sheet === "practice" ? "compact" : ""}`} onClick={(e) => e.stopPropagation()} role="dialog">
             <div className="sheet-head">
               <h2>{SHEET_TITLE[sheet]}</h2>
               <button className="icon-btn" onClick={() => setSheet(null)} aria-label="Kapat">
@@ -208,43 +224,46 @@ export function Home({ offline, initialCode, busy, error, onQuick, onCreate, onJ
             {sheet === "ladder" && <LadderSheet />}
             {sheet === "practice" && (
               <div className="sheet-body practice-sheet">
-                <div className="opt">
-                  <span className="marker">Bot</span>
-                  <div className="seg">
-                    {(["kolay", "orta", "zor"] as BotLevel[]).map((l) => (
-                      <button key={l} className={level === l ? "on" : ""} onClick={() => setLevel(l)}>
-                        {l[0].toUpperCase() + l.slice(1)}
-                      </button>
-                    ))}
+                <div className="ps-row">
+                  <div className="opt">
+                    <span className="ps-label">Bot</span>
+                    <div className="seg">
+                      {(["kolay", "orta", "zor"] as BotLevel[]).map((l) => (
+                        <button key={l} className={level === l ? "on" : ""} onClick={() => setLevel(l)}>
+                          {l[0].toUpperCase() + l.slice(1)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="opt">
+                    <span className="ps-label">Format</span>
+                    <div className="seg">
+                      {[
+                        [1, "1'e 1"],
+                        [3, "3'e 3"],
+                      ].map(([n, label]) => (
+                        <button key={n} className={squad === n ? "on" : ""} onClick={() => setSquad(n as number)}>
+                          {label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
                 <div className="opt">
-                  <span className="marker">Format</span>
-                  <div className="seg">
-                    {[
-                      [1, "1'e 1"],
-                      [3, "3'e 3 takım"],
-                    ].map(([n, label]) => (
-                      <button key={n} className={squad === n ? "on" : ""} onClick={() => setSquad(n as number)}>
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="opt">
-                  <span className="marker">Mekân</span>
-                  <div className="venue-row">
+                  <span className="ps-label">Mekân</span>
+                  <div className="ps-venues">
                     {VENUES.map((v) => (
-                      <button key={v.id} className={`venue-chip v-${v.id} ${venue === v.id ? "on" : ""}`} onClick={() => setVenue(v.id)}>
-                        <b>{v.name}</b>
-                        <small>{v.blurb}</small>
+                      <button key={v.id} className={`ps-venue v-${v.id} ${venue === v.id ? "on" : ""}`} onClick={() => setVenue(v.id)} title={v.blurb}>
+                        {v.name}
                       </button>
                     ))}
                   </div>
                 </div>
                 <div className="opt">
-                  <span className="marker">Saha</span>
-                  <div className="pmap-grid" role="listbox" aria-label="Saha">
+                  <span className="ps-label">
+                    Saha <small>{pmapLabel}</small>
+                  </span>
+                  <div className="ps-maps" role="listbox" aria-label="Saha" ref={mapsRef}>
                     {[{ id: "random", name: "Rastgele", level: 0 }, ...LAYOUTS].map((l) => (
                       <button
                         key={l.id}
@@ -255,14 +274,17 @@ export function Home({ offline, initialCode, busy, error, onQuick, onCreate, onJ
                       >
                         {l.id === "random" ? <span className="pmap-dice">?</span> : <QuadThumb layout={l.id} />}
                         <span className="pmap-name">{l.name}</span>
-                        {l.level > 0 && <span className={`pmap-lvl lvl-${l.level}`}>{LEVEL_LABEL[l.level as 1 | 2 | 3]}</span>}
+                        {l.level > 0 && <span className={`pmap-dot lvl-${l.level}`} aria-label={LEVEL_LABEL[l.level as 1 | 2 | 3]} />}
                       </button>
                     ))}
                   </div>
                 </div>
-                <button className="tape tape-go big" onClick={() => onPractice(level, pmap, squad, venue)}>
-                  <span className="tape-main">Başlat</span>
-                </button>
+                <div className="ps-go">
+                  <button className="tape tape-go" onClick={() => onPractice(level, pmap, squad, venue)}>
+                    <span className="tape-main">Başlat</span>
+                    <span className="marker clip">{summary}</span>
+                  </button>
+                </div>
               </div>
             )}
           </div>

@@ -61,6 +61,8 @@ export interface PipelineOpts {
 
 export class Pipeline {
   readonly renderer: THREE.WebGLRenderer;
+  /** Tuvali şu an kullanan sahne (ön ısıtma, gerçek maç gelince çekilir) */
+  owner: unknown = null;
   private composer: EffectComposer | null = null;
   private renderPass: RenderPass | null = null;
   private ao: N8AOPostPass | null = null;
@@ -260,4 +262,18 @@ export function skyEnvironment(renderer: THREE.WebGLRenderer, sky: number, groun
   pm.dispose();
   mat.dispose();
   return tex;
+}
+
+/* ---------- Kalıcı oyun hattı ----------
+ * Her maçta yeni WebGL bağlamı açmak tüm gölgelendiricileri yeniden derletiyordu (telefonda saniyeler).
+ * Oyun tuvali ve bağlamı bir kez kurulur, maçlar arasında yeniden kullanılır.
+ */
+let shared: Pipeline | null = null;
+export function gamePipeline(): Pipeline {
+  if (!shared) {
+    const canvas = document.createElement("canvas");
+    canvas.className = "game-canvas";
+    shared = new Pipeline(canvas, { kind: "game", maxDpr: 2, aoRadius: 1.1, aoIntensity: 2.6 });
+  }
+  return shared;
 }

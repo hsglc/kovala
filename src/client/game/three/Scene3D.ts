@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { Pipeline, skyEnvironment } from "./quality";
+import { gamePipeline, type Pipeline, skyEnvironment } from "./quality";
 import { cloneMaterialsOnce, mergeStatic } from "./merge";
 import { PLAYER_RADIUS, QUAD_SIZE, SPEED_EVADER } from "../../../shared/constants";
 import type { PublicState } from "../../../shared/engine";
@@ -68,9 +68,12 @@ export class Scene3D {
   private lastChaseKey = -1;
   private lastNow = 0;
 
-  constructor(canvas: HTMLCanvasElement) {
-    this.pipe = new Pipeline(canvas, { kind: "game", maxDpr: 2, aoRadius: 1.1, aoIntensity: 2.6 });
+  /** host: tuvalin yerleşeceği kap (ilk çocuk olarak eklenir). Bağlam maçlar arasında paylaşılır. */
+  constructor(private host: HTMLElement) {
+    this.pipe = gamePipeline();
     this.renderer = this.pipe.renderer;
+    host.insertBefore(this.renderer.domElement, host.firstChild);
+    this.pipe.owner = this;
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.pipe.setExposure(1.05);
@@ -128,8 +131,36 @@ export class Scene3D {
   }
 
   dispose() {
+    this.disposed = true;
+    // Bağlam paylaşılıyor: yalnızca bu sahnenin kaynaklarını bırak (sporcu şablon geometrisi/dokusu kalır)
     this.scene.environment?.dispose();
-    this.pipe.dispose();
+    this.scene.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (!m.isMesh && !(o as THREE.LineSegments).isLineSegments) return;
+      const skinned = (o as THREE.SkinnedMesh).isSkinnedMesh;
+      if (!skinned) m.geometry?.dispose();
+      for (const mt of Array.isArray(m.material) ? m.material : [m.material]) {
+        if (!skinned) (mt as THREE.MeshStandardMaterial).map?.dispose();
+        mt.dispose();
+      }
+    });
+    if (this.renderer.domElement.parentElement === this.host) this.host.removeChild(this.renderer.domElement);
+    if (this.pipe.owner === this) this.pipe.owner = null;
+  }
+
+  private disposed = false;
+  private jobs: Promise<void>[] = [];
+
+  /** Bekleyen gölgelendirici derlemeleri bitince çözülür (ön ısıtma için) */
+  compiled(): Promise<void> {
+    const j = this.jobs;
+    this.jobs = [];
+    return Promise.all(j).then(() => undefined);
+  }
+
+  /** Ön ısıtma: başka bir sahne tuvali devraldıysa çizme */
+  get active() {
+    return !this.disposed && this.pipe.owner === this;
   }
 
   // ---------- Statik sahne ----------
@@ -287,10 +318,12 @@ export class Scene3D {
       if (shown) return;
       shown = true;
       obj.visible = true;
+      if (import.meta.env.DEV && this.active) (globalThis as { __athShown?: number }).__athShown = performance.now();
     };
     obj.visible = true;
     const job = this.renderer.compileAsync(obj, this.camera, this.scene);
     obj.visible = false;
+    this.jobs.push(job.then(() => undefined, () => undefined));
     job.then(show, show);
     setTimeout(show, 1500);
   }

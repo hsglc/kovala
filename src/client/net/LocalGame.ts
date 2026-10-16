@@ -13,7 +13,7 @@ const BOT_ID = "bot-evade";
 const BOT_NAMES: Record<BotLevel, string> = { kolay: "Çaylak Bot", orta: "Bot", zor: "Usta Bot" };
 
 /** Botla antrenman: aynı maç motoru tarayıcıda çalışır, ağ yok. */
-const BOT_FITS: Record<BotLevel, string> = { kolay: "1012120", orta: "0124011", zor: "1025552" };
+export const BOT_FITS: Record<BotLevel, string> = { kolay: "1012120", orta: "0124011", zor: "1025552" };
 
 /** 3'e 3 antrenmanda sırayla: rakip, takım arkadaşı, rakip, takım arkadaşı, rakip */
 const SQUAD = [

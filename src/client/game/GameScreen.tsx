@@ -20,7 +20,6 @@ interface Props {
 export function GameScreen({ source, state, onLeave }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const glRef = useRef<HTMLCanvasElement>(null);
   const timeRef = useRef<HTMLDivElement>(null);
   const replayRef = useRef<HTMLDivElement>(null);
   const digitRef = useRef<HTMLDivElement>(null);
@@ -63,7 +62,7 @@ export function GameScreen({ source, state, onLeave }: Props) {
     const wrap = wrapRef.current!;
     const canvas = canvasRef.current!;
     const ctx = canvas.getContext("2d")!;
-    const scene = new Scene3D(glRef.current!);
+    const scene = new Scene3D(wrap);
     let view = computeView(1, 1, 1);
     const joy: JoyVisual & { id: number } = { active: false, id: -1, ox: 0, oy: 0, x: 0, y: 0, r: 56, zoneX: 0, zoneY: 0, zoneW: 0, zoneH: 0 };
     const keys = new Set<string>();
@@ -460,7 +459,6 @@ export function GameScreen({ source, state, onLeave }: Props) {
 
   return (
     <div className="game" ref={wrapRef}>
-      <canvas ref={glRef} className="game-canvas" />
       <canvas ref={canvasRef} className="game-canvas overlay" />
 
       <div className="hud-top">
