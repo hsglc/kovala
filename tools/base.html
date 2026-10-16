@@ -19,11 +19,11 @@ for (const f of files) {
     if (o.name.startsWith("Feet")) o.material = new THREE.MeshStandardMaterial({ color: 0xc89273, roughness: 0.7 });
     if (o.name.startsWith("Body")) o.material = new THREE.MeshStandardMaterial({ color: 0xc89273, roughness: 0.7 });
     if (o.name.startsWith("Eyes")) o.material = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 });
-    if (o.name.startsWith("G_")) { const id = o.name.slice(2).replace(/[._]\d+$/, ""); o.visible = show.includes(id); o.material = new THREE.MeshStandardMaterial({ color: COL[id] ?? 0x888888, roughness: 0.8 }); }
+    if (o.name.startsWith("G_")) { const id = o.name.slice(2).replace(/[._]\d+$/, ""); o.visible = show.includes(id); o.material = new THREE.MeshStandardMaterial({ color: COL[id] ?? 0x888888, roughness: 0.8, side: q.get("ds") ? THREE.DoubleSide : THREE.FrontSide }); }
   } });
   if (q.get("clip")) { const m = new THREE.AnimationMixer(root); const c = g.animations.find(a => a.name === q.get("clip")); if (c) { const a = m.clipAction(c); a.play(); m.update(+(q.get("t")||0.3)); } }
 }
 const cam = new THREE.PerspectiveCamera(28, innerWidth/innerHeight, 0.1, 50);
-if (q.get("z") === "knee") { cam.position.set(0, 0.75, 1.6); cam.lookAt(0, 0.7, 0); } else if (q.get("z") === "feet") { cam.position.set(0, 0.5, 2.6); cam.lookAt(0, 0.05, 0); } else if (q.get("z")) { cam.position.set(0, 1.55, 2.6); cam.lookAt(0, 1.5, 0); } else { cam.position.set(0, 1.0, 5.6); cam.lookAt(0, 0.9, 0); }
+if (q.get("z") === "waist") { cam.position.set(0, 1.25, 1.7); cam.lookAt(0, 1.05, 0); } else if (q.get("z") === "knee") { cam.position.set(0, 0.75, 1.6); cam.lookAt(0, 0.7, 0); } else if (q.get("z") === "feet") { cam.position.set(0, 0.5, 2.6); cam.lookAt(0, 0.05, 0); } else if (q.get("z")) { cam.position.set(0, 1.55, 2.6); cam.lookAt(0, 1.5, 0); } else { cam.position.set(0, 1.0, 5.6); cam.lookAt(0, 0.9, 0); }
 r.render(sc, cam); window.out = out.join("|"); window.done = true;
 </script></body></html>

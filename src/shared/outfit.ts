@@ -86,7 +86,8 @@ export const REGIONS: { id: Region; label: string; items: OutfitItem[] }[] = [
       { id: "bike", name: "Bisiklet taytı", desc: "Diz üstü, sıkı", swatch: "linear-gradient(180deg,#111,#222)", mesh: ["bike"], look: "tight", lvl: 2 },
       { id: "track", name: "Üç şeritli eşofman", desc: "Yanlarda beyaz şeritler", swatch: "linear-gradient(90deg,#1f5bff 0 18%,#fff 18% 22%,#1f5bff 22% 26%,#fff 26% 30%,#1f5bff 30% 34%,#fff 34% 38%,#1f5bff 38%)", mesh: ["track"], look: "track", lvl: 3 },
       { id: "cargo", name: "Kamuflaj jogger", desc: "Haki-yeşil arazi deseni", swatch: "radial-gradient(circle at 30% 35%,#3d4a2a 0 22%,transparent 23%),radial-gradient(circle at 70% 70%,#6b5a3a 0 25%,transparent 26%),#55663a", mesh: ["joggers"], look: "cargo", lvl: 4 },
-      { id: "neon", name: "Neon biyeli tayt", desc: "Karanlıkta parlayan yan şerit", swatch: "linear-gradient(90deg,#14161c 0 40%,#2bffd5 40% 52%,#14161c 52%)", mesh: ["leggings"], look: "neon", lvl: 6 },
+      { id: "neon", name: "Reflektörlü tayt", desc: "Koşu taytı, yanlarda gümüş yansıtıcı biye", swatch: "linear-gradient(90deg,#14161c 0 40%,#cfd4da 40% 52%,#14161c 52%)", mesh: ["leggings"], look: "neon", lvl: 6 },
+      { id: "jeans", name: "Kot pantolon", desc: "Taşlanmış denim, düz paça, arka cepler", swatch: "linear-gradient(180deg,#5d7aa8,#1f3159)", mesh: ["track"], look: "denim", lvl: 2 },
     ],
   },
   {
@@ -97,8 +98,8 @@ export const REGIONS: { id: Region; label: string; items: OutfitItem[] }[] = [
       { id: "neon", name: "Neon koşu", desc: "Fosforlu yeşil, beyaz taban", swatch: "linear-gradient(180deg,#c6ff28 0 72%,#f5f5f5 72%)", mesh: ["runner", "socks"], look: "neon" },
       { id: "court", name: "Basket botu", desc: "Bileği saran, takım renginde", swatch: `linear-gradient(180deg,${T} 0 72%,#f5f5f5 72%)`, mesh: ["hightop"], look: "court" },
       { id: "gold", name: "Siyah altın", desc: "Gece siyahı, altın taban", swatch: "linear-gradient(180deg,#121318 0 72%,#e6b84a 72%)", mesh: ["runner", "socks"], look: "gold", lvl: 5 },
-      { id: "rainbow", name: "Gökkuşağı", desc: "Baştan sona renk geçişi", swatch: "linear-gradient(90deg,#ff3d5a,#ffb23d,#e9ff3d,#3dff8a,#3dc6ff,#9a5cff)", mesh: ["runner", "socks"], look: "rainbow", lvl: 7 },
-      { id: "lava", name: "Lav bot", desc: "Kırmızı-turuncu alev, siyah taban", swatch: "linear-gradient(180deg,#ffb020,#ff3b1f 60%,#121318 72%)", mesh: ["hightop"], look: "lava", lvl: 9 },
+      { id: "rainbow", name: "Retro koşu", desc: "Süet paneller, file üst, karamel taban", swatch: "linear-gradient(180deg,#b5b7bb 0 40%,#1c2650 40% 72%,#a46b38 72%)", mesh: ["runner", "socks"], look: "retro", lvl: 7 },
+      { id: "lava", name: "Siyah deri bot", desc: "Yüksek bilek, beyaz kauçuk taban", swatch: "linear-gradient(180deg,#111214 0 72%,#f2f2f2 72%)", mesh: ["hightop"], look: "leather", lvl: 9 },
     ],
   },
   {

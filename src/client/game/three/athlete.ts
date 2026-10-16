@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js";
+import { FABRIC_COMMON, FABRIC_PARAMS, LOOK_FABRIC, fabricCode } from "./fabric";
 import {
   ACT_CLIMB,
   ACT_DIVE,
@@ -34,9 +35,19 @@ interface Template {
   headTop: number;
   headBoneY: number;
   headR: number;
+  /** Bağ pozunda eklemler: omuz/dirsek/bilek x, kalça/diz/bilek y (kırışık ve dikiş konumu) */
+  joints: { sh: number; el: number; wr: number; hip: number; knee: number; ank: number };
 }
 
 const templates = new Map<Sex, Template>();
+const JOINT_BONES: Record<string, string> = {
+  mixamorigLeftArm: "sh",
+  mixamorigLeftForeArm: "el",
+  mixamorigLeftHand: "wr",
+  mixamorigLeftUpLeg: "hip",
+  mixamorigLeftLeg: "knee",
+  mixamorigLeftFoot: "ank",
+};
 let loading: Promise<void> | null = null;
 
 function measure(sex: Sex, scene: THREE.Group, clips: THREE.AnimationClip[]): Template {
@@ -44,6 +55,7 @@ function measure(sex: Sex, scene: THREE.Group, clips: THREE.AnimationClip[]): Te
   let headTop = 0;
   let headBoneY = 1.5;
   const pts: THREE.Vector3[] = [];
+  const jw: Record<string, THREE.Vector3> = {};
   scene.traverse((o) => {
     const m = o as THREE.SkinnedMesh;
     if (m.isMesh) {
@@ -61,10 +73,20 @@ function measure(sex: Sex, scene: THREE.Group, clips: THREE.AnimationClip[]): Te
       }
     }
     if ((o as THREE.Bone).isBone && o.name === "mixamorigHead") headBoneY = o.getWorldPosition(new THREE.Vector3()).y;
+    if ((o as THREE.Bone).isBone && JOINT_BONES[o.name]) jw[JOINT_BONES[o.name]] = o.getWorldPosition(new THREE.Vector3());
   });
   let headR = 0;
   for (const p of pts) if (p.y > headTop - 0.1) headR = Math.max(headR, Math.abs(p.x));
-  return { sex, scene, clips: new Map(clips.map((c) => [c.name, c])), headTop, headBoneY, headR: headR || 0.08 };
+  const J = (k: string, ax: "x" | "y", d: number) => (jw[k] ? Math.abs(jw[k][ax]) : d);
+  const joints = {
+    sh: J("sh", "x", 0.19),
+    el: J("el", "x", 0.38),
+    wr: J("wr", "x", 0.55),
+    hip: J("hip", "y", 0.9),
+    knee: J("knee", "y", 0.48),
+    ank: J("ank", "y", 0.08),
+  };
+  return { sex, scene, clips: new Map(clips.map((c) => [c.name, c])), headTop, headBoneY, headR: headR || 0.08, joints };
 }
 
 export function loadAthlete(): Promise<void> {
@@ -186,7 +208,7 @@ export class Athlete {
         role = "under";
         look = id === "bra" && top.id === "bra" ? "bra-team" : "under";
       }
-      m.material = garmentMaterial(m as THREE.SkinnedMesh, id, role, look, team, teamDark);
+      m.material = garmentMaterial(m as THREE.SkinnedMesh, id, role, look, team, teamDark, tpl);
     });
     addHeadwear(this.model, tpl, fitItem(fit, "head").id, shirt);
     addAccessory(this.model, tpl, fitItem(fit, "acc").id, shirt);
@@ -363,11 +385,28 @@ const LOOK_GLSL: Record<string, string> = {
     c = mix(c, vec3(0.2, 0.25, 0.14), step(0.55, n1));
     c = mix(c, vec3(0.42, 0.35, 0.22), step(0.6, n2) * (1.0 - step(0.55, n1)));
     c = mix(c, c * 0.7, 1.0 - step(0.06, v));`,
+  // Reflektörlü koşu taytı: yanlarda gümüş yansıtıcı biye (ışığı geri yansıtır, kendisi ışımaz)
   neon: `
-    float pipe = step(0.9, abs(vBindN.x));
-    c = mix(vec3(0.07), vec3(0.17, 1.0, 0.84), pipe);
-    glow = vec3(0.1, 0.7, 0.6) * pipe;
-    rough = 0.5;`,
+    float pipe = (1.0 - smoothstep(0.0, 0.012, abs(abs(vBindN.x) - 0.93))) ;
+    c = mix(vec3(0.07, 0.075, 0.09), vec3(0.82, 0.85, 0.88), pipe);
+    rough = mix(1.0, 0.45, pipe);`,
+  // Kot: indigo denim, uyluk önü ve dizde taşlanmış solma, turuncu dikiş, arka cepler, bel bandı
+  denim: `
+    c = vec3(0.12, 0.19, 0.35);
+    float frontF = smoothstep(0.2, 0.9, vBindN.z);
+    float fadeT = frontF * (1.0 - smoothstep(0.0, 0.22, abs(v - 0.66))) * 0.85;
+    float fadeK = frontF * (1.0 - smoothstep(0.0, 0.07, abs(v - 0.42))) * 0.6;
+    c = mix(c, vec3(0.38, 0.5, 0.68), (fadeT + fadeK) * (0.55 + 0.3 * fitNoise(vBind * 25.0)));
+    float bx = abs(vBind.x);
+    float back = step(vBindN.z, -0.35);
+    float pk = back * step(0.035, bx) * (1.0 - step(0.13, bx)) * step(0.79, v) * (1.0 - step(0.935, v));
+    float pkEdge = pk * (1.0 - step(0.006, min(min(bx - 0.035, 0.13 - bx), min(v - 0.79, 0.935 - v) * 0.6)));
+    c = mix(c, c * 0.85, pk);
+    c = mix(c, vec3(0.85, 0.55, 0.2), pkEdge * 0.8);
+    float wbD = step(0.955, v);
+    c = mix(c, c * 0.8, wbD);
+    float sideD = (1.0 - smoothstep(0.0, 0.04, abs(vBindN.z))) * step(0.5, abs(vBindN.x));
+    c = mix(c, vec3(0.8, 0.52, 0.2), sideD * 0.5 * step(0.5, fract(vBind.y * 220.0)));`,
   // ----- Ayakkabılar (y: zeminden metre) -----
   "s-white": `
     float sole = 1.0 - step(0.03, vBind.y);
@@ -391,6 +430,22 @@ const LOOK_GLSL: Record<string, string> = {
     c = mix(vec3(0.07), vec3(0.9, 0.72, 0.29), sole);
     c = mix(c, vec3(0.9, 0.72, 0.29), (1.0 - step(0.008, abs(vBind.y - 0.06))) * step(0.5, abs(vBindN.x)));
     rough = 0.45;`,
+  // Retro koşu: gri file üst, lacivert süet paneller, takım renginde yan şerit, karamel kauçuk taban
+  "s-retro": `
+    float sole = 1.0 - step(0.022, vBind.y);
+    float mid = (1.0 - step(0.034, vBind.y)) * (1.0 - sole);
+    c = vec3(0.7, 0.71, 0.73);
+    float panel = step(0.55, abs(vBindN.x)) * (step(0.085, vBind.y) + step(0.62, abs(vBindN.z)));
+    c = mix(c, vec3(0.11, 0.15, 0.3), min(1.0, panel));
+    float stripe = (1.0 - step(0.009, abs(vBind.y - 0.05 - 0.25 * (vBind.z)))) * step(0.6, abs(vBindN.x));
+    c = mix(c, uTeam, stripe);
+    c = mix(c, vec3(0.95), mid);
+    c = mix(c, vec3(0.64, 0.42, 0.22), sole);`,
+  // Siyah deri yüksek bilekli bot: beyaz kauçuk taban, ince beyaz yan çizgi
+  "s-leather": `
+    float sole = 1.0 - step(0.035, vBind.y);
+    c = mix(vec3(0.055, 0.055, 0.065), vec3(0.95), sole);
+    c = mix(c, vec3(0.95), (1.0 - step(0.006, abs(vBind.y - 0.078))) * step(0.5, abs(vBindN.x)));`,
   "s-rainbow": `
     float sole = 1.0 - step(0.03, vBind.y);
     c = mix(fitHue(fract(vBind.z * 3.0 + vBind.y * 4.0)), vec3(0.96), sole);`,
@@ -406,7 +461,7 @@ const LOOK_GLSL: Record<string, string> = {
   "bra-team": `c = uTeam; c = mix(c, uDark, step(0.85, v) + (1.0 - step(0.15, v)));`,
 };
 
-function garmentMaterial(mesh: THREE.SkinnedMesh, id: string, role: string, look: string, team: THREE.Color, teamDark: THREE.Color) {
+function garmentMaterial(mesh: THREE.SkinnedMesh, id: string, role: string, look: string, team: THREE.Color, teamDark: THREE.Color, tpl: Template) {
   const geo = mesh.geometry;
   geo.computeBoundingBox();
   const bb = geo.boundingBox!;
@@ -422,42 +477,58 @@ function garmentMaterial(mesh: THREE.SkinnedMesh, id: string, role: string, look
   if (role === "under") key = look;
   if (id === "hood") key = look === "camo" ? "camo" : "hood";
   if (!LOOK_GLSL[key]) key = role === "bottom" ? "b-plain" : role === "shoe" ? "s-white" : "plain";
-  // Kumaş: sheen ile pamuk/örgü yüzeyin kenarda açılan yumuşak parlaklığı; ayakkabıda hafif cila
-  const cloth = role !== "shoe" && role !== "hair";
+  // Kumaş türü malzemeyi belirler (pürüzlülük, sheen, cila)
+  const fp = FABRIC_PARAMS[LOOK_FABRIC[key] ?? "jersey"];
   const mat = new THREE.MeshPhysicalMaterial({
     color: 0xffffff,
-    roughness: role === "shoe" ? 0.5 : role === "hair" ? 0.6 : 0.86,
-    sheen: cloth ? 0.8 : role === "hair" ? 0.5 : 0,
-    sheenRoughness: cloth ? 0.75 : 0.35,
-    sheenColor: cloth ? new THREE.Color(0x6a6a70) : new THREE.Color(0x8a6a50),
-    clearcoat: role === "shoe" ? 0.35 : 0,
-    clearcoatRoughness: 0.4,
+    roughness: fp.roughness,
+    sheen: fp.sheen,
+    sheenRoughness: fp.sheenRoughness,
+    sheenColor: new THREE.Color(fp.sheenColor),
+    clearcoat: fp.clearcoat ?? 0,
+    clearcoatRoughness: fp.clearcoatRoughness ?? 0.4,
   });
-  mat.customProgramCacheKey = () => "g3-" + key;
+  mat.customProgramCacheKey = () => `g4-${key}-${role}-${id === "hood" ? "h" : ""}`;
+  // Katman sırası: üst > alt > iç çamaşır. Birbirine çok yakın yüzeylerde (bel bandı, etek ucu)
+  // titreşen derinlik yerine dıştaki katman kazanır.
+  const layer = role === "top" ? -3 : role === "bottom" ? -1.5 : role === "under" ? 0 : role === "sock" ? -0.5 : 0;
+  if (layer) {
+    mat.polygonOffset = true;
+    mat.polygonOffsetFactor = layer;
+    mat.polygonOffsetUnits = layer * 2;
+  }
   const maxX = Math.max(Math.abs(bb.min.x), Math.abs(bb.max.x));
   mat.onBeforeCompile = (sh) => {
     sh.uniforms.uTeam = { value: col };
     sh.uniforms.uDark = { value: teamDark };
     sh.uniforms.uMin = { value: bb.min.clone() };
     sh.uniforms.uMax = { value: new THREE.Vector3(maxX, bb.max.y, bb.max.z) };
+    const j = tpl.joints;
+    sh.uniforms.uJ = { value: new THREE.Vector4(j.sh, j.el, j.wr, tpl.headTop) };
+    sh.uniforms.uL = { value: new THREE.Vector4(j.hip, j.knee, j.ank, 0) };
     sh.vertexShader = sh.vertexShader
       .replace("#include <common>", "#include <common>\nvarying vec3 vBind;\nvarying vec3 vBindN;")
       .replace("#include <begin_vertex>", "#include <begin_vertex>\nvBind = position;\nvBindN = normal;");
     sh.fragmentShader = sh.fragmentShader
-      .replace("#include <common>", "#include <common>\n" + GLSL_COMMON)
+      .replace("#include <common>", "#include <common>\n" + GLSL_COMMON + FABRIC_COMMON)
       .replace(
         "#include <map_fragment>",
         `#include <map_fragment>
         vec3 glow = vec3(0.0);
         float rough = 1.0;
+        float fabH = 0.0;
         {
           float v = clamp((vBind.y - uMin.y) / max(0.001, uMax.y - uMin.y), 0.0, 1.0);
           float ax = clamp(abs(vBind.x) / max(0.001, uMax.x), 0.0, 1.0);
           vec3 c = uTeam;
           ${LOOK_GLSL[key]}
+          {
+          ${fabricCode(key, role, id)}
+          }
           diffuseColor.rgb *= c;
         }`,
       )
+      .replace("#include <normal_fragment_maps>", "#include <normal_fragment_maps>\nnormal = fabBump(-vViewPosition, normal, fabH);")
       .replace("#include <roughnessmap_fragment>", "#include <roughnessmap_fragment>\nroughnessFactor *= rough;")
       .replace("#include <emissivemap_fragment>", "#include <emissivemap_fragment>\ntotalEmissiveRadiance += glow;");
   };

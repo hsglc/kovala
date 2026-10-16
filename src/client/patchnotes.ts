@@ -12,6 +12,23 @@ export interface PatchNote {
 
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: "0.23.0",
+    date: "16 Eki 2026",
+    time: "14:07",
+    title: "Gerçek kıyafetler",
+    items: [
+      "Kıyafetler artık vücuda yapışmıyor: tişört göğüsten düz düşüyor, kol ağzı ve şort paçası açılıyor, jogger bilekte lastikle toplanıyor, eşofman düz paça",
+      "Her parçanın gerçek kumaşı var: pamuklu süprem, polar, ribana, kalın örgü, file, likra, naylon, denim, deri; parlaklık ve doku kumaşa göre",
+      "Gerçek dikiş ayrıntıları: yan ve omuz dikişi, çift iğne etek ve paça dikişi, ribana manşet ve bel, lastikli bel büzgüsü",
+      "Kırışıklıklar: dirsekte, dizde, bilekte yığılma, koltuk altı ve kasıkta çekme izleri",
+      "Kapüşonlu artık gerçek bir kapüşonla geliyor: sırta düşmüş, ortasında dikiş, kalın yaka rulosu",
+      "Yeni: Kot pantolon (taşlanmış denim, arka cepler, turuncu dikiş)",
+      "Gerçek dünyadan ayakkabılar: Retro koşu (süet, karamel taban) ve Siyah deri bot; reflektörlü koşu taytı",
+      "Ayakkabılarda taban dişi, bağcık, burun delikleri ve deride esneme kırışıkları",
+      "Üst giysi her zaman altın üstünde duruyor; bel bandında titreme yok",
+    ],
+  },
+  {
     version: "0.22.0",
     date: "16 Eki 2026",
     time: "13:30",
