@@ -186,8 +186,7 @@ export class Scene3D {
     (this.scene.background as THREE.Color).setHex(v.background);
     const fog = this.scene.fog as THREE.Fog;
     fog.color.setHex(v.fog[0]);
-    fog.near = v.fog[1];
-    fog.far = v.fog[2];
+    this.fogBase = [v.fog[1], v.fog[2]];
     this.hemi.color.setHex(v.hemi[0]);
     this.hemi.groundColor.setHex(v.hemi[1]);
     this.hemi.intensity = v.hemi[2];
@@ -207,6 +206,7 @@ export class Scene3D {
   }
 
   private sunOffset: [number, number, number] | null = null;
+  private fogBase: [number, number] = [26, 60];
 
   private buildLayout(layout: QuadLayout) {
     this.world.traverse((o) => {
@@ -370,7 +370,11 @@ export class Scene3D {
       this.portrait,
     );
     const cam = { x: this.rig.center.x, y: this.rig.center.z };
-    const z = Math.min(1, Math.max(0, (this.rig.dist - 10) / 14));
+    // Sis kameranın uzaklığıyla kayar: geniş kadrajda saha sislenmesin, yakında ufuk yine yumuşak kalsın
+    const fogN = this.scene.fog as THREE.Fog;
+    fogN.near = this.fogBase[0] + Math.max(0, this.rig.dist - 14);
+    fogN.far = this.fogBase[1] + Math.max(0, this.rig.dist - 14);
+    const z = Math.min(1, Math.max(0, (this.rig.dist - 10) / 24));
 
     // Güneş kamerayla gelir (gölge alanı dar ve keskin kalsın)
     const so = this.sunOffset ?? [QUAD_SIZE / 2 - 5, 11, QUAD_SIZE / 2 - 4];

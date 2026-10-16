@@ -256,8 +256,46 @@ export class Bot {
     }
   }
 
+  /**
+   * WCT taktiği: bir kuleyi (duvar) kovalayanla arana al ve etrafında dön.
+   * Hedef, kulenin kovalayana göre arka tarafındaki yörünge noktası; yakınsa yörüngede ilerler.
+   * Kovalayan tüm kulelere senden yakınsa hedef yok (yerel kaçış çalışır).
+   */
+  private orbitGoal(self: PlayerState, other: PlayerState, layout: QuadLayout): [number, number] | null {
+    let best: { c: [number, number]; r: number; score: number } | null = null;
+    for (const o of layout.obstacles) {
+      if (o.kind !== "wall") continue;
+      const long = Math.max(o.w, o.h);
+      if (long > 3.2) continue; // uzun sırt duvarı kule değildir
+      const cx = o.x + o.w / 2;
+      const cy = o.y + o.h / 2;
+      const r = Math.hypot(o.w, o.h) / 2 + 0.65;
+      if (cx - r < 0.7 || cy - r < 0.7 || cx + r > QUAD_SIZE - 0.7 || cy + r > QUAD_SIZE - 0.7) continue;
+      const dm = Math.hypot(cx - self.x, cy - self.y);
+      const dc = Math.hypot(cx - other.x, cy - other.y);
+      if (dm > 9 || dc < dm - 0.6) continue;
+      const score = dm - (dc - dm) * 0.4;
+      if (!best || score < best.score) best = { c: [cx, cy], r, score };
+    }
+    if (!best) return null;
+    const [cx, cy] = best.c;
+    // Kovalayanın tam karşısı
+    let a = Math.atan2(cy - other.y, cx - other.x);
+    const myA = Math.atan2(self.y - cy, self.x - cx);
+    const onOrbit = Math.abs(Math.hypot(self.x - cx, self.y - cy) - best.r) < 0.9;
+    if (onOrbit) {
+      // Yörüngedeysen karşı noktaya kısa yoldan, biraz önden git (dönmeyi sürdür)
+      let d = a - myA;
+      while (d > Math.PI) d -= Math.PI * 2;
+      while (d < -Math.PI) d += Math.PI * 2;
+      a = myA + Math.sign(d || 1) * Math.min(Math.abs(d), 0.9);
+    }
+    return [cx + Math.cos(a) * best.r, cy + Math.sin(a) * best.r];
+  }
+
   private decideEvade(grid: Grid, self: PlayerState, other: PlayerState, layout: QuadLayout) {
     const field = this.field(grid, layout, other.x, other.y);
+    const goal = this.orbitGoal(self, other, layout);
     let best: [number, number] = [self.x - other.x, self.y - other.y];
     let bestScore = -INF;
     const curL = Math.hypot(self.vx, self.vy);
@@ -276,13 +314,14 @@ export class Bot {
           score -= v === -INF ? 40 : 6;
           continue;
         }
-        score += v * (reach === 2.0 ? 0.6 : 1);
+        score += v * (reach === 2.0 ? 0.6 : 1) * (goal ? 0.25 : 1);
         // kenarlardan uzak dur
         const edge = Math.min(px, py, QUAD_SIZE - px, QUAD_SIZE - py);
         if (edge < 1.5) score -= (1.5 - edge) * 4;
       }
       if (!ok) continue;
       if (curL > 0.5) score += ((dx * self.vx + dy * self.vy) / curL) * 0.35;
+      if (goal) score -= Math.hypot(goal[0] - (self.x + dx * 1.0), goal[1] - (self.y + dy * 1.0)) * 3;
       if (score > bestScore) {
         bestScore = score;
         best = [dx, dy];

@@ -1,18 +1,24 @@
 import { useEffect, useState } from "react";
+import { QUAD_SIZE } from "../../shared/constants";
 import { getLayout, type QuadLayout } from "../../shared/maps";
+
+const Q = QUAD_SIZE;
+const H = Q / 2;
 
 /** Sahanın kuşbakışı çizimi. `live` açıksa kovalayan ◆ kaçanı ● bir döngü boyunca kovalar. */
 export function QuadThumb({ layout, live = false, className = "" }: { layout: QuadLayout | string; live?: boolean; className?: string }) {
   const L = typeof layout === "string" ? getLayout(layout) : layout;
   const reduce = usePrefersReducedMotion();
   const animate = live && !reduce;
-  // Merkez etrafında dolanan sekiz şeklinde bir rota (saha 12 m)
-  const route = "M6 1.4 C 10.6 1.4 10.6 6 6 6 C 1.4 6 1.4 10.6 6 10.6 C 10.6 10.6 10.6 6 6 6 C 1.4 6 1.4 1.4 6 1.4 Z";
+  // Merkez etrafında dolanan sekiz şeklinde bir rota
+  const a = 1.4;
+  const z = Q - 1.4;
+  const route = `M${H} ${a} C ${z} ${a} ${z} ${H} ${H} ${H} C ${a} ${H} ${a} ${z} ${H} ${z} C ${z} ${z} ${z} ${H} ${H} ${H} C ${a} ${H} ${a} ${a} ${H} ${a} Z`;
   return (
-    <svg className={`quad-thumb ${className}`} viewBox="-0.6 -0.6 13.2 13.2" role="img" aria-label={`${L.name} sahası`}>
-      <rect x="-0.6" y="-0.6" width="13.2" height="13.2" rx="0.5" className="qt-floor" />
-      <rect x="0" y="0" width="12" height="12" className="qt-line" />
-      <circle cx="6" cy="6" r="1.6" className="qt-ring" />
+    <svg className={`quad-thumb ${className}`} viewBox={`-0.6 -0.6 ${Q + 1.2} ${Q + 1.2}`} role="img" aria-label={`${L.name} sahası`}>
+      <rect x="-0.6" y="-0.6" width={Q + 1.2} height={Q + 1.2} rx="0.5" className="qt-floor" />
+      <rect x="0" y="0" width={Q} height={Q} className="qt-line" />
+      <circle cx={H} cy={H} r="1.6" className="qt-ring" />
       {L.plates?.map(([x, y], i) => (
         <rect key={i} x={x - 0.45} y={y - 0.45} width="0.9" height="0.9" className={i === 0 ? "qt-plate-c" : "qt-plate-e"} />
       ))}

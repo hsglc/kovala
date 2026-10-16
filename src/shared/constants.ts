@@ -11,7 +11,7 @@ export const INTERP_TICKS = 4; // 15 Hz anlık görüntü + mobil ağ titremesi 
 /** Tag kararında en fazla kaç tick geriye sarılır (lag kompanzasyonu, ~200 ms). */
 export const MAX_REWIND_TICKS = 3;
 
-export const QUAD_SIZE = 12;
+export const QUAD_SIZE = 16; // resmî Quad 12 m; oyunda daha geniş saha
 /** Oyuncunun merkezi çizgiyi bu kadar geçerse saha dışı sayılır (vücudun yaklaşık yarısı). */
 export const OUT_MARGIN = 0.22;
 export const CHASE_SECONDS = 20;

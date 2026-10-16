@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CHASE_TICKS, PLAYER_RADIUS, QUAD_SIZE, SPEED_EVADER, TICK_RATE } from "../src/shared/constants";
-import { LAYOUTS, getLayout } from "../src/shared/maps";
+import { LAYOUTS, getLayout, type QuadLayout } from "../src/shared/maps";
 import { ACT_CLIMB, ACT_KICK, ACT_VAULT, ACT_KONG, canVault, createPlayer, isTag, quantizeInput, stepPlayer, type Input } from "../src/shared/sim";
 import { MatchEngine } from "../src/shared/engine";
 import { Bot } from "../src/shared/bot";
@@ -39,7 +39,16 @@ describe("haritalar", () => {
 });
 
 describe("hareket", () => {
-  const layout = getLayout("klasik");
+  // Fizik testleri harita tasarımından bağımsız: sabit, elle yazılmış düzen (eski 12 m Klasik koordinatları)
+  const layout: QuadLayout = {
+    ...getLayout("klasik"),
+    obstacles: [
+      { kind: "wall", x: 5, y: 5, w: 2, h: 2 },
+      { kind: "box", x: 2.3, y: 5, w: 0.8, h: 2 },
+      { kind: "box", x: 8.9, y: 5, w: 0.8, h: 2 },
+      { kind: "bar", x: 5, y: 2.5, w: 2, h: 0.4 },
+    ],
+  };
 
   it("maks hıza ulaşır ve aşmaz", () => {
     const p = createPlayer(1, 11, 1, 0);

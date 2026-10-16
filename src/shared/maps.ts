@@ -231,8 +231,120 @@ const ALL_LAYOUTS: QuadLayout[] = [
   },
 ];
 
+/* ---------- Büyük saha ----------
+ * Düzenler 12 m Quad için çizildi. Saha QUAD_SIZE'a (16 m) büyür:
+ * 1. Engel merkezleri orantılı yayılır, boyutları gerçek ekipman ölçüsünde kalır.
+ * 2. Açılan boşluğa, alan oranında (≈1,8×) yeni engel eklenir: haritanın kendi parça
+ *    paletinden, merkeze göre nokta simetrik çiftler hâlinde (iki başlangıç köşesi eşit kalsın),
+ *    koşu koridorları ve doğma noktaları açık bırakılarak. Tohum harita kimliğinden gelir:
+ *    sunucu ve istemci aynı haritayı üretir.
+ */
+const BASE = 12;
+const K = QUAD_SIZE / BASE;
+/** Seviyeye göre engeller arası en dar koridor (m) */
+const LANE: Record<1 | 2 | 3, number> = { 1: 1.7, 2: 1.45, 3: 1.25 };
+
+function hashStr(str: string) {
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i++) h = Math.imul(h ^ str.charCodeAt(i), 16777619);
+  return h >>> 0;
+}
+function seededRnd(seed: number) {
+  let x = seed >>> 0 || 1;
+  return () => {
+    x = (Math.imul(x, 1664525) + 1013904223) >>> 0;
+    return x / 4294967296;
+  };
+}
+/** Kenara yakın noktalar kenara olan uzaklığını korur, ötekiler orantılı yayılır. */
+function spreadPt(v: number) {
+  if (v <= 1.5) return v;
+  if (v >= BASE - 1.5) return v + (QUAD_SIZE - BASE);
+  return v * K;
+}
+function gapBetween(a: Obstacle, b: Obstacle) {
+  const dx = Math.max(0, Math.max(a.x, b.x) - Math.min(a.x + a.w, b.x + b.w));
+  const dy = Math.max(0, Math.max(a.y, b.y) - Math.min(a.y + a.h, b.y + b.h));
+  return Math.hypot(dx, dy);
+}
+function ptDist(o: Obstacle, x: number, y: number) {
+  const cx = Math.max(o.x, Math.min(x, o.x + o.w));
+  const cy = Math.max(o.y, Math.min(y, o.y + o.h));
+  return Math.hypot(x - cx, y - cy);
+}
+
+function grow(L: QuadLayout): QuadLayout {
+  if ((QUAD_SIZE as number) === BASE) return L;
+  const Q = QUAD_SIZE;
+  // Birbirine değen parçalar (ör. L duvar) tek grup olarak taşınır; uzun duvarlar (≥3 m) sahayla uzar
+  const n = L.obstacles.length;
+  const group = L.obstacles.map((_, i) => i);
+  const root = (i: number): number => (group[i] === i ? i : (group[i] = root(group[i])));
+  for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) if (gapBetween(L.obstacles[i], L.obstacles[j]) < 0.05) group[root(i)] = root(j);
+  const shift = new Map<number, [number, number]>();
+  for (let i = 0; i < n; i++) {
+    const r = root(i);
+    if (shift.has(r)) continue;
+    const mem = L.obstacles.filter((_, j) => root(j) === r);
+    const x0 = Math.min(...mem.map((o) => o.x));
+    const x1 = Math.max(...mem.map((o) => o.x + o.w));
+    const y0 = Math.min(...mem.map((o) => o.y));
+    const y1 = Math.max(...mem.map((o) => o.y + o.h));
+    const cx = (x0 + x1) / 2;
+    const cy = (y0 + y1) / 2;
+    shift.set(r, [cx * K - cx, cy * K - cy]);
+  }
+  const spread = L.obstacles.map((o, i) => {
+    const [dx, dy] = shift.get(root(i))!;
+    let { x, y, w: ow, h: oh } = o;
+    const solo = L.obstacles.every((e, j) => j === i || root(j) !== root(i));
+    if (solo && o.kind === "wall" && Math.max(ow, oh) >= 3) {
+      // Uzun duvar: merkezini koruyarak uzun kenarını büyüt
+      const cx = x + ow / 2;
+      const cy = y + oh / 2;
+      if (ow >= oh) ow *= K;
+      else oh *= K;
+      x = cx - ow / 2;
+      y = cy - oh / 2;
+    }
+    return { ...o, w: +ow.toFixed(2), h: +oh.toFixed(2), x: +(x + dx).toFixed(2), y: +(y + dy).toFixed(2) };
+  });
+  const spawns = L.spawns.map(([x, y]) => [spreadPt(x), spreadPt(y)] as [number, number]);
+  const plates = L.plates?.map(([x, y]) => [spreadPt(x), spreadPt(y)] as [number, number]) as QuadLayout["plates"];
+  const keepClear: [number, number][] = [...spawns, ...(plates ?? [])];
+  const lane = LANE[L.level];
+  const rnd = seededRnd(hashStr(L.id));
+  const out = [...spread];
+  const target = Math.round(L.obstacles.length * K * K);
+  const fits = (o: Obstacle) => {
+    if (o.x < 0.9 || o.y < 0.9 || o.x + o.w > Q - 0.9 || o.y + o.h > Q - 0.9) return false;
+    for (const e of out) if (gapBetween(o, e) < lane) return false;
+    for (const [x, y] of keepClear) if (ptDist(o, x, y) < 1.4) return false;
+    return true;
+  };
+  for (let tries = 0; tries < 6000 && out.length < target; tries++) {
+    const t = L.obstacles[Math.floor(rnd() * L.obstacles.length)];
+    const rot = rnd() < 0.5;
+    const ww = rot ? t.h : t.w;
+    const hh = rot ? t.w : t.h;
+    const cx = 1 + rnd() * (Q - 2);
+    const cy = 1 + rnd() * (Q - 2);
+    const a: Obstacle = { ...t, w: ww, h: hh, x: +(cx - ww / 2).toFixed(2), y: +(cy - hh / 2).toFixed(2) };
+    // Merkeze göre 180° döndürülmüş eşi (aynı en/boy)
+    const bb: Obstacle = { ...a, x: +(Q - a.x - a.w).toFixed(2), y: +(Q - a.y - a.h).toFixed(2) };
+    if (!fits(a)) continue;
+    out.push(a);
+    if (gapBetween(a, bb) < lane || !fits(bb)) {
+      out.pop();
+      continue;
+    }
+    out.push(bb);
+  }
+  return { ...L, obstacles: out, spawns, plates };
+}
+
 /** Kolaydan zora sıralı. */
-export const LAYOUTS: QuadLayout[] = [...ALL_LAYOUTS].sort((a, b) => a.level - b.level);
+export const LAYOUTS: QuadLayout[] = ALL_LAYOUTS.map(grow).sort((a, b) => a.level - b.level);
 
 export const LEVEL_LABEL: Record<1 | 2 | 3, string> = { 1: "Kolay", 2: "Orta", 3: "Zor" };
 
@@ -241,7 +353,7 @@ export function getLayout(id: string): QuadLayout {
 }
 
 /** Birbirinden en az `minDist` uzak iki doğma noktası seçer. rnd: 0..1 üreteci. */
-export function pickSpawnPair(layout: QuadLayout, rnd: () => number, minDist = 7): [[number, number], [number, number]] {
+export function pickSpawnPair(layout: QuadLayout, rnd: () => number, minDist = 7 * K): [[number, number], [number, number]] {
   const pairs: [[number, number], [number, number]][] = [];
   for (const a of layout.spawns) {
     for (const c of layout.spawns) {

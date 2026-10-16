@@ -12,6 +12,20 @@ export interface PatchNote {
 
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: "0.21.0",
+    date: "16 Eki 2026",
+    time: "12:52",
+    title: "Büyük sahalar + takip kamerası",
+    items: [
+      "Sahalar büyüdü: 12 m'den 16 m'ye. Engeller gerçek ölçüsünde kaldı, aralarına alan oranında (~1,8 kat) yeni engel eklendi",
+      "Yeni engeller her haritanın kendi parçalarından, merkeze göre simetrik çiftler hâlinde yerleşiyor; iki başlangıç köşesi eşit, koşu koridorları ve doğma noktaları açık",
+      "Labirentin L duvarları bütün kaldı, Yılan Yolu'nun uzun duvarları sahayla birlikte uzadı",
+      "Takip kamerası: chase'te kamera seni ve koştuğun yönü izliyor, saha ekranı dolduruyor; rakip yakınsa ikiniz birden kadrajda, uzaksa kenar oku mesafeyi gösteriyor",
+      "Geri sayım ve tekrar sırasında tüm saha görünüyor, chase başlayınca kamera yumuşakça yaklaşıyor",
+      "Kaçan bot artık gerçek WCT taktiği kullanıyor: kuleyi seninle arasına alıp etrafında dönüyor, köşeye sıkışmıyor",
+    ],
+  },
+  {
     version: "0.20.3",
     date: "16 Eki 2026",
     time: "12:35",
