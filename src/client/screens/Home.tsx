@@ -5,13 +5,16 @@ import { LAYOUTS, LEVEL_LABEL } from "../../shared/maps";
 import { fitItem, REGIONS } from "../../shared/outfit";
 import { getFit, getName, getPid, setName } from "../lib/identity";
 import { QuadThumb } from "../ui/QuadThumb";
-import { WardrobePreview } from "../game/three/WardrobePreview";
+import { VsBg } from "../ui/VsBg";
 import { getProgress } from "../lib/progress";
 import { BOT_FITS, survivalBest } from "../net/LocalGame";
 import { prewarmGame } from "../game/three/prewarm";
 import { VENUES } from "../../shared/venues";
 import { unlockAudio } from "../lib/sound";
 import { CURRENT_VERSION, PATCH_NOTES } from "../patchnotes";
+import { usePresence } from "../ui/Invites";
+import { presence } from "../net/presence";
+import { INVITABLE, type PresencePlayer } from "../../shared/presence";
 
 interface Props {
   offline?: boolean;
@@ -26,7 +29,7 @@ interface Props {
   onSurvival: () => void;
 }
 
-type Sheet = null | "rules" | "notes" | "missions" | "practice" | "ladder";
+type Sheet = null | "rules" | "notes" | "missions" | "practice" | "ladder" | "online";
 
 export function Home({ offline, initialCode, busy, error, onQuick, onCreate, onJoin, onPractice, onWardrobe, onSurvival }: Props) {
   const [name, setNameState] = useState(getName());
@@ -41,6 +44,21 @@ export function Home({ offline, initialCode, busy, error, onQuick, onCreate, onJ
   });
   const [squad, setSquad] = useState<number>(1);
   const [venue, setVenue] = useState<string>("arena");
+  const pv = usePresence();
+  const invitable = pv.players.filter((p) => INVITABLE.includes(p.s));
+  const onlineLine = !pv.online
+    ? "bağlanıyor…"
+    : pv.players.length === 0
+      ? "şu an senden başka kimse yok, arkadaşını çağır"
+      : `${invitable.length} kişi davet bekliyor: ${pv.players
+          .slice(0, 3)
+          .map((p) => p.n)
+          .join(", ")}`;
+  // Ad yazıldıkça çevrimiçi listesinde de güncellensin
+  useEffect(() => {
+    const t = window.setTimeout(() => presence()?.update({ n: name.trim() }), 600);
+    return () => window.clearTimeout(t);
+  }, [name]);
   // Boştayken oyunu ısıt: modeller ve gölgelendiriciler hazır olsun, "Başlat" beklemesin
   useEffect(() => {
     const t = window.setTimeout(() => prewarmGame(getFit(), [BOT_FITS.orta, BOT_FITS.zor, BOT_FITS.kolay]), 700);
@@ -85,107 +103,90 @@ export function Home({ offline, initialCode, busy, error, onQuick, onCreate, onJ
       .join("")
       .slice(0, ROOM_CODE_LENGTH);
 
-  // Kahraman: kendi sporcun, kendi kombininle, yavaşça dönerek
-  const heroRef = useRef<HTMLCanvasElement>(null);
-  useEffect(() => {
-    if (!heroRef.current) return;
-    const p = new WardrobePreview(heroRef.current, { stage: false });
-    // Mavi forma kırmızı zeminde öne çıkar
-    p.set(1, getFit());
-    p.setPose("idle");
-    return () => p.dispose();
-  }, []);
-
   const prog = getProgress();
   const fitSummary = REGIONS.map((r) => fitItem(getFit(), r.id))
     .filter((it) => it.id !== "none")
     .map((it) => it.name);
 
   return (
-    <div className="hm">
-      {/* Sahne: üst kırmızı (kovalayan), alt mavi (kaçan); sporcun saha çizgisinin üstünde */}
-      <section className="hm-hero">
-        <div className="hm-split" aria-hidden="true" />
-        <header className="hm-top">
-          <button className="hm-lvl" onClick={() => setSheet("missions")} aria-label={`Seviye ${prog.level}, görevler`}>
-            <svg viewBox="0 0 40 40" aria-hidden="true">
-              <circle cx="20" cy="20" r="17" className="hm-lvl-track" />
-              <circle cx="20" cy="20" r="17" className="hm-lvl-fill" style={{ strokeDashoffset: `${106.8 * (1 - prog.into / prog.need)}` }} />
-            </svg>
+    <div className="vs-home">
+      {/* Çapraz bölünmüş VS ekranı: üst kırmızı (kovalayan), alt mavi (kaçan) */}
+      <VsBg />
+
+      <div className="vs-top">
+        <div className="topbar">
+          <button className="lvl-chip" onClick={() => setSheet("missions")} aria-label={`Seviye ${prog.level}, görevler`}>
             <b>{prog.level}</b>
+            <span className="lvl-rail">
+              <i style={{ width: `${Math.round((prog.into / prog.need) * 100)}%` }} />
+            </span>
           </button>
-          <label className={`hm-name ${nameError ? "error" : ""}`}>
-            <span>{nameError ? "Önce adını yaz" : "Oyuncu"}</span>
-            <input
-              id="name-input"
-              value={name}
-              maxLength={16}
-              placeholder="Adını yaz"
-              autoComplete="nickname"
-              onChange={(e) => {
-                setNameState(e.target.value);
-                setNameError(false);
-              }}
-            />
-          </label>
-          <button className="hm-ver" onClick={() => setSheet("notes")} aria-label="Yama notları">
+          <button className="ver-chip" onClick={() => setSheet("notes")}>
             v{CURRENT_VERSION}
           </button>
-        </header>
-        <h1 className="hm-word" aria-label="Evade">
-          <span>EVA</span>
-          <span>DE</span>
+        </div>
+        <h1 className="mega" aria-label="Evade">
+          <span className="mega-1">EVA</span>
+          <span className="mega-2">DE</span>
         </h1>
-        <p className="hm-tag">20 saniye. Biri kovalar, biri kaçar.</p>
-        <canvas className="hm-athlete" ref={heroRef} aria-hidden="true" />
-        <button className="hm-fit" onClick={onWardrobe}>
-          <span className="hm-fit-k">Kombin</span>
-          <span className="hm-fit-v">{fitItem(getFit(), "top").name}, {fitItem(getFit(), "bottom").name}</span>
-        </button>
-      </section>
+        <p className="mega-sub">20 saniye. Biri kovalar, biri kaçar.</p>
+      </div>
 
-      <section className="hm-deck">
-        {error && <div className="hm-alert">{error}</div>}
-        {offline && <div className="hm-alert soft">Bu önizlemede sadece botla antrenman var.</div>}
+      <div className="vs-bottom">
+        <label className={`tape tape-white name-tape ${nameError ? "error" : ""}`}>
+          <span className="marker">Adın</span>
+          <input
+            id="name-input"
+            value={name}
+            maxLength={16}
+            placeholder="buraya yaz"
+            autoComplete="nickname"
+            onChange={(e) => {
+              setNameState(e.target.value);
+              setNameError(false);
+            }}
+          />
+        </label>
+
+        {error && <div className="tape tape-alert">{error}</div>}
 
         {initialCode && (
-          <button className="hm-cta" disabled={busy} onClick={() => ensureName() && onJoin(initialCode)}>
-            <span className="hm-led">{initialCode}</span>
-            <span className="hm-cta-t">
-              <b>Odaya katıl</b>
-              <small>davet edildin</small>
-            </span>
+          <button className="tape tape-go" disabled={busy} onClick={() => ensureName() && onJoin(initialCode)}>
+            <span className="tape-main">{initialCode} odasına katıl</span>
+            <span className="marker">davet edildin</span>
           </button>
         )}
 
-        {!offline && !initialCode && (
-          <button className="hm-cta" disabled={busy} onClick={() => ensureName() && onQuick()}>
-            <span className="hm-led" aria-hidden="true">20,0</span>
-            <span className="hm-cta-t">
-              <b>Hızlı maç</b>
-              <small>Rastgele rakip, 1'e 1</small>
-            </span>
+        {offline && <div className="tape">Bu önizlemede sadece botla antrenman var.</div>}
+
+        {!offline && (
+          <button className="tape tape-go big" disabled={busy} onClick={() => ensureName() && onQuick()}>
+            <span className="tape-main">Hızlı maç</span>
+            <span className="marker">rastgele rakip, 1'e 1</span>
           </button>
         )}
 
-        <div className="hm-modes">
-          <button className="hm-mode m-ply" onClick={() => ensureName() && setSheet("practice")}>
-            <b>Antrenman</b>
-            <small>Botlara karşı, {LAYOUTS.length} saha</small>
+        {!offline && (
+          <button className="tape tape-online" onClick={() => ensureName() && setSheet("online")}>
+            <span className="tape-main">
+              <i className={`live-dot ${pv.online ? "on" : ""}`} aria-hidden="true" />
+              Çevrimiçi
+              {pv.online && <span className="online-count">{pv.players.length}</span>}
+            </span>
+            <span className="marker clip">{onlineLine}</span>
           </button>
-          <button className="hm-mode m-surv" onClick={() => ensureName() && onSurvival()}>
-            <b>Hayatta kal</b>
-            <small>Rekorun: {survivalBest()} chase</small>
-          </button>
+        )}
+
+        <div className="tape-row">
           {!offline && (
-            <button className="hm-mode m-room" disabled={busy} onClick={() => ensureName() && onCreate()}>
-              <b>Oda kur</b>
-              <small>Arkadaşlarla oyna</small>
+            <button className="tape" disabled={busy} onClick={() => ensureName() && onCreate()}>
+              <span className="tape-main">Oda kur</span>
+              <span className="marker">arkadaşlarla</span>
             </button>
           )}
           {!offline && (
             <form
-              className="hm-mode m-code"
+              className="tape code-tape"
               onSubmit={(e) => {
                 e.preventDefault();
                 if (code.length === ROOM_CODE_LENGTH && ensureName()) onJoin(code);
@@ -208,26 +209,34 @@ export function Home({ offline, initialCode, busy, error, onQuick, onCreate, onJ
           )}
         </div>
 
-        <nav className="hm-dock" aria-label="Diğer">
-          <button onClick={onWardrobe}>
-            <Icon d="M12 5a2 2 0 1 1 2 2c-1 .4-2 1-2 2v1M3.5 18.5 12 11l8.5 7.5a1 1 0 0 1-.7 1.5H4.2a1 1 0 0 1-.7-1.5Z" />
-            Gardırop
+        <button className="tape tape-ply" onClick={() => ensureName() && setSheet("practice")}>
+          <span className="tape-main">Antrenman</span>
+          <span className="marker">botlara karşı, 9 saha</span>
+        </button>
+
+        <button className="tape tape-red" onClick={() => ensureName() && onSurvival()}>
+          <span className="tape-main">Hayatta kal</span>
+          <span className="marker">yakalanana kadar kaç. Rekorun: {survivalBest()} chase</span>
+        </button>
+
+        <div className="tape-row">
+          <button className="tape" onClick={onWardrobe}>
+            <span className="tape-main">Gardırop</span>
+            <span className="marker clip">{fitSummary[0] ?? "kıyafetler"}</span>
           </button>
-          <button onClick={() => setSheet("missions")}>
-            <Icon d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Zm0-4a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm0-4a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" />
-            Görevler
+          <button className="tape" onClick={() => setSheet("ladder")}>
+            <span className="tape-main">Sıralama</span>
+            <span className="marker">bu hafta</span>
           </button>
-          <button onClick={() => setSheet("ladder")}>
-            <Icon d="M9 21V9h6v12M3 21v-7h6M15 21v-5h6v5M3 21h18M12 3l1 2 2 .3-1.5 1.4.4 2.1L12 7.8 10.1 8.8l.4-2.1L9 5.3l2-.3 1-2Z" />
-            Sıralama
-          </button>
-          <button onClick={() => setSheet("rules")}>
-            <Icon d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM9.5 9.3a2.6 2.6 0 0 1 5 .9c0 1.7-2.5 2.2-2.5 3.8M12 17h.01" />
-            Kurallar
-          </button>
+        </div>
+
+        <nav className="small-links">
+          <button onClick={() => setSheet("rules")}>Nasıl oynanır</button>
+          <button onClick={() => setSheet("missions")}>Görevler</button>
+          <button onClick={() => setSheet("notes")}>Yama notları</button>
         </nav>
         <footer className="foot">World Chase Tag'den esinlenilmiştir; resmî bir ürün değildir.</footer>
-      </section>
+      </div>
 
       {sheet && (
         <div className="sheet-backdrop" onClick={() => setSheet(null)}>
@@ -242,6 +251,7 @@ export function Home({ offline, initialCode, busy, error, onQuick, onCreate, onJ
             {sheet === "missions" && <Missions />}
             {sheet === "notes" && <Notes />}
             {sheet === "ladder" && <LadderSheet />}
+            {sheet === "online" && <OnlineSheet />}
             {sheet === "practice" && (
               <div className="sheet-body practice-sheet">
                 <div className="ps-row">
@@ -320,6 +330,7 @@ const SHEET_TITLE: Record<Exclude<Sheet, null>, string> = {
   notes: "Yama notları",
   practice: "Antrenman",
   ladder: "Sıralama",
+  online: "Çevrimiçi",
 };
 
 interface LadderRowView {
@@ -493,10 +504,74 @@ function Notes() {
   );
 }
 
-function Icon({ d }: { d: string }) {
+const STATUS_TEXT: Record<PresencePlayer["s"], string> = {
+  menu: "Menüde",
+  practice: "Antrenmanda",
+  queue: "Rakip arıyor",
+  room: "Odada",
+  match: "Maçta",
+};
+
+function OnlineSheet() {
+  const v = usePresence();
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    if (!v.outgoing) return;
+    const t = setInterval(() => setNow(Date.now()), 250);
+    return () => clearInterval(t);
+  }, [v.outgoing]);
+  const share = async () => {
+    const url = location.origin;
+    try {
+      if (navigator.share) await navigator.share({ title: "EVADE", text: "Gel bir chase atalım!", url });
+      else await navigator.clipboard.writeText(url);
+    } catch {
+      /* paylaşım iptal */
+    }
+  };
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d={d} />
-    </svg>
+    <div className="sheet-body online-sheet">
+      {!v.online && <p className="muted">Sunucuya bağlanılıyor…</p>}
+      {v.online && v.players.length === 0 && (
+        <div className="ol-empty">
+          <p>Şu an senden başka çevrimiçi kimse yok.</p>
+          <p className="muted">Oyunun linkini gönder; arkadaşın açınca burada görünür ve onu tek dokunuşla maça çağırırsın.</p>
+        </div>
+      )}
+      {v.players.length > 0 && (
+        <ul className="ol-list">
+          {v.players.map((p) => {
+            const can = INVITABLE.includes(p.s);
+            const waiting = v.outgoing?.to === p.id;
+            const left = waiting ? Math.max(0, Math.ceil((v.outgoing!.exp - now) / 1000)) : 0;
+            return (
+              <li key={p.id} className={`ol-row s-${p.s}`}>
+                <span className="ol-lvl">{p.l}</span>
+                <span className="ol-who">
+                  <b>{p.n}</b>
+                  <small>
+                    <i className="ol-dot" aria-hidden="true" />
+                    {STATUS_TEXT[p.s]}
+                  </small>
+                </span>
+                {waiting ? (
+                  <button className="ol-btn wait" onClick={() => presence()?.cancel()}>
+                    {left} sn · Vazgeç
+                  </button>
+                ) : (
+                  <button className="ol-btn" disabled={!can || !!v.outgoing} onClick={() => presence()?.invite(p.id)}>
+                    {can ? "Davet et" : STATUS_TEXT[p.s]}
+                  </button>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      <button className="tape tape-white ol-share" onClick={share}>
+        <span className="marker">Arkadaşını çağır</span>
+        <span className="ol-share-url">{location.host}</span>
+      </button>
+    </div>
   );
 }

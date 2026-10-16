@@ -12,6 +12,10 @@ import { QuickMatch } from "./screens/QuickMatch";
 import { Wardrobe } from "./screens/Wardrobe";
 import { recordChase, recordMatch } from "./lib/progress";
 import { ProgressToasts } from "./ui/ProgressToasts";
+import { InviteLayer } from "./ui/Invites";
+import { presence, startPresence } from "./net/presence";
+import { getProgress } from "./lib/progress";
+import type { PresenceStatus } from "../shared/presence";
 import { useRef } from "react";
 import type { PublicState } from "../shared/engine";
 
@@ -47,6 +51,7 @@ export function App() {
     <>
       <AppScreens />
       <ProgressToasts />
+      {!OFFLINE && <InviteLayer />}
     </>
   );
 }
@@ -92,6 +97,18 @@ function AppScreens() {
   }, []);
 
   const onMatched = useCallback((code: string) => setScreen({ k: "room", code, quick: true }), []);
+
+  // Çevrimiçi: uygulama açıkken bağlı kal; ekran değiştikçe durumu bildir; davet kabul edilince odaya geç
+  useEffect(() => {
+    if (OFFLINE) return;
+    const p = startPresence(wsBase(), getPid(), { n: getName(), l: getProgress().level, s: "menu" });
+    p.onGo = (code) => setScreen({ k: "room", code, quick: false });
+  }, []);
+  useEffect(() => {
+    const st: PresenceStatus =
+      screen.k === "practice" || screen.k === "survival" ? "practice" : screen.k === "quick" ? "queue" : screen.k === "room" ? "room" : "menu";
+    presence()?.update({ s: st, n: getName(), l: getProgress().level });
+  }, [screen]);
 
   switch (screen.k) {
     case "home":
@@ -182,6 +199,7 @@ function OnlineRoom({ code, quick, onLeave }: { code: string; quick: boolean; on
   const inMatch = state.phase === "countdown" || state.phase === "chase" || state.phase === "result";
   return (
     <>
+      <PresenceStatusSync s={inMatch ? "match" : "room"} />
       {inMatch ? <GameScreen source={source} state={state} onLeave={() => onLeave()} /> : <Lobby source={source} state={state} onLeave={() => onLeave()} />}
       {status === "reconnecting" && <div className="toast">Bağlantı koptu, yeniden bağlanılıyor…</div>}
     </>
@@ -214,4 +232,12 @@ function Practice({ level, map, squad, venue, onLeave }: { level: BotLevel; map?
   if (!source || !state) return null;
   const inMatch = state.phase === "countdown" || state.phase === "chase" || state.phase === "result";
   return inMatch ? <GameScreen source={source} state={state} onLeave={onLeave} /> : <Lobby source={source} state={state} onLeave={onLeave} />;
+}
+
+/** Oda içinde lobi/maç durumunu çevrimiçi listesine bildirir. */
+function PresenceStatusSync({ s }: { s: PresenceStatus }) {
+  useEffect(() => {
+    presence()?.update({ s });
+  }, [s]);
+  return null;
 }

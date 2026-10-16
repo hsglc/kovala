@@ -12,6 +12,20 @@ export interface PatchNote {
 
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: "0.25.0",
+    date: "16 Eki 2026",
+    time: "15:31",
+    title: "Çevrimiçi oyuncular ve davet",
+    items: [
+      "Eski ana ekran tasarımı geri geldi",
+      "Yeni: Çevrimiçi. Ana ekrandaki beyaz banttan kimlerin açık olduğunu canlı görürsün; yanında durumları yazar (menüde, antrenmanda, odada, maçta)",
+      "Menüdeki ya da antrenmandaki birine Davet et diyebilirsin; karşı tarafa hangi ekranda olursa olsun 30 saniyelik bir davet kartı çıkar",
+      "Kabul edince ikiniz de aynı odaya geçersiniz; reddeder ya da süre dolarsa sana bildirim gelir, istersen daveti geri çekebilirsin",
+      "Maçtaki oyunculara davet gitmez; oyunu yarıda kesmez",
+      "Kimse yoksa Arkadaşını çağır ile oyunun linkini tek dokunuşla paylaşabilirsin",
+    ],
+  },
+  {
     version: "0.24.0",
     date: "16 Eki 2026",
     time: "14:57",

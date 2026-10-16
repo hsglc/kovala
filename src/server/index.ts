@@ -4,6 +4,7 @@ import type { Env } from "./env";
 export { Room } from "./room";
 export { Matchmaker } from "./matchmaker";
 export { Ladder } from "./ladder";
+export { Presence } from "./presence";
 
 const json = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), {
@@ -36,6 +37,11 @@ export default {
       const fwd = new URL(request.url);
       fwd.searchParams.set("code", code);
       return stub.fetch(new Request(fwd, request));
+    }
+
+    if (path === "/ws/presence") {
+      const stub = env.PRESENCE.get(env.PRESENCE.idFromName("global"));
+      return stub.fetch(request);
     }
 
     if (path === "/ws/quick") {

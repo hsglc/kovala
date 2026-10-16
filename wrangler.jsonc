@@ -12,12 +12,14 @@
     "bindings": [
       { "name": "ROOMS", "class_name": "Room" },
       { "name": "MATCHMAKER", "class_name": "Matchmaker" },
-      { "name": "LADDER", "class_name": "Ladder" }
+      { "name": "LADDER", "class_name": "Ladder" },
+      { "name": "PRESENCE", "class_name": "Presence" }
     ]
   },
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": ["Room", "Matchmaker"] },
-    { "tag": "v2", "new_sqlite_classes": ["Ladder"] }
+    { "tag": "v2", "new_sqlite_classes": ["Ladder"] },
+    { "tag": "v3", "new_sqlite_classes": ["Presence"] }
   ],
   "observability": { "enabled": true }
 }
