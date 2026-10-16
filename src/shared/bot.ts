@@ -120,10 +120,14 @@ function sample(field: Float32Array, x: number, y: number): number {
 
 export type BotLevel = "kolay" | "orta" | "zor";
 
-const LEVELS: Record<BotLevel, { period: number; speed: number; noise: number; dashChance: number }> = {
-  kolay: { period: 8, speed: 0.82, noise: 0.35, dashChance: 0.35 },
-  orta: { period: 5, speed: 0.93, noise: 0.15, dashChance: 0.7 },
-  zor: { period: 3, speed: 1, noise: 0.04, dashChance: 1 },
+/**
+ * react: rakibi kaç tick (1/30 sn) gecikmeyle görür; arada eski hızıyla devam ettiğini varsayar.
+ * fake: rakip keskin yön değiştirince (>100°) çalımı yeme olasılığı; yerse bir süre eski yöne koşar, dalmaz.
+ */
+const LEVELS: Record<BotLevel, { period: number; speed: number; noise: number; dashChance: number; react: number; fake: number }> = {
+  kolay: { period: 8, speed: 0.82, noise: 0.35, dashChance: 0.35, react: 10, fake: 0.7 },
+  orta: { period: 5, speed: 0.93, noise: 0.15, dashChance: 0.7, react: 7, fake: 0.45 },
+  zor: { period: 3, speed: 1, noise: 0.04, dashChance: 1, react: 5, fake: 0.25 },
 };
 
 export class Bot {
@@ -163,20 +167,71 @@ export class Bot {
       speed: a.speed + (b.speed - a.speed) * t,
       noise: a.noise + (b.noise - a.noise) * t,
       dashChance: a.dashChance + (b.dashChance - a.dashChance) * t,
+      react: Math.round(a.react + (b.react - a.react) * t),
+      fake: a.fake + (b.fake - a.fake) * t,
     };
   }
 
   reset() {
     this.t = 0;
     this.dir = [0, 0];
+    this.seen = [];
+    this.fakeUntil = 0;
+  }
+
+  /** Rakibin gecikmeli görüntüsü (algı geçmişi) ve çalım durumu */
+  private seen: { x: number; y: number; vx: number; vy: number; h: number }[] = [];
+  private fakeUntil = 0;
+  private fakeCool = 0;
+
+  /**
+   * İnsan gibi algı: rakibi `react` tick önceki hâliyle görür ve o anki hızıyla devam ettiğini varsayar.
+   * Son anda yön değiştiren rakip bu yüzden bir an için yanlış yerde sanılır.
+   */
+  private perceive(other: PlayerState, role: "chaser" | "evader"): PlayerState {
+    const last = this.seen[this.seen.length - 1];
+    // Işınlanma (yeni chase, sahne değişimi): geçmişi sıfırla
+    if (last && Math.hypot(last.x - other.x, last.y - other.y) > 1.5) this.seen = [];
+    this.seen.push({ x: other.x, y: other.y, vx: other.vx, vy: other.vy, h: other.h });
+    if (this.seen.length > 40) this.seen.shift();
+    // Kaçarken kovalayanı izlemek daha kolay (göz zaten onda): gecikme üçte bir
+    const react = role === "evader" ? Math.round(this.cfg.react / 3) : this.cfg.react;
+    const lag = Math.min(react, this.seen.length - 1);
+    const old = this.seen[this.seen.length - 1 - lag];
+    const k = lag / 30;
+    return { ...other, x: old.x + old.vx * k, y: old.y + old.vy * k, vx: old.vx, vy: old.vy, h: old.h };
+  }
+
+  /** Algılanan hızda keskin dönüş var mı (çalım) */
+  private sawCut(): boolean {
+    const n = this.seen.length;
+    const lag = Math.min(this.cfg.react, n - 1);
+    const a = this.seen[n - 1 - lag];
+    const b = this.seen[n - 1 - lag - 5];
+    if (!a || !b) return false;
+    const la = Math.hypot(a.vx, a.vy);
+    const lb = Math.hypot(b.vx, b.vy);
+    if (la < 2 || lb < 2) return false;
+    return (a.vx * b.vx + a.vy * b.vy) / (la * lb) < -0.17; // > ~100°
   }
 
   /** role: botun rolü. self: botun state'i, other: rakibin state'i. */
   think(role: "chaser" | "evader", self: PlayerState, other: PlayerState, layout: QuadLayout): Input {
     const grid = buildGrid(layout);
-    if (this.t % this.cfg.period === 0) {
-      if (role === "chaser") this.decideChase(grid, self, other, layout);
-      else this.decideEvade(grid, self, other, layout);
+    const seen = this.perceive(other, role);
+    // Çalım: rakip keskin döndüyse bot bir süre eski yönüne koşmaya devam edebilir
+    if (role === "chaser" && this.t >= this.fakeCool && this.t >= this.fakeUntil && this.sawCut()) {
+      this.fakeCool = this.t + 20;
+      if (this.rnd() < this.cfg.fake) this.fakeUntil = this.t + 5 + Math.floor(this.rnd() * 8);
+    }
+    const faked = this.t < this.fakeUntil;
+    if (!faked && this.t % this.cfg.period === 0) {
+      if (role === "chaser") this.decideChase(grid, self, seen, layout);
+      else this.decideEvade(grid, self, seen, layout);
+    }
+    if (faked) {
+      this.wantAct = false;
+      this.wantAct2 = false;
     }
     this.t++;
     let [dx, dy] = this.dir;

@@ -12,6 +12,19 @@ export interface PatchNote {
 
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: "0.23.2",
+    date: "16 Eki 2026",
+    time: "14:47",
+    title: "Botlar çalım yiyor",
+    items: [
+      "Kovalayan bot artık seni anında görmüyor: insan gibi gecikmeli algılıyor (kolay 0,33 sn, orta 0,23 sn, zor 0,17 sn) ve o arada eski yönünde gittiğini varsayıyor",
+      "Son anda keskin yön değiştirirsen bot çalımı yiyebiliyor: bir an eski yönüne koşmaya devam ediyor ve dalmıyor (kolayda %70, ortada %45, zorda %25 ihtimal)",
+      "Dalış artık senin olduğunu sandığı yere: son anda yana kaçınca boşa düşüyor",
+      "Testte zamanlı bir çalımı yakalama oranı: orta bot %55 → %7, zor bot %67 → %20",
+      "Kaçan bot da kovalayanı az da olsa gecikmeli izliyor; bot maçlarında kaçış ve yakalama dengesi düzeldi",
+    ],
+  },
+  {
     version: "0.23.1",
     date: "16 Eki 2026",
     time: "14:40",
