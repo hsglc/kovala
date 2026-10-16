@@ -6,6 +6,7 @@ import { ACT_DIVE, ACT_KICK, ACT_JUKE, TAG_DISTANCE, chaserReach, groundAt, type
 import { TEAM_COLORS, TEAM_DARK, memberTeam } from "../../lib/text";
 import { Figure3D, lookFor, type Pose } from "./figure3d";
 import { CameraRig } from "./CameraRig";
+import { Athlete, athleteTemplate, loadAthlete } from "./athlete";
 import { buildFloor, buildObstacle, makeMaterials, type QuadMaterials } from "./quadBuilder";
 
 /**
@@ -16,7 +17,9 @@ import { buildFloor, buildObstacle, makeMaterials, type QuadMaterials } from "./
 
 
 interface FigEntry {
-  fig: Figure3D;
+  fig: Figure3D | null;
+  ath: Athlete | null;
+  obj: THREE.Object3D;
   phase: number;
   run: number;
   lx: number;
@@ -82,6 +85,15 @@ export class Scene3D {
     this.scene.add(this.world);
     this.mats = makeMaterials();
     this.rig = new CameraRig(this.camera);
+    // Blender sporcu modeli yüklenince mevcut basit figürleri değiştir
+    loadAthlete()
+      .then(() => {
+        for (const [id, e] of this.figures) {
+          this.scene.remove(e.obj);
+          this.figures.delete(id);
+        }
+      })
+      .catch(() => {});
     this.buildGround();
 
     this.reachRing = new THREE.Mesh(
@@ -240,12 +252,24 @@ export class Scene3D {
   private figureFor(id: string, team: number, selfId: string, now: number, p: PlayerState): FigEntry {
     let e = this.figures.get(id);
     if (!e || e.team !== team) {
-      if (e) this.scene.remove(e.fig.root);
-      const look = lookFor(id, TEAM_COLORS[team as 0 | 1] === "#ff5a4f" ? 0xff5a4f : 0x35b8ff, team === 0 ? 0xa8302a : 0x1a6fa3);
-      const fig = new Figure3D(look, id === selfId ? 0xffffff : parseInt(TEAM_DARK[team as 0 | 1].slice(1), 16));
-      e = { fig, phase: 0, run: 0, lx: p.x, ly: p.y, heading: Math.atan2(p.fy, p.fx), last: now, team };
+      if (e) this.scene.remove(e.obj);
+      const shirt = team === 0 ? 0xff5a4f : 0x35b8ff;
+      const shorts = team === 0 ? 0xa8302a : 0x1a6fa3;
+      const ringColor = id === selfId ? 0xffffff : parseInt(TEAM_DARK[team as 0 | 1].slice(1), 16);
+      let fig: Figure3D | null = null;
+      let ath: Athlete | null = null;
+      let obj: THREE.Object3D;
+      const tpl = athleteTemplate();
+      if (tpl) {
+        ath = new Athlete(tpl, shirt, shorts, ringColor);
+        obj = ath.root;
+      } else {
+        fig = new Figure3D(lookFor(id, shirt, shorts), ringColor);
+        obj = fig.root;
+      }
+      e = { fig, ath, obj, phase: 0, run: 0, lx: p.x, ly: p.y, heading: Math.atan2(p.fy, p.fx), last: now, team };
       this.figures.set(id, e);
-      this.scene.add(fig.root);
+      this.scene.add(obj);
     }
     return e;
   }
@@ -330,10 +354,10 @@ export class Scene3D {
         const winnerId = state.last.winner === "chaser" ? state.last.chaser : state.last.evader;
         mood = id === winnerId ? "cheer" : "tired";
       }
-      e.fig.root.position.set(p.x, 0, p.y);
+      e.obj.position.set(p.x, 0, p.y);
       const gnd = groundAt(p.x, p.y, layout);
       const airborne = p.ak === 0 && p.h > gnd + 0.05;
-      e.fig.update({
+      const anim = {
         phase: e.phase,
         run: phase === "chase" ? e.run : 0,
         pose: p.ak,
@@ -344,7 +368,9 @@ export class Scene3D {
         h: p.h,
         hv: p.hv,
         airborne,
-      });
+      };
+      if (e.ath) e.ath.update(anim, phase === "chase" ? e.run * SPEED_EVADER : 0, dt);
+      else e.fig?.update(anim);
       if (id === chaserId && phase === "chase") {
         const rr = TAG_DISTANCE - PLAYER_RADIUS + chaserReach(p);
         this.reachRing.visible = true;
@@ -354,7 +380,7 @@ export class Scene3D {
     }
     for (const [id, e] of this.figures) {
       if (!seen.has(id)) {
-        this.scene.remove(e.fig.root);
+        this.scene.remove(e.obj);
         this.figures.delete(id);
       }
     }

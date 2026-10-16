@@ -12,6 +12,18 @@ export interface PatchNote {
 
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: "0.7.0",
+    date: "16 Eki 2026",
+    time: "08:00",
+    title: "Gerçek insan sporcular",
+    items: [
+      "Sporcular Blender'da riglenmiş, dokulu insan modelleriyle değiştirildi; forma ve şort takım renginde.",
+      "Koşu, yürüme ve bekleme gerçek hareket yakalama (mocap) verisinden; adım hızı koşu hızına göre ayarlanır.",
+      "Vault, kong, tırmanma, kayma, zıplama, dalış, tökezleme, sıçrama, duvar sıçraması, sevinme ve yorulma için yeni insan animasyonları; hareketler arası yumuşak geçiş.",
+      "Havadayken yükselme ve iniş pozları ayrı.",
+    ],
+  },
+  {
     version: "0.6.1",
     date: "16 Eki 2026",
     time: "07:50",
