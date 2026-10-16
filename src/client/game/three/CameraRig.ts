@@ -17,9 +17,9 @@ export interface FrameTarget {
   wide: boolean;
 }
 
-const PITCH = THREE.MathUtils.degToRad(56);
+const PITCH = THREE.MathUtils.degToRad(66);
 const MIN_DIST = 9.5;
-const MAX_DIST = 26;
+const MAX_DIST = 60;
 /** Rakip bu mesafeden uzaksa kadraja zorlanmaz (kenar oku gösterilir). */
 const MAX_PAIR = 10.5;
 
@@ -27,6 +27,7 @@ export class CameraRig {
   center = new THREE.Vector3(6, 0, 6);
   dist = 14;
   private init = false;
+  private fitKey = "";
   private tmp = new THREE.Vector3();
   private probe = new THREE.PerspectiveCamera();
 
@@ -59,77 +60,46 @@ export class CameraRig {
     return true;
   }
 
-  update(t: FrameTarget, dtMs: number, portrait: boolean) {
-    this.camera.fov = portrait ? 52 : 42;
+  /**
+   * Sabit yayın kamerası: maç boyunca tüm Quad'ı (engel tepeleri dahil) yukarıdan gösterir.
+   * Takip ve zoom yok; sadece ekran boyutu değişince yeniden kadrajlanır.
+   */
+  update(_t: FrameTarget, _dtMs: number, portrait: boolean) {
+    const fov = portrait ? 52 : 42;
+    const key = `${portrait}:${this.camera.aspect.toFixed(3)}`;
+    if (this.init && key === this.fitKey) {
+      this.place(this.camera, this.center, this.dist);
+      return;
+    }
+    this.camera.fov = fov;
     this.camera.updateProjectionMatrix();
-
+    const m = 0.4;
     const pts: THREE.Vector3[] = [];
-    let cx = QUAD_SIZE / 2;
-    let cz = QUAD_SIZE / 2;
-    if (t.me) {
-      const look = 0.32; // ~0,3 sn ilerisi
-      const lx = t.me.x + t.me.vx * look;
-      const lz = t.me.y + t.me.vy * look;
-      pts.push(new THREE.Vector3(t.me.x, t.me.h, t.me.y), new THREE.Vector3(t.me.x, t.me.h + 1.9, t.me.y), new THREE.Vector3(lx, 0, lz));
-      cx = t.me.x * 0.75 + lx * 0.25;
-      cz = t.me.y * 0.75 + lz * 0.25;
-      if (t.other) {
-        const d = Math.hypot(t.other.x - t.me.x, t.other.y - t.me.y);
-        if (d < MAX_PAIR || t.wide) {
-          pts.push(new THREE.Vector3(t.other.x, t.other.h, t.other.y), new THREE.Vector3(t.other.x, t.other.h + 1.9, t.other.y));
-          // Ağırlık kendi karakterinde; rakip kadrajın içinde kalacak kadar çekilir
-          const wgt = t.wide ? 0.5 : 0.38;
-          cx = cx * (1 - wgt) + t.other.x * wgt;
-          cz = cz * (1 - wgt) + t.other.y * wgt;
-        }
-      }
-    } else if (t.other) {
-      pts.push(new THREE.Vector3(t.other.x, t.other.h, t.other.y), new THREE.Vector3(t.other.x, t.other.h + 1.9, t.other.y));
-      cx = t.other.x;
-      cz = t.other.y;
-    } else {
-      // Hiç oyuncu yoksa tüm sahayı göster
-      for (const [x, z] of [
-        [0, 0],
-        [QUAD_SIZE, 0],
-        [0, QUAD_SIZE],
-        [QUAD_SIZE, QUAD_SIZE],
-      ])
-        pts.push(new THREE.Vector3(x, 0, z));
+    for (const [x, z] of [
+      [-m, -m],
+      [QUAD_SIZE + m, -m],
+      [-m, QUAD_SIZE + m],
+      [QUAD_SIZE + m, QUAD_SIZE + m],
+    ]) {
+      pts.push(new THREE.Vector3(x, 0, z), new THREE.Vector3(x, 2.0, z));
     }
-    // Merkez sahadan fazla taşmasın
-    cx = THREE.MathUtils.clamp(cx, 0, QUAD_SIZE);
-    cz = THREE.MathUtils.clamp(cz, 0, QUAD_SIZE);
-    const target = new THREE.Vector3(cx, 0.4, cz);
-
-    // Gereken en küçük mesafe (ikili arama)
+    const target = new THREE.Vector3(QUAD_SIZE / 2, 0, QUAD_SIZE / 2 + (portrait ? 0.4 : 0.2));
     let lo = MIN_DIST;
-    let hi = MAX_DIST;
-    if (this.fits(pts, target, lo, portrait)) hi = lo;
-    else
-      for (let i = 0; i < 12; i++) {
-        const mid = (lo + hi) / 2;
-        if (this.fits(pts, target, mid, portrait)) hi = mid;
-        else lo = mid;
-      }
-    const wantDist = hi;
-
-    if (!this.init) {
-      this.center.copy(target);
-      this.dist = wantDist;
-      this.init = true;
-    } else {
-      // Ölü bölge (5 cm) + üstel yumuşatma
-      const dc = this.tmp.copy(target).sub(this.center);
-      if (dc.length() > 0.05) this.center.addScaledVector(dc, 1 - Math.exp(-dtMs / 130));
-      const k = wantDist > this.dist ? 110 : 520; // genişle hızlı, daral yavaş
-      this.dist += (wantDist - this.dist) * (1 - Math.exp(-dtMs / k));
+    let hi = 60;
+    for (let i = 0; i < 16; i++) {
+      const mid = (lo + hi) / 2;
+      if (this.fits(pts, target, mid, portrait)) hi = mid;
+      else lo = mid;
     }
+    this.center.copy(target);
+    this.dist = hi;
+    this.fitKey = key;
+    this.init = true;
     this.place(this.camera, this.center, this.dist);
   }
 
   /** Yeni chase başında anında yerine otursun. */
   snap() {
-    this.init = false;
+    // Sabit kamera: chase başında değişiklik yok
   }
 }

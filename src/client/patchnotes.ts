@@ -12,6 +12,13 @@ export interface PatchNote {
 
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: "0.6.1",
+    date: "16 Eki 2026",
+    time: "07:50",
+    title: "Sabit yayın kamerası",
+    items: ["Kamera maç boyunca tüm sahayı yukarıdan gösterir; başlangıçta ve hareket ederken zoom ya da takip yok."],
+  },
+  {
     version: "0.6.0",
     date: "16 Eki 2026",
     time: "01:35",
