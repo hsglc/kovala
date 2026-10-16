@@ -5,7 +5,7 @@
  */
 export type PresenceStatus = "menu" | "practice" | "queue" | "room" | "match";
 
-export const INVITE_TTL_MS = 30_000;
+export const INVITE_TTL_MS = 60_000;
 export const INVITABLE: PresenceStatus[] = ["menu", "practice"];
 
 export interface PresencePlayer {

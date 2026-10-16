@@ -30,9 +30,13 @@ export class PresenceClient {
   private listeners = new Set<() => void>();
   private me: { n: string; l: number; s: PresenceStatus };
   private outTo = "";
+  /** sunucudan son haber (pong dahil); ölü bağlantıyı yakalamak için */
+  private heard = 0;
   view: PresenceView = { online: false, total: 0, players: [], incoming: null, outgoing: null, notice: null };
   /** Davet kabul edilince (iki tarafta da) oda koduyla çağrılır */
   onGo: ((code: string, withName: string) => void) | null = null;
+  /** Yeni davet geldiğinde (ses, titreşim, sistem bildirimi) */
+  onInvite: ((fromName: string) => void) | null = null;
 
   constructor(
     private wsBase: string,
@@ -41,6 +45,39 @@ export class PresenceClient {
   ) {
     this.me = me;
     this.connect();
+    // Telefon arka plandan dönünce bağlantı çoğu zaman sessizce ölmüştür: hemen yokla, cevap yoksa yeniden bağlan
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState !== "visible" || this.closed) return;
+      this.check();
+    });
+    window.addEventListener("online", () => this.check());
+  }
+
+  /** Bağlantıyı yokla; 2,5 sn içinde ses yoksa kapatıp hemen yeniden bağlan. */
+  private check() {
+    const ws = this.ws;
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      if (!ws) {
+        this.retry = 0;
+        this.connect();
+      }
+      return;
+    }
+    const asked = Date.now();
+    try {
+      ws.send("ping");
+    } catch {}
+    setTimeout(() => {
+      if (this.ws === ws && this.heard < asked) {
+        this.ws = null;
+        try {
+          ws.close();
+        } catch {}
+        this.set({ online: false });
+        this.retry = 0;
+        this.connect();
+      }
+    }, 2500);
   }
 
   private connect() {
@@ -54,6 +91,7 @@ export class PresenceClient {
       if (!this.pingT) this.pingT = setInterval(() => this.ws?.readyState === WebSocket.OPEN && this.ws.send("ping"), 25_000);
     };
     ws.onmessage = (ev) => {
+      this.heard = Date.now();
       if (typeof ev.data !== "string" || ev.data === "pong") return;
       let m: PresenceServerMsg;
       try {
@@ -78,9 +116,12 @@ export class PresenceClient {
       case "list":
         this.set({ total: m.total, players: m.p.filter((p) => p.id !== this.pid) });
         break;
-      case "inv":
+      case "inv": {
+        const fresh = this.view.incoming?.id !== m.id;
         this.set({ incoming: { id: m.id, from: m.from, exp: Date.now() + Math.max(0, m.exp - Date.now()) } });
+        if (fresh) this.onInvite?.(m.from.n);
         break;
+      }
       case "sent":
         this.set({ outgoing: { id: m.id, to: m.to, exp: m.exp } });
         break;

@@ -73,6 +73,9 @@ export const sfx = {
   },
   dash: () => tone(420, 0.12, "triangle", 0.04, 300),
   vault: () => tone(300, 0.18, "sine", 0.06, 500),
+  invite: () => {
+    [988, 1319, 988, 1319].forEach((f, i) => setTimeout(() => tone(f, 0.12, "triangle", 0.09), i * 140));
+  },
   win: () => [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => tone(f, 0.18, "triangle", 0.08), i * 120)),
 };
 

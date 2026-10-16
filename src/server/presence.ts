@@ -57,6 +57,21 @@ export class Presence extends DurableObject<Env> {
     const [client, server] = Object.values(pair);
     this.ctx.acceptWebSocket(server, [pid]);
     const att: Att = { id: pid, n: cleanName(rawName), l: lvl, s: isStatus(st) ? st : "menu", named: rawName.trim().length > 0, lastInv: 0, out: null };
+    // Bekleyen davetler: telefon arka plana geçip bağlantı koptuysa davet kaybolmasın;
+    // uygulama geri gelince (yeniden bağlanınca) gelen davet tekrar gösterilir, giden davet geri yüklenir.
+    const now = Date.now();
+    const pend = await this.ctx.storage.list<Invite>({ prefix: "i:" });
+    for (const inv of pend.values()) {
+      if (inv.exp <= now) continue;
+      if (inv.to === pid) {
+        const from = this.socketOf(inv.from);
+        const fa = from?.deserializeAttachment() as Att | null;
+        if (fa) this.send(server, { t: "inv", id: inv.id, from: this.pub(fa), exp: inv.exp });
+      } else if (inv.from === pid) {
+        att.out = inv.id;
+        this.send(server, { t: "sent", id: inv.id, to: inv.to, exp: inv.exp });
+      }
+    }
     server.serializeAttachment(att);
     this.send(server, { t: "list", ...(await this.snapshot()) });
     await this.schedule();

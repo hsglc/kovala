@@ -12,6 +12,17 @@ export interface PatchNote {
 
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: "0.28.1",
+    date: "16 Eki 2026",
+    time: "20:32",
+    title: "Davetler ulaşıyor",
+    items: [
+      "Telefon arka plana geçip bağlantı kopunca davet kayboluyordu: uygulama öne gelince bağlantı yoklanır ve bekleyen davet yeniden gösterilir",
+      "Davet gelince ses ve titreşim; Çevrimiçi panelinden bildirim iznini açarsan uygulama arka plandayken sistem bildirimi de gelir",
+      "Davet süresi 30'dan 60 saniyeye çıktı",
+    ],
+  },
+  {
     version: "0.28.0",
     date: "16 Eki 2026",
     time: "20:26",

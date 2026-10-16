@@ -21,6 +21,7 @@ import type { PublicState } from "../shared/engine";
 import { Career } from "./screens/Career";
 import { PLAYER_ID, forfeitCareerMatch, load as loadCareer, matchRoster, nextMatch, recordCareerMatch } from "./lib/career";
 import { setTeamNames } from "./lib/text";
+import { alertInvite, setupNotifications } from "./lib/notify";
 
 type Screen =
   | { k: "home"; error?: string }
@@ -110,6 +111,8 @@ function AppScreens() {
     if (OFFLINE) return;
     const p = startPresence(wsBase(), getPid(), { n: getName(), l: getProgress().level, s: "menu" });
     p.onGo = (code) => setScreen({ k: "room", code, quick: false });
+    p.onInvite = (from) => alertInvite(from);
+    setupNotifications();
   }, []);
   useEffect(() => {
     const st: PresenceStatus =

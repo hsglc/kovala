@@ -8,6 +8,7 @@ import { QuadThumb } from "../ui/QuadThumb";
 import { VsBg } from "../ui/VsBg";
 import { getProgress } from "../lib/progress";
 import { BOT_FITS, survivalBest } from "../net/LocalGame";
+import { askNotify, canAskNotify } from "../lib/notify";
 import { TIERS, load as loadCareer, nextMatch, stageLabel } from "../lib/career";
 
 /** Ana menüde kariyerin nerede kaldığı. */
@@ -546,8 +547,20 @@ function OnlineSheet() {
       /* paylaşım iptal */
     }
   };
+  const [ask, setAsk] = useState(canAskNotify());
   return (
     <div className="sheet-body online-sheet">
+      {ask && (
+        <button
+          className="ol-notify"
+          onClick={async () => {
+            await askNotify();
+            setAsk(false);
+          }}
+        >
+          🔔 Davet bildirimlerini aç <small>uygulama arka plandayken de haber verir</small>
+        </button>
+      )}
       {!v.online && <p className="muted">Sunucuya bağlanılıyor…</p>}
       {v.online && v.players.length === 0 && (
         <div className="ol-empty">
