@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { QuadThumb } from "../ui/QuadThumb";
 
 interface Props {
   wsBase: string;
@@ -55,12 +56,13 @@ export function QuickMatch({ wsBase, pid, name, onMatched, onCancel, onPractice 
     <div className="page center-page">
       <div className="searching">
         <div className="radar" aria-hidden="true">
-          <span />
-          <span />
-          <span />
+          <QuadThumb layout="quad" />
+          <span className="sweep" />
         </div>
         <h2>Rakip aranıyor</h2>
-        <p className="muted">{elapsed} sn</p>
+        <p className="led led-small">
+          <span className="led-on">{String(elapsed).padStart(2, "0")} sn</span>
+        </p>
         {error && <p className="muted">{error}</p>}
         {elapsed >= 20 && (
           <p className="hint center">

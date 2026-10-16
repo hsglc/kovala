@@ -12,6 +12,20 @@ export interface PatchNote {
 
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: "0.13.0",
+    date: "16 Eki 2026",
+    time: "10:17",
+    title: "Yeni görünüm: Quad gecesi",
+    items: [
+      "Tüm sayfalar arenanın malzemeleriyle yeniden tasarlandı: huş kontrplak paneller ve cıvatalar, galvaniz çelik çerçeveler, kauçuk zemin, amber LED skorbord.",
+      "Ana sayfa: sahada canlı kovalamaca ve geri sayan LED saatli vitrin; Hızlı maç ve Oda kur başlangıç plakası gibi.",
+      "Antrenman ve maç ayarları kontrplak panelde; her sahanın kuşbakışı küçük resmi ve zorluk çubuğu görünür.",
+      "Lobi: bilet gibi oda kodu, takımlar kendi renkli plakalarında; maç sonu skoru LED tabelada.",
+      "Gardırop: kontrplak soyunma odası ve askı rayı sekmeleri. Rakip arama ekranında taranan saha.",
+      "Oyun içi: noktalı LED skorbord, sahaya boyanmış gibi duyurular, kontrplak PARKUR tuşu. Yeni yazı tipleri: Big Shoulders ve Onest.",
+    ],
+  },
+  {
     version: "0.12.0",
     date: "16 Eki 2026",
     time: "10:09",

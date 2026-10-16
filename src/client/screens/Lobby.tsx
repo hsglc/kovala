@@ -4,6 +4,7 @@ import type { PublicState, Team } from "../../shared/engine";
 import { LAYOUTS, LEVEL_LABEL } from "../../shared/maps";
 import { TEAM_COLORS, memberName, secs, sortedTeam, teamName } from "../lib/text";
 import { unlockAudio } from "../lib/sound";
+import { QuadThumb } from "../ui/QuadThumb";
 import type { GameSource } from "../net/types";
 
 interface Props {
@@ -47,7 +48,7 @@ export function Lobby({ source, state: s, onLeave }: Props) {
         </button>
         {!local && (
           <div className="room-code">
-            <span className="label">ODA KODU</span>
+            <span className="label">Oda kodu</span>
             <span className="code">{code}</span>
             <button className="btn small ghost" onClick={share}>
               {copied ? "Kopyalandı ✓" : "Davet et"}
@@ -87,7 +88,8 @@ export function Lobby({ source, state: s, onLeave }: Props) {
         </section>
       )}
 
-      <section className="settings">
+      <section className="ply settings">
+        <h2 className="ply-title">Maç ayarları</h2>
         <div className="setting">
           <span className="setting-label">Chase sayısı</span>
           <div className="seg">
@@ -103,8 +105,8 @@ export function Lobby({ source, state: s, onLeave }: Props) {
           <div className="seg">
             {(
               [
-                ["quick", "Hızlı · 5 sn"],
-                ["official", "Resmî · 25 sn"],
+                ["quick", "Hızlı (5 sn)"],
+                ["official", "Resmî (25 sn)"],
               ] as const
             ).map(([v, label]) => (
               <button key={v} disabled={!isHost} className={s.rest === v ? "on" : ""} onClick={() => source.setRest(v)}>
@@ -123,6 +125,7 @@ export function Lobby({ source, state: s, onLeave }: Props) {
                 className={`map-card ${s.layoutId === l.id ? "on" : ""}`}
                 onClick={() => source.setLayout(l.id)}
               >
+                {l.id === "random" ? <span className="pmap-dice">?</span> : <QuadThumb layout={l.id} />}
                 <span className="map-top">
                   <b>{l.name}</b>
                   {l.level > 0 && (
@@ -171,9 +174,9 @@ function MatchResult({ s, me }: { s: PublicState; me: string }) {
   const reason = s.winReason === "sd" ? "Sudden death ile" : s.winReason === "forfeit" ? "Hükmen" : "";
   return (
     <section className="result-card" style={{ ["--c" as string]: TEAM_COLORS[w] }}>
-      <div className="result-kicker">{won ? "KAZANDIN" : myTeam === undefined ? "MAÇ BİTTİ" : "KAYBETTİN"}</div>
+      <div className="result-kicker">{won ? "Kazandın" : myTeam === undefined ? "Maç bitti" : "Kaybettin"}</div>
       <div className="result-title">
-        {teamName(w)} kazandı {reason && <small>· {reason}</small>}
+        {teamName(w)} kazandı {reason && <small>{reason}</small>}
       </div>
       <div className="result-score">
         <span style={{ color: TEAM_COLORS[0] }}>{s.scores[0]}</span>

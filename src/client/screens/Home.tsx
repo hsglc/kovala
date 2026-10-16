@@ -4,6 +4,7 @@ import { ROOM_CODE_ALPHABET, ROOM_CODE_LENGTH } from "../../shared/protocol";
 import { LAYOUTS, LEVEL_LABEL } from "../../shared/maps";
 import { fitItem, REGIONS } from "../../shared/outfit";
 import { getFit, getName, setName } from "../lib/identity";
+import { LedClock, QuadThumb } from "../ui/QuadThumb";
 import { unlockAudio } from "../lib/sound";
 import { CURRENT_VERSION, PATCH_NOTES } from "../patchnotes";
 
@@ -62,29 +63,39 @@ export function Home({ offline, initialCode, busy, error, onQuick, onCreate, onJ
       .join("")
       .slice(0, ROOM_CODE_LENGTH);
 
+  const fitSummary = REGIONS.map((r) => fitItem(getFit(), r.id))
+    .filter((it) => it.id !== "none")
+    .map((it) => it.name);
+
   return (
     <div className="page home">
-      <div className="hero-glow" aria-hidden="true" />
-      <header className="brand">
-        <div className="brand-row">
-          <img className="logo-mark" src="/favicon.svg" alt="" width="64" height="64" />
-          <h1 className="logo">EVADE</h1>
-          <button className="pill" onClick={() => setSheet("notes")}>
-            v{CURRENT_VERSION}
-          </button>
-        </div>
-        <p className="tagline">
-          <b>20 saniye.</b> Bir kovalayan, bir kaçan. Parkur sahasında.
-        </p>
+      <header className="masthead">
+        <img className="logo-mark" src="/favicon.svg" alt="" width="44" height="44" />
+        <h1 className="wordmark">EVADE</h1>
+        <button className="version" onClick={() => setSheet("notes")} aria-label="Yama notları">
+          v{CURRENT_VERSION}
+        </button>
       </header>
 
+      <section className="arena-board" aria-label="Oyun vitrini">
+        <div className="board-quad">
+          <QuadThumb layout="quad" live />
+        </div>
+        <div className="board-side">
+          <LedClock />
+          <p className="board-copy">
+            Kovalayan <span className="mk-c">◆</span> yakalamaya, kaçan <span className="mk-e">●</span> 20 saniye dayanmaya çalışır.
+          </p>
+        </div>
+      </section>
+
       <label className={`field ${nameError ? "error" : ""}`}>
-        <span>Adın</span>
+        <span>Sahada görünecek adın</span>
         <input
           id="name-input"
           value={name}
           maxLength={16}
-          placeholder="Sahada görünecek ad"
+          placeholder="Ör. Hızlı Hüseyin"
           autoComplete="nickname"
           onChange={(e) => {
             setNameState(e.target.value);
@@ -112,24 +123,21 @@ export function Home({ offline, initialCode, busy, error, onQuick, onCreate, onJ
         </div>
       )}
 
-      <div className="stack" hidden={offline}>
-        <button className="btn primary big" disabled={busy} onClick={() => ensureName() && onQuick()}>
-          <span className="big-icon">⚡</span>
-          <span>
-            Hızlı Maç
-            <small>Rastgele bir rakiple 1'e 1</small>
+      <div className="play-stack" hidden={offline}>
+        <button className="plate plate-quick" disabled={busy} onClick={() => ensureName() && onQuick()}>
+          <span className="plate-title">Hızlı maç</span>
+          <span className="plate-sub">Rastgele bir rakiple 1'e 1, hemen</span>
+          <span className="plate-icon" aria-hidden="true">
+            ⚡
           </span>
         </button>
-        <div className="two">
-          <button className="btn big" disabled={busy} onClick={() => ensureName() && onCreate()}>
-            <span className="big-icon">＋</span>
-            <span>
-              Oda Kur
-              <small>Arkadaşlarınla, 6'ya 6'ya kadar</small>
-            </span>
+        <div className="plate-row">
+          <button className="plate plate-room" disabled={busy} onClick={() => ensureName() && onCreate()}>
+            <span className="plate-title">Oda kur</span>
+            <span className="plate-sub">Arkadaşlarınla, takım başına 6 kişi</span>
           </button>
           <form
-            className="join-card"
+            className="plate plate-join"
             onSubmit={(e) => {
               e.preventDefault();
               if (code.length === ROOM_CODE_LENGTH && ensureName()) onJoin(code);
@@ -145,70 +153,84 @@ export function Home({ offline, initialCode, busy, error, onQuick, onCreate, onJ
               aria-label="Oda kodu"
               onChange={(e) => setCode(cleanCode(e.target.value))}
             />
-            <button className="btn small" disabled={busy || code.length !== ROOM_CODE_LENGTH}>
+            <button className="join-go" disabled={busy || code.length !== ROOM_CODE_LENGTH}>
               Odaya katıl
             </button>
           </form>
         </div>
       </div>
 
-      <button className="wardrobe-card" onClick={onWardrobe}>
-        <span className="wc-icon" aria-hidden="true">
-          👕
-        </span>
-        <span className="wc-text">
-          <b>Gardırop</b>
-          <small>{REGIONS.map((r) => fitItem(getFit(), r.id)).filter((it) => it.id !== "none").map((it) => it.name).join(" · ")}</small>
-        </span>
-        <span className="wc-arrow">›</span>
-      </button>
-
-      <section className="practice">
-        <div className="practice-head">
-          <span>Botla antrenman</span>
-          <div className="seg">
-            {(["kolay", "orta", "zor"] as BotLevel[]).map((l) => (
-              <button key={l} className={level === l ? "on" : ""} onClick={() => setLevel(l)}>
-                {l[0].toUpperCase() + l.slice(1)}
+      <section className="ply practice">
+        <h2 className="ply-title">Botla antrenman</h2>
+        <div className="ply-grid">
+          <div className="ply-field">
+            <span>Bot</span>
+            <div className="seg">
+              {(["kolay", "orta", "zor"] as BotLevel[]).map((l) => (
+                <button key={l} className={level === l ? "on" : ""} onClick={() => setLevel(l)}>
+                  {l[0].toUpperCase() + l.slice(1)}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="ply-field">
+            <span>Format</span>
+            <div className="seg">
+              {[
+                [1, "1'e 1"],
+                [3, "3'e 3 takım"],
+              ].map(([n, label]) => (
+                <button key={n} className={squad === n ? "on" : ""} onClick={() => setSquad(n as number)}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="ply-field">
+          <span>Saha</span>
+          <div className="pmap-row" role="listbox" aria-label="Saha">
+            {[{ id: "random", name: "Rastgele", level: 0 }, ...LAYOUTS].map((l) => (
+              <button
+                key={l.id}
+                role="option"
+                aria-selected={pmap === l.id}
+                className={`pmap ${pmap === l.id ? "on" : ""}`}
+                onClick={() => choosePmap(l.id)}
+              >
+                {l.id === "random" ? <span className="pmap-dice">?</span> : <QuadThumb layout={l.id} />}
+                <span className="pmap-name">
+                  {l.level > 0 && <span className={`pdot lvl-${l.level}`} title={LEVEL_LABEL[l.level as 1 | 2 | 3]} />}
+                  {l.name}
+                </span>
               </button>
             ))}
           </div>
         </div>
-        <div className="seg squad-seg">
-          {[
-            [1, "1'e 1"],
-            [3, "3'e 3 takım"],
-          ].map(([n, label]) => (
-            <button key={n} className={squad === n ? "on" : ""} onClick={() => setSquad(n as number)}>
-              {label}
-            </button>
-          ))}
-        </div>
-        <div className="pmap-cap">
-          Saha <span className="pdot lvl-1" /> kolay <span className="pdot lvl-2" /> orta <span className="pdot lvl-3" /> zor
-        </div>
-        <div className="pmap-row" role="listbox" aria-label="Saha">
-          {[{ id: "random", name: "Rastgele", level: 0 }, ...LAYOUTS].map((l) => (
-            <button key={l.id} className={`pmap ${pmap === l.id ? "on" : ""}`} onClick={() => choosePmap(l.id)}>
-              {l.level > 0 && <span className={`pdot lvl-${l.level}`} title={LEVEL_LABEL[l.level as 1 | 2 | 3]} />}
-              {l.name}
-            </button>
-          ))}
-        </div>
-        <button className="btn wide" onClick={() => ensureName() && onPractice(level, pmap, squad)}>
+        <button className="btn go" onClick={() => ensureName() && onPractice(level, pmap, squad)}>
           Antrenmanı başlat
         </button>
       </section>
 
-      <div className="links">
+      <button className="locker" onClick={onWardrobe}>
+        <span className="locker-hook" aria-hidden="true">
+          👕
+        </span>
+        <span className="locker-text">
+          <b>Gardırop</b>
+          <small>{fitSummary.join(", ")}</small>
+        </span>
+        <span className="locker-open">Aç</span>
+      </button>
+
+      <nav className="links">
         <button className="link-btn" onClick={() => setSheet("rules")}>
           Nasıl oynanır?
         </button>
-        <span className="dot-sep">·</span>
         <button className="link-btn" onClick={() => setSheet("notes")}>
           Yama notları
         </button>
-      </div>
+      </nav>
 
       <footer className="foot">World Chase Tag'den esinlenilmiştir; resmî bir ürün değildir.</footer>
 
@@ -270,7 +292,7 @@ function Notes() {
           <div className="note-head">
             <span className="note-ver">v{n.version}</span>
             <span className="note-date">
-              {n.date} · {n.time}
+              {n.date}, {n.time}
             </span>
           </div>
           <h3>{n.title}</h3>
