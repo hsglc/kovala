@@ -12,6 +12,21 @@ export interface PatchNote {
 
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: "0.19.0",
+    date: "16 Eki 2026",
+    time: "11:31",
+    title: "Gardırop 2.0: kadın ve erkek sporcu, gerçek kıyafetler",
+    items: [
+      "İki yeni karakter: kadın (1,66 m) ve erkek (1,80 m) sporcu. MakeHuman tabanlı yeni gövdeler, mocap koşu/yürüme ve tüm parkur animasyonları.",
+      "Kıyafetler artık gerçek parçalar: askılı atlet, tişört, maç forması, çizgili tişört, sweatshirt, kolej sweat, kapüşonlu, kamuflaj kapüşonlu, örgü kazak, spor sütyeni (kadın).",
+      "Altlar: koşu şortu, basketbol şortu, bisiklet taytı, tayt, jogger, kamuflaj jogger, üç şeritli eşofman, neon biyeli tayt.",
+      "Ayakkabılar baştan modellendi: beyaz sneaker, neon koşu, siyah altın, gökkuşağı (çoraplı), basket botu ve lav bot (bileği saran).",
+      "Saç: doğal, kısa kesim, at kuyruğu, toplu, sarı at kuyruğu, sıfır numara. Başlık ve takılar yeni kafalara göre yeniden ölçüldü.",
+      "Yeni gardırop: büyük kadın/erkek seçimi, bekle/koş/sevin pozları, rastgele kombin, takım rengine göre canlı önizleme.",
+      "Not: eski kıyafet seçimleri varsayılana döndü.",
+    ],
+  },
+  {
     version: "0.18.0",
     date: "16 Eki 2026",
     time: "11:01",

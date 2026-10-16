@@ -1,0 +1,29 @@
+<!doctype html><html><body style="margin:0;background:#222"><script type="module">
+import * as THREE from "three";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+const q = new URLSearchParams(location.search);
+const files = (q.get("f") || "base_f,base_m").split(",");
+const shows = (q.get("s") || "").split(";");
+const COL = { tank:0xff3b2f, tee:0xff3b2f, sweat:0xff3b2f, sweater:0xd8c3a5, hoodie:0x2f6bff, hood:0x2f6bff, bra:0x222222, brief:0x333333, shorts:0x1d2b55, bball:0xffd400, bike:0x111111, leggings:0x222233, joggers:0x55606e, track:0x1f5bff, runner:0xf2f2f2, hightop:0xff3b2f, socks:0xffffff, hair_short:0x2a1a10, hair_long:0x3a2412, ponytail:0x3a2412 };
+const r = new THREE.WebGLRenderer({ antialias: true }); r.setSize(innerWidth, innerHeight); r.outputColorSpace = THREE.SRGBColorSpace; r.toneMapping = THREE.ACESFilmicToneMapping; document.body.appendChild(r.domElement);
+const sc = new THREE.Scene(); sc.background = new THREE.Color(0x1f5bff);
+sc.add(new THREE.HemisphereLight(0xffffff, 0x404050, 1.4)); const d = new THREE.DirectionalLight(0xffffff, 2.4); d.position.set(2,4,5); sc.add(d);
+const rot = +(q.get("r") || 0);
+const out = [];
+let i = 0;
+for (const f of files) {
+  const g = await new GLTFLoader().loadAsync(`/tools/gen/${f}.glb`);
+  const root = g.scene; root.position.x = (i - (files.length-1)/2) * 0.9; root.rotation.y = rot; sc.add(root); i++;
+  const show = (shows[i-1] ?? shows[0] ?? "").split(",").filter(Boolean);
+  root.traverse(o => { if (o.isMesh) { out.push(o.name);
+    if (o.name.startsWith("Feet")) o.material = new THREE.MeshStandardMaterial({ color: 0xc89273, roughness: 0.7 });
+    if (o.name.startsWith("Body")) o.material = new THREE.MeshStandardMaterial({ color: 0xc89273, roughness: 0.7 });
+    if (o.name.startsWith("Eyes")) o.material = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 });
+    if (o.name.startsWith("G_")) { const id = o.name.slice(2).replace(/[._]\d+$/, ""); o.visible = show.includes(id); o.material = new THREE.MeshStandardMaterial({ color: COL[id] ?? 0x888888, roughness: 0.8 }); }
+  } });
+  if (q.get("clip")) { const m = new THREE.AnimationMixer(root); const c = g.animations.find(a => a.name === q.get("clip")); if (c) { const a = m.clipAction(c); a.play(); m.update(+(q.get("t")||0.3)); } }
+}
+const cam = new THREE.PerspectiveCamera(28, innerWidth/innerHeight, 0.1, 50);
+if (q.get("z") === "feet") { cam.position.set(0, 0.5, 2.6); cam.lookAt(0, 0.05, 0); } else if (q.get("z")) { cam.position.set(0, 1.55, 2.6); cam.lookAt(0, 1.5, 0); } else { cam.position.set(0, 1.0, 5.6); cam.lookAt(0, 0.9, 0); }
+r.render(sc, cam); window.out = out.join("|"); window.done = true;
+</script></body></html>

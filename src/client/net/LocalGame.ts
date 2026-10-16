@@ -13,15 +13,15 @@ const BOT_ID = "bot-evade";
 const BOT_NAMES: Record<BotLevel, string> = { kolay: "Çaylak Bot", orta: "Bot", zor: "Usta Bot" };
 
 /** Botla antrenman: aynı maç motoru tarayıcıda çalışır, ağ yok. */
-const BOT_FITS: Record<BotLevel, string> = { kolay: "41000", orta: "12321", zor: "25443" };
+const BOT_FITS: Record<BotLevel, string> = { kolay: "1012120", orta: "0124011", zor: "1025552" };
 
 /** 3'e 3 antrenmanda sırayla: rakip, takım arkadaşı, rakip, takım arkadaşı, rakip */
 const SQUAD = [
-  { name: "Kaan", fit: "25443" },
-  { name: "Deniz", fit: "13104" },
-  { name: "Ece", fit: "32212" },
-  { name: "Arda", fit: "40331" },
-  { name: "Mert", fit: "01420" },
+  { name: "Kaan", fit: "1024533" },
+  { name: "Deniz", fit: "0115201" },
+  { name: "Ece", fit: "0232321" },
+  { name: "Arda", fit: "1043012" },
+  { name: "Mert", fit: "1001110" },
 ];
 
 export class LocalGame implements GameSource {

@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js";
 import {
@@ -14,48 +15,82 @@ import {
   ACT_ROLL,
   ACT_FEINT,
 } from "../../../shared/sim";
-import { cleanFit, fitItem } from "../../../shared/outfit";
+import { cleanFit, fitItem, fitSex } from "../../../shared/outfit";
 import type { FigureAnim } from "./figure3d";
 
 /**
- * Blender'da üretilen riglenmiş sporcu (public/models/athlete.glb).
- * Koşu / yürüme / bekleme mocap'tir; parkur hareketleri aynı iskelete yazılmış kliplerdir.
- * Fizik durumuna göre klipler arasında yumuşak geçiş (crossfade) yapılır.
+ * Sporcular v2 (public/models/athlete_f.glb, athlete_m.glb): MakeHuman tabanlı erkek ve kadın gövde,
+ * aynı Mixamo iskeletine bağlı ayrı giysi parçaları (G_<ad>). Seçilen kıyafetin parçaları görünür,
+ * desenler takım rengine göre gölgelendiricide çizilir. Koşu/yürüme/bekleme mocap, parkur klipleri anahtar kare.
  */
 
+export type Sex = "f" | "m";
+
 interface Template {
+  sex: Sex;
   scene: THREE.Group;
   clips: Map<string, THREE.AnimationClip>;
+  /** Bağ pozunda baş tepesi ve baş kemiği yüksekliği (m), baş yarıçapı */
+  headTop: number;
+  headBoneY: number;
+  headR: number;
 }
 
-let template: Template | null = null;
-let loading: Promise<Template> | null = null;
+const templates = new Map<Sex, Template>();
+let loading: Promise<void> | null = null;
 
-export function loadAthlete(): Promise<Template> {
-  if (template) return Promise.resolve(template);
+function measure(sex: Sex, scene: THREE.Group, clips: THREE.AnimationClip[]): Template {
+  scene.updateMatrixWorld(true);
+  let headTop = 0;
+  let headBoneY = 1.5;
+  const pts: THREE.Vector3[] = [];
+  scene.traverse((o) => {
+    const m = o as THREE.SkinnedMesh;
+    if (m.isMesh) {
+      m.castShadow = true;
+      m.receiveShadow = false;
+      m.frustumCulled = false;
+    }
+    if (m.isMesh && m.name === "Body") {
+      const pos = m.geometry.attributes.position as THREE.BufferAttribute;
+      const v = new THREE.Vector3();
+      for (let i = 0; i < pos.count; i++) {
+        v.fromBufferAttribute(pos, i).applyMatrix4(m.matrixWorld);
+        if (v.y > headTop) headTop = v.y;
+        pts.push(v.clone());
+      }
+    }
+    if ((o as THREE.Bone).isBone && o.name === "mixamorigHead") headBoneY = o.getWorldPosition(new THREE.Vector3()).y;
+  });
+  let headR = 0;
+  for (const p of pts) if (p.y > headTop - 0.1) headR = Math.max(headR, Math.abs(p.x));
+  return { sex, scene, clips: new Map(clips.map((c) => [c.name, c])), headTop, headBoneY, headR: headR || 0.08 };
+}
+
+export function loadAthlete(): Promise<void> {
+  if (templates.size === 2) return Promise.resolve();
   if (!loading) {
-    loading = new GLTFLoader().loadAsync("/models/athlete.glb").then((g) => {
-      g.scene.traverse((o) => {
-        const m = o as THREE.Mesh;
-        if (m.isMesh) {
-          m.castShadow = true;
-          m.receiveShadow = false;
-          m.frustumCulled = false;
-        }
-      });
-      template = { scene: g.scene as THREE.Group, clips: new Map(g.animations.map((c) => [c.name, c])) };
-      return template;
-    });
+    const draco = new DRACOLoader();
+    draco.setDecoderPath("/draco/");
+    const loader = new GLTFLoader();
+    loader.setDRACOLoader(draco);
+    loading = Promise.all(
+      (["f", "m"] as Sex[]).map((sex) =>
+        loader.loadAsync(`/models/athlete_${sex}.glb`).then((g) => {
+          templates.set(sex, measure(sex, g.scene as THREE.Group, g.animations));
+        }),
+      ),
+    ).then(() => undefined);
   }
   return loading;
 }
 
-export function athleteTemplate(): Template | null {
-  return template;
+export function athleteTemplate(sex: Sex = "f"): Template | null {
+  return templates.get(sex) ?? null;
 }
 
 export function athleteReady(): boolean {
-  return template !== null;
+  return templates.size === 2;
 }
 
 /** Parkur kliplerinin oyundaki süreleri (sn) — klipler bu süreye esnetilir. */
@@ -73,8 +108,12 @@ const ACTION_CLIP: Record<number, { clip: string; dur: number; loop?: boolean }>
   [ACT_FEINT]: { clip: "juke", dur: 0.24 },
 };
 
+const SKIN: Record<Sex, number> = { f: 0xd09a7a, m: 0xc48a68 };
+const HAIR: Record<string, number> = { default: 0x2a1a10, blond: 0xc9a04e, buzz: 0x3b2a1e };
+
 export class Athlete {
   root = new THREE.Group();
+  readonly sex: Sex;
   private model: THREE.Object3D;
   private mixer: THREE.AnimationMixer;
   private actions = new Map<string, THREE.AnimationAction>();
@@ -83,35 +122,63 @@ export class Athlete {
   private ringMat: THREE.MeshBasicMaterial;
   private lastAk = 0;
 
-  constructor(tpl: Template, shirt: number, shorts: number, ringColor: number, fit = "0000") {
+  constructor(tplOrAny: Template | null | undefined, shirt: number, shorts: number, ringColor: number, fit = "0000000") {
     fit = cleanFit(fit);
+    this.sex = fitSex(fit);
+    const tpl = templates.get(this.sex) ?? tplOrAny!;
     this.model = cloneSkinned(tpl.scene);
-    const top = fitItem(fit, "top").id;
-    const bottom = fitItem(fit, "bottom").id;
-    const shoes = fitItem(fit, "shoes").id;
-    const acc = fitItem(fit, "acc").id;
+    const top = fitItem(fit, "top");
+    const bottom = fitItem(fit, "bottom");
+    const shoes = fitItem(fit, "shoes");
+    const hair = fitItem(fit, "hair");
+    const hairMesh = hair.id === "natural" ? (this.sex === "f" ? ["hair_long", "ponytail"] : ["hair_short"]) : (hair.mesh ?? []);
+    const visible = new Set<string>([...(top.mesh ?? []), ...(bottom.mesh ?? []), ...(shoes.mesh ?? []), ...hairMesh, "brief"]);
+    if (this.sex === "f") visible.add("bra");
+    const team = new THREE.Color(shirt);
+    const teamDark = new THREE.Color(shorts);
     this.model.traverse((o) => {
       const m = o as THREE.Mesh;
       if (!m.isMesh) return;
-      const mats = Array.isArray(m.material) ? m.material : [m.material];
-      const next = mats.map((mat) => {
-        const c = (mat as THREE.MeshStandardMaterial).clone();
-        if (mat.name === "Jersey") {
-          c.color.setHex(0xffffff);
-          patchOutfit(c, { part: "jersey", top }, shirt);
-        } else if (mat.name === "Shorts") {
-          c.color.setHex(0xffffff);
-          c.roughness = 0.75;
-          patchOutfit(c, { part: "pants", bottom }, shorts);
-        } else {
-          patchOutfit(c, { part: "body", top, shoes, acc }, shirt);
-        }
-        return c;
-      });
-      m.material = Array.isArray(m.material) ? next : next[0];
+      const name = m.name;
+      if (name === "Feet") {
+        m.visible = false; // ayakkabının içinde kalır
+        return;
+      }
+      if (name === "Body") {
+        const src = m.material as THREE.MeshStandardMaterial;
+        const mat = new THREE.MeshStandardMaterial({ map: src.map, color: SKIN[this.sex], roughness: 0.62 });
+        m.material = mat;
+        return;
+      }
+      if (name === "Eyes") {
+        m.material = eyeMaterial();
+        return;
+      }
+      if (!name.startsWith("G_")) return;
+      const id = name.slice(2);
+      m.visible = visible.has(id);
+      if (!m.visible) return;
+      let look = "plain";
+      let role: "top" | "bottom" | "shoe" | "sock" | "hair" | "under" = "top";
+      if (top.mesh?.includes(id)) look = top.look ?? "plain";
+      else if (bottom.mesh?.includes(id)) {
+        look = bottom.look ?? "plain";
+        role = "bottom";
+      } else if (id === "socks") role = "sock";
+      else if (shoes.mesh?.includes(id)) {
+        look = shoes.look ?? "white";
+        role = "shoe";
+      } else if (hairMesh.includes(id)) {
+        look = hair.look ?? "default";
+        role = "hair";
+      } else if (id === "bra" || id === "brief") {
+        role = "under";
+        look = id === "bra" && top.id === "bra" ? "bra-team" : "under";
+      }
+      m.material = garmentMaterial(m as THREE.SkinnedMesh, id, role, look, team, teamDark);
     });
-    addHeadwear(this.model, fitItem(fit, "head").id, shirt);
-    addAccessory(this.model, acc);
+    addHeadwear(this.model, tpl, fitItem(fit, "head").id, shirt);
+    addAccessory(this.model, tpl, fitItem(fit, "acc").id, shirt);
     this.root.add(this.model);
     this.mixer = new THREE.AnimationMixer(this.model);
     for (const [name, clip] of tpl.clips) {
@@ -150,15 +217,13 @@ export class Athlete {
   update(a: FigureAnim, speed: number, dt: number) {
     this.root.rotation.y = Math.PI / 2 - a.heading;
     this.model.position.y = a.h;
-    // Takla: modeli kalça hizasında öne doğru bir tur döndür
     if (a.pose === ACT_ROLL) {
+      // Takla: gövdeyi topa çevir ve merkezinden yuvarla
       const t = Math.min(1, a.at / 0.42);
       const th = t * Math.PI * 2;
-      // Gövdeyi topa çevir (ezilmiş ölçek) ve merkezinden yuvarla; zeminin altına inmez
       const tuck = Math.sin(t * Math.PI);
-      const sy = 1 - 0.45 * tuck;
       const piv = 0.48 + (1 - tuck) * 0.4;
-      this.model.scale.set(1, sy, 1 - 0.2 * tuck);
+      this.model.scale.set(1, 1 - 0.45 * tuck, 1 - 0.2 * tuck);
       this.model.rotation.x = th;
       this.model.position.y = a.h + piv - piv * Math.cos(th);
       this.model.position.z = -piv * Math.sin(th);
@@ -178,12 +243,10 @@ export class Athlete {
       const restart = ak !== this.lastAk;
       this.play(spec.clip, 0.08, restart, clip.duration / spec.dur);
     } else if (a.airborne) {
-      // Havada: zıplama klibinin tepe noktasında dur
       const act = this.actions.get("jump")!;
       this.play("jump", 0.1, false, 0);
       act.time = act.getClip().duration * (a.hv > 0 ? 0.35 : 0.65);
     } else if (speed > 2.6) {
-      // Koşu klibini gerçek hıza göre ölçekle (adım ~1,9 m/döngü)
       const clip = this.actions.get("run")!.getClip();
       this.play("run", 0.15, false, Math.max(0.7, (speed / 1.9) * clip.duration));
     } else if (speed > 0.35) {
@@ -202,144 +265,207 @@ export class Athlete {
   }
 }
 
-/* ---------- Gardırop görünümleri ---------- */
+/* ---------- Malzemeler ---------- */
 
-/**
- * Desenler bağ pozundaki (bind pose, T-pozu) yerel konuma göre çizilir; animasyonla kaymaz.
- * Ölçüler metre: ayak 0, omuz ~1,40, baş tepesi ~1,8. x sağ-sol (kollar ±0,11…0,62), z ön.
- * Her desen `tc` (takım rengiyle boyanmış taban) üzerinde çalışır.
- */
 const GLSL_COMMON = `
 varying vec3 vBind;
 varying vec3 vBindN;
 uniform vec3 uTeam;
+uniform vec3 uDark;
+uniform vec3 uMin;
+uniform vec3 uMax;
 float fitHash(vec3 p) { return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }
 float fitNoise(vec3 p) {
   vec3 i = floor(p); vec3 f = fract(p); f = f * f * (3.0 - 2.0 * f);
-  float n = mix(mix(mix(fitHash(i), fitHash(i + vec3(1,0,0)), f.x), mix(fitHash(i + vec3(0,1,0)), fitHash(i + vec3(1,1,0)), f.x), f.y),
-                mix(mix(fitHash(i + vec3(0,0,1)), fitHash(i + vec3(1,0,1)), f.x), mix(fitHash(i + vec3(0,1,1)), fitHash(i + vec3(1,1,1)), f.x), f.y), f.z);
-  return n;
+  return mix(mix(mix(fitHash(i), fitHash(i + vec3(1,0,0)), f.x), mix(fitHash(i + vec3(0,1,0)), fitHash(i + vec3(1,1,0)), f.x), f.y),
+             mix(mix(fitHash(i + vec3(0,0,1)), fitHash(i + vec3(1,0,1)), f.x), mix(fitHash(i + vec3(0,1,1)), fitHash(i + vec3(1,1,1)), f.x), f.y), f.z);
 }
 vec3 fitHue(float h) { return clamp(abs(mod(h * 6.0 + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0); }
 `;
 
-const TOP_GLSL: Record<string, string> = {
-  pro: `
-    float side = smoothstep(0.80, 0.86, abs(vBindN.x));
-    float collar = step(1.395, vBind.y);
-    float hem = 1.0 - step(1.06, vBind.y);
-    tc = mix(tc, vec3(0.95), max(side, max(collar, hem)));`,
-  stripe: `
-    float band = step(0.55, fract(vBind.y * 24.0));
-    tc = mix(tc, vec3(0.96), band * 0.9);`,
+/**
+ * Desenler bağ pozundaki konuma göre (metre, Y yukarı, Z ön; kollar A-pozunda yana-aşağı).
+ * v: giysinin alt-üst arası 0..1, ax: merkezden yana uzaklık (0 gövde ortası, 1 en uç — kollarda bilek).
+ * Her desen `c` rengini kurar; `glow` ışıma ekler; `rough` pürüzlülük çarpanı.
+ */
+const LOOK_GLSL: Record<string, string> = {
+  // ----- Üstler -----
+  plain: `c = uTeam; c = mix(c, uDark, step(0.955, v) + (1.0 - step(0.04, v)));`,
+  jersey: `
+    c = uTeam;
+    float sidep = smoothstep(0.78, 0.84, abs(vBindN.x)) * (1.0 - step(0.55, ax));
+    c = mix(c, vec3(0.96), sidep);
+    // Sırtta numara bandı
+    float back = step(0.5, -vBindN.z) * step(0.45, v) * (1.0 - step(0.7, v)) * (1.0 - step(0.16, abs(vBind.x)));
+    float digit = step(0.5, fract(vBind.y * 9.0)) * (1.0 - step(0.06, abs(abs(vBind.x) - 0.05)));
+    c = mix(c, vec3(0.96), back * digit);
+    c = mix(c, vec3(0.96), step(0.955, v));`,
+  stripe: `c = mix(uTeam, vec3(0.96), step(0.55, fract(vBind.y * 16.0)) * 0.92);`,
+  sweat: `
+    c = vec3(0.6, 0.63, 0.7);
+    float rib = (1.0 - step(0.05, v)) + step(0.965, v) + step(0.93, ax);
+    c = mix(c, c * 0.78 + 0.02 * step(0.5, fract(vBind.x * 120.0)), min(1.0, rib));
+    c = mix(c, uTeam, (1.0 - step(0.012, abs(v - 0.62))) * (1.0 - step(0.5, ax)));`,
+  varsity: `
+    c = uTeam;
+    c = mix(c, vec3(0.95), step(0.42, ax));
+    float rib = (1.0 - step(0.05, v)) + step(0.965, v) + step(0.93, ax);
+    c = mix(c, uDark, min(1.0, rib));
+    c = mix(c, uDark, (1.0 - step(0.012, abs(ax - 0.62))) * step(0.42, ax));`,
+  hoodie: `
+    c = uTeam;
+    float rib = (1.0 - step(0.05, v)) + step(0.94, ax);
+    c = mix(c, uDark, min(1.0, rib));
+    // Kanguru cep
+    float pocket = step(0.4, vBindN.z) * step(0.1, v) * (1.0 - step(0.32, v)) * (1.0 - step(0.11, abs(vBind.x)));
+    c = mix(c, uDark * 1.15, pocket);
+    // İpler
+    float cords = step(0.3, vBindN.z) * step(0.8, v) * (1.0 - step(0.008, abs(abs(vBind.x) - 0.035)));
+    c = mix(c, vec3(0.95), cords);`,
+  hood: `c = uTeam * 0.92;`,
+  knit: `
+    vec3 cream = vec3(0.9, 0.86, 0.78);
+    float cable = sin(vBind.x * 70.0 + sin(vBind.y * 55.0) * 1.6);
+    float knit = step(0.5, fract(vBind.y * 90.0 + abs(vBind.x) * 6.0));
+    c = cream * (0.86 + 0.08 * knit + 0.06 * cable);
+    c = mix(c, uTeam, (1.0 - step(0.03, abs(v - 0.68))) * (1.0 - step(0.5, ax)));
+    rough = 1.2;`,
   camo: `
     float n1 = fitNoise(vBind * 18.0);
     float n2 = fitNoise(vBind * 34.0 + 7.0);
-    tc = mix(tc, uTeam * 0.35, step(0.55, n1));
-    tc = mix(tc, uTeam * 0.7 + vec3(0.05), step(0.62, n2) * (1.0 - step(0.55, n1)));`,
-  sunset: `
-    float g = clamp((vBind.y - 1.06) / 0.34, 0.0, 1.0);
-    tc = mix(uTeam, vec3(1.0, 0.62, 0.2), smoothstep(0.15, 0.6, g));
-    tc = mix(tc, vec3(1.0, 0.25, 0.6), smoothstep(0.6, 1.0, g));`,
-  bolt: `
-    float zz = 1.27 + 0.035 * (abs(fract(vBind.x * 9.0) - 0.5) * 4.0 - 1.0);
-    float bolt = 1.0 - step(0.022, abs(vBind.y - zz));
-    tc = mix(tc, vec3(1.0, 0.84, 0.0), bolt);
-    tc = mix(tc, vec3(0.08), step(1.395, vBind.y));`,
-  carbon: `
-    float weave = step(0.5, fract((vBind.x + vBind.y) * 60.0)) * 0.035;
-    tc = mix(vec3(0.07 + weave), uTeam, step(1.395, vBind.y));`,
-};
-
-const BOTTOM_GLSL: Record<string, string> = {
-  tights: `tc = uTeam * 0.85;`,
-  tracks: `
-    float tri = step(0.86, abs(vBindN.x)) * step(0.5, fract(vBind.z * 70.0 + 0.25));
-    tc = mix(uTeam * 0.75, vec3(0.97), tri);`,
+    c = uTeam;
+    c = mix(c, uTeam * 0.35, step(0.55, n1));
+    c = mix(c, uTeam * 0.7 + vec3(0.05), step(0.62, n2) * (1.0 - step(0.55, n1)));`,
+  // ----- Altlar -----
+  "b-plain": `c = uDark * 0.8; float slit = step(0.82, abs(vBindN.x)) * (1.0 - step(0.12, v)); c = mix(c, vec3(0.95), slit);`,
+  joggers: `c = vec3(0.33, 0.37, 0.43); float cuff = 1.0 - step(0.06, v); c = mix(c, c * 0.7, cuff + step(0.96, v));`,
+  tight: `c = vec3(0.08, 0.085, 0.11); rough = 0.55;`,
+  bball: `c = uTeam; float s = step(0.86, abs(vBindN.x)); c = mix(c, vec3(0.96), s); c = mix(c, uDark, step(0.95, v));`,
+  track: `
+    c = uDark * 0.85;
+    float tri = step(0.88, abs(vBindN.x)) * step(0.5, fract(vBind.z * 70.0 + 0.25));
+    c = mix(c, vec3(0.97), tri);`,
   cargo: `
     float n1 = fitNoise(vBind * 14.0);
     float n2 = fitNoise(vBind * 26.0 + 3.0);
-    tc = vec3(0.33, 0.4, 0.23);
-    tc = mix(tc, vec3(0.2, 0.25, 0.14), step(0.55, n1));
-    tc = mix(tc, vec3(0.42, 0.35, 0.22), step(0.6, n2) * (1.0 - step(0.55, n1)));`,
+    c = vec3(0.33, 0.4, 0.23);
+    c = mix(c, vec3(0.2, 0.25, 0.14), step(0.55, n1));
+    c = mix(c, vec3(0.42, 0.35, 0.22), step(0.6, n2) * (1.0 - step(0.55, n1)));
+    c = mix(c, c * 0.7, 1.0 - step(0.06, v));`,
   neon: `
-    float pipe = step(0.9, abs(vBindN.x)) * (1.0 - step(0.012, abs(fract(vBind.z * 18.0) - 0.5) - 0.45));
-    pipe = step(0.9, abs(vBindN.x));
-    tc = mix(vec3(0.07), vec3(0.17, 1.0, 0.84), pipe);
-    fitGlow = vec3(0.1, 0.7, 0.6) * pipe;`,
-  split: `tc = mix(uTeam * 0.85, vec3(0.08), step(0.0, vBind.x));`,
+    float pipe = step(0.9, abs(vBindN.x));
+    c = mix(vec3(0.07), vec3(0.17, 1.0, 0.84), pipe);
+    glow = vec3(0.1, 0.7, 0.6) * pipe;
+    rough = 0.5;`,
+  // ----- Ayakkabılar (y: zeminden metre) -----
+  "s-white": `
+    float sole = 1.0 - step(0.03, vBind.y);
+    float swoosh = (1.0 - step(0.012, abs(vBind.y - 0.055 - 0.02 * sin(vBind.z * 40.0)))) * step(0.6, abs(vBindN.x));
+    c = mix(vec3(0.95), uTeam, max(sole, swoosh));
+    float lace = step(0.65, vBindN.y) * step(0.5, fract(vBind.z * 55.0)) * step(0.06, vBind.y);
+    c = mix(c, vec3(0.8), lace);`,
+  "s-neon": `
+    float sole = 1.0 - step(0.03, vBind.y);
+    c = mix(vec3(0.78, 1.0, 0.16), vec3(0.96), sole);
+    float lace = step(0.65, vBindN.y) * step(0.5, fract(vBind.z * 55.0)) * step(0.06, vBind.y);
+    c = mix(c, vec3(0.1), lace);`,
+  "s-court": `
+    float sole = 1.0 - step(0.035, vBind.y);
+    c = mix(uTeam, vec3(0.97), sole);
+    c = mix(c, vec3(0.97), (1.0 - step(0.012, abs(vBind.y - 0.075))) * step(0.5, abs(vBindN.x)));
+    float lace = step(0.6, vBindN.z) * step(0.5, fract(vBind.y * 60.0)) * step(0.05, vBind.y);
+    c = mix(c, vec3(0.97), lace);`,
+  "s-gold": `
+    float sole = 1.0 - step(0.03, vBind.y);
+    c = mix(vec3(0.07), vec3(0.9, 0.72, 0.29), sole);
+    c = mix(c, vec3(0.9, 0.72, 0.29), (1.0 - step(0.008, abs(vBind.y - 0.06))) * step(0.5, abs(vBindN.x)));
+    rough = 0.45;`,
+  "s-rainbow": `
+    float sole = 1.0 - step(0.03, vBind.y);
+    c = mix(fitHue(fract(vBind.z * 3.0 + vBind.y * 4.0)), vec3(0.96), sole);`,
+  "s-lava": `
+    float sole = 1.0 - step(0.035, vBind.y);
+    c = mix(vec3(1.0, 0.23, 0.12), vec3(1.0, 0.7, 0.12), smoothstep(0.04, 0.16, vBind.y + 0.03 * fitNoise(vBind * 60.0)));
+    c = mix(c, vec3(0.07), sole);
+    glow = vec3(0.4, 0.08, 0.0) * (1.0 - sole);`,
+  sock: `c = vec3(0.96); c = mix(c, uTeam, (1.0 - step(0.01, abs(v - 0.8))));`,
+  // ----- Saç ve iç giyim -----
+  hair: `float s = fitNoise(vBind * vec3(220.0, 60.0, 220.0)); c = uTeam * (0.85 + 0.3 * s); rough = 0.55;`,
+  under: `c = vec3(0.12, 0.12, 0.14);`,
+  "bra-team": `c = uTeam; c = mix(c, uDark, step(0.85, v) + (1.0 - step(0.15, v)));`,
 };
 
-const SHOE_GLSL: Record<string, string> = {
-  neon: `sc = mix(vec3(0.78, 1.0, 0.16) * (0.7 + 0.6 * l), vec3(0.96), sole);`,
-  white: `sc = mix(vec3(0.95) * (0.85 + 0.3 * l), uTeam, sole);`,
-  gold: `sc = mix(vec3(0.07) + 0.1 * l, vec3(0.9, 0.72, 0.29), max(sole, step(0.5, fract(vBind.z * 40.0)) * step(0.07, vBind.y) * (1.0 - step(0.08, vBind.y))));`,
-  rainbow: `sc = mix(fitHue(fract(vBind.z * 4.0 + vBind.y * 3.0)) * (0.75 + 0.4 * l), vec3(0.96), sole);`,
-  lava: `sc = mix(mix(vec3(1.0, 0.23, 0.12), vec3(1.0, 0.7, 0.12), smoothstep(0.03, 0.11, vBind.y + 0.03 * fitNoise(vBind * 60.0))), vec3(0.07), sole);
-    fitGlow += vec3(0.35, 0.08, 0.0) * shoe * (1.0 - sole);`,
-};
-
-type PatchSpec =
-  | { part: "jersey"; top: string }
-  | { part: "pants"; bottom: string }
-  | { part: "body"; top: string; shoes: string; acc: string };
-
-function patchOutfit(mat: THREE.MeshStandardMaterial, spec: PatchSpec, team: number) {
-  const teamCol = new THREE.Color(team);
-  const key = JSON.stringify(spec);
-  mat.customProgramCacheKey = () => "fit-" + key;
-  let frag = "vec3 fitGlow = vec3(0.0);\n";
-  if (spec.part === "jersey") {
-    frag += `{ vec3 tc = uTeam; ${TOP_GLSL[spec.top] ?? ""} diffuseColor.rgb *= tc; }`;
-  } else if (spec.part === "pants") {
-    frag += `{ vec3 tc = uTeam; ${BOTTOM_GLSL[spec.bottom] ?? ""} diffuseColor.rgb *= tc; }`;
-  } else {
-    // Modelin dokusundaki gri üst de formaya dönüşür (gövdede düşük doygunluklu pikseller)
-    frag += `
-      {
-        vec3 t0 = diffuseColor.rgb;
-        float mx = max(t0.r, max(t0.g, t0.b));
-        float mn = min(t0.r, min(t0.g, t0.b));
-        float gray = 1.0 - smoothstep(0.04, 0.09, mx - mn);
-        float torso = step(1.12, vBind.y) * (1.0 - step(1.40, vBind.y)) * (1.0 - step(0.17, abs(vBind.x)));
-        float l = dot(t0, vec3(0.3, 0.59, 0.11));
-        vec3 tc = uTeam * (0.65 + 0.7 * l);
-        ${TOP_GLSL[spec.top] ?? ""}
-        diffuseColor.rgb = mix(t0, tc * (0.75 + 0.5 * l), gray * torso);
-      }
-      {
-        float shoe = 1.0 - smoothstep(0.105, 0.125, vBind.y);
-        float sole = 1.0 - step(0.028, vBind.y);
-        float l = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11));
-        vec3 sc = diffuseColor.rgb;
-        ${SHOE_GLSL[spec.shoes] ?? ""}
-        diffuseColor.rgb = mix(diffuseColor.rgb, sc, shoe);
-      }`;
-    // Kollardaki aksesuarlar (T-pozunda kollar x ekseni boyunca, y≈1,39)
-    const arm = "(step(1.32, vBind.y) * (1.0 - step(1.47, vBind.y)))";
-    if (spec.acc === "sleeve")
-      frag += `{ float m = ${arm} * step(0.16, abs(vBind.x)) * (1.0 - step(0.6, abs(vBind.x)));
-        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.08) + 0.04 * step(0.5, fract(abs(vBind.x) * 30.0)), m); }`;
-    if (spec.acc === "wrist")
-      frag += `{ float m = ${arm} * step(0.545, abs(vBind.x)) * (1.0 - step(0.6, abs(vBind.x)));
-        float mid = step(0.563, abs(vBind.x)) * (1.0 - step(0.582, abs(vBind.x)));
-        diffuseColor.rgb = mix(diffuseColor.rgb, mix(vec3(0.95), uTeam, mid), m); }`;
-    if (spec.acc === "captain")
-      frag += `{ float m = ${arm} * step(0.22, vBind.x) * (1.0 - step(0.285, vBind.x));
-        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(1.0, 0.83, 0.0), m); }`;
+function garmentMaterial(mesh: THREE.SkinnedMesh, id: string, role: string, look: string, team: THREE.Color, teamDark: THREE.Color) {
+  const geo = mesh.geometry;
+  geo.computeBoundingBox();
+  const bb = geo.boundingBox!;
+  let key = look;
+  let col = team;
+  if (role === "bottom" && look === "plain") key = "b-plain";
+  if (role === "sock") key = "sock";
+  if (role === "shoe") key = "s-" + look;
+  if (role === "hair") {
+    key = "hair";
+    col = new THREE.Color(HAIR[look] ?? HAIR.default);
   }
+  if (role === "under") key = look;
+  if (id === "hood") key = look === "camo" ? "camo" : "hood";
+  if (!LOOK_GLSL[key]) key = role === "bottom" ? "b-plain" : role === "shoe" ? "s-white" : "plain";
+  const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: role === "shoe" ? 0.55 : 0.82 });
+  mat.customProgramCacheKey = () => "g2-" + key;
+  const maxX = Math.max(Math.abs(bb.min.x), Math.abs(bb.max.x));
   mat.onBeforeCompile = (sh) => {
-    sh.uniforms.uTeam = { value: teamCol };
+    sh.uniforms.uTeam = { value: col };
+    sh.uniforms.uDark = { value: teamDark };
+    sh.uniforms.uMin = { value: bb.min.clone() };
+    sh.uniforms.uMax = { value: new THREE.Vector3(maxX, bb.max.y, bb.max.z) };
     sh.vertexShader = sh.vertexShader
       .replace("#include <common>", "#include <common>\nvarying vec3 vBind;\nvarying vec3 vBindN;")
       .replace("#include <begin_vertex>", "#include <begin_vertex>\nvBind = position;\nvBindN = normal;");
     sh.fragmentShader = sh.fragmentShader
       .replace("#include <common>", "#include <common>\n" + GLSL_COMMON)
-      .replace("#include <map_fragment>", "#include <map_fragment>\n" + frag)
-      .replace("#include <emissivemap_fragment>", "#include <emissivemap_fragment>\ntotalEmissiveRadiance += fitGlow;");
+      .replace(
+        "#include <map_fragment>",
+        `#include <map_fragment>
+        vec3 glow = vec3(0.0);
+        float rough = 1.0;
+        {
+          float v = clamp((vBind.y - uMin.y) / max(0.001, uMax.y - uMin.y), 0.0, 1.0);
+          float ax = clamp(abs(vBind.x) / max(0.001, uMax.x), 0.0, 1.0);
+          vec3 c = uTeam;
+          ${LOOK_GLSL[key]}
+          diffuseColor.rgb *= c;
+        }`,
+      )
+      .replace("#include <roughnessmap_fragment>", "#include <roughnessmap_fragment>\nroughnessFactor *= rough;")
+      .replace("#include <emissivemap_fragment>", "#include <emissivemap_fragment>\ntotalEmissiveRadiance += glow;");
   };
-  mat.needsUpdate = true;
+  return mat;
 }
+
+function eyeMaterial() {
+  const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.25 });
+  mat.customProgramCacheKey = () => "eyes2";
+  mat.onBeforeCompile = (sh) => {
+    sh.vertexShader = sh.vertexShader
+      .replace("#include <common>", "#include <common>\nvarying vec3 vBN;")
+      .replace("#include <begin_vertex>", "#include <begin_vertex>\nvBN = normal;");
+    sh.fragmentShader = sh.fragmentShader
+      .replace("#include <common>", "#include <common>\nvarying vec3 vBN;")
+      .replace(
+        "#include <map_fragment>",
+        `#include <map_fragment>
+        float f = vBN.z;
+        vec3 c = vec3(0.93, 0.91, 0.88);
+        c = mix(c, vec3(0.27, 0.17, 0.1), smoothstep(0.86, 0.88, f));
+        c = mix(c, vec3(0.02), smoothstep(0.955, 0.965, f));
+        diffuseColor.rgb = c;`,
+      );
+  };
+  return mat;
+}
+
+/* ---------- Kemiğe bağlı aksesuarlar ---------- */
 
 function findBone(model: THREE.Object3D, name: string): THREE.Bone | null {
   let b: THREE.Bone | null = null;
@@ -350,20 +476,14 @@ function findBone(model: THREE.Object3D, name: string): THREE.Bone | null {
 }
 
 /** Nesneyi kemiğe bağlar; içerideki ölçüler metre ve model eksenlerinde (bağ pozuna göre). */
-function attachToBone(model: THREE.Object3D, boneName: string, g: THREE.Group) {
+function attachToBone(model: THREE.Object3D, boneName: string, g: THREE.Group, alongBone = false) {
   const bone = findBone(model, boneName);
   if (!bone) return;
   model.updateMatrixWorld(true);
   const s = bone.getWorldScale(new THREE.Vector3()).x;
-  const bonePos = bone.getWorldPosition(new THREE.Vector3());
-  const q = bone.getWorldQuaternion(new THREE.Quaternion()).invert();
-  const modelScale = model.getWorldScale(new THREE.Vector3()).x;
-  // g, model uzayında kemiğe göre konumlanır: önce kemik dönüşümünü geri al
   const holder = new THREE.Group();
-  holder.quaternion.copy(q);
+  if (!alongBone) holder.quaternion.copy(bone.getWorldQuaternion(new THREE.Quaternion()).invert());
   holder.scale.setScalar(1 / s);
-  void bonePos;
-  void modelScale;
   holder.add(g);
   g.traverse((o) => {
     const m = o as THREE.Mesh;
@@ -374,83 +494,102 @@ function attachToBone(model: THREE.Object3D, boneName: string, g: THREE.Group) {
   bone.add(holder);
 }
 
-/** Kafa kemiğine bağlı başlıklar (kemiğe göre: alın ~+0,17 m yukarıda, +z ön). */
-function addHeadwear(model: THREE.Object3D, id: string, team: number) {
+/** Başlıklar: ölçüler kafanın gerçek boyutundan (bağ pozunda tepe ve yarıçap) türetilir. */
+function addHeadwear(model: THREE.Object3D, tpl: Template, id: string, team: number) {
+  if (id === "none") return;
   const g = new THREE.Group();
+  const top = tpl.headTop - tpl.headBoneY; // kemikten tepeye
+  const R = tpl.headR * 1.08;
   const teamMat = new THREE.MeshStandardMaterial({ color: team, roughness: 0.6 });
   const dark = new THREE.MeshStandardMaterial({ color: 0x15171d, roughness: 0.7 });
   const white = new THREE.MeshStandardMaterial({ color: 0xf4f6fa, roughness: 0.9 });
-  const dome = (mat: THREE.Material, sy = 0.95) => {
-    const d = new THREE.Mesh(new THREE.SphereGeometry(0.112, 22, 12, 0, Math.PI * 2, 0, Math.PI / 2), mat);
-    d.scale.set(1.12, sy, 1.2);
-    d.position.set(0, 0.165, 0);
+  const cy = top - R * 0.95; // kafa ortası
+  const dome = (mat: THREE.Material, sy = 1.0) => {
+    const d = new THREE.Mesh(new THREE.SphereGeometry(R * 1.04, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2), mat);
+    d.scale.set(1, sy, 1.12);
+    d.position.set(0, cy + R * 0.1, -0.005);
     return d;
   };
   const brim = (mat: THREE.Material, len = 1.35) => {
-    const b = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.085, 0.012, 20, 1, false, -Math.PI / 2, Math.PI), mat);
-    b.scale.set(1.2, 1, len);
-    b.position.set(0, 0.17, 0.13);
+    const b = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.8, R * 0.8, 0.012, 20, 1, false, -Math.PI / 2, Math.PI), mat);
+    b.scale.set(1.15, 1, len);
+    b.position.set(0, cy + R * 0.12, R * 0.95);
     return b;
   };
   const ring = (mat: THREE.Material, r: number, h: number, y: number) => {
     const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 28, 1, true), mat);
-    m.position.set(0, y, 0.008);
-    m.scale.set(1.12, 1, 1.18);
+    m.position.set(0, y, 0);
+    m.scale.set(1, 1, 1.15);
     return m;
   };
   switch (id) {
     case "cap": {
       const btn = new THREE.Mesh(new THREE.SphereGeometry(0.012, 8, 6), dark);
-      btn.position.set(0, 0.272, 0);
+      btn.position.set(0, cy + R * 1.12, 0);
       g.add(dome(teamMat), brim(dark), btn);
       break;
     }
     case "backcap": {
       const cap = new THREE.Group();
-      const btn = new THREE.Mesh(new THREE.SphereGeometry(0.012, 8, 6), white);
-      btn.position.set(0, 0.272, 0);
-      const strap = ring(white, 0.11, 0.025, 0.175);
-      cap.add(dome(teamMat), brim(white, 1.1), btn, strap);
+      cap.add(dome(teamMat), brim(white, 1.1), ring(white, R * 1.02, 0.025, cy + R * 0.12));
       cap.rotation.y = Math.PI;
       g.add(cap);
       break;
     }
     case "beanie": {
       const knit = new THREE.MeshStandardMaterial({ color: 0x2f3440, roughness: 1 });
-      const b = dome(knit, 1.25);
-      b.position.y = 0.15;
-      const cuff = ring(new THREE.MeshStandardMaterial({ color: team, roughness: 1 }), 0.118, 0.05, 0.165);
-      const pom = new THREE.Mesh(new THREE.SphereGeometry(0.035, 12, 8), new THREE.MeshStandardMaterial({ color: 0xf4f6fa, roughness: 1 }));
-      pom.position.set(0, 0.3, 0);
+      const b = dome(knit, 1.3);
+      b.position.y = cy;
+      const cuff = ring(new THREE.MeshStandardMaterial({ color: team, roughness: 1 }), R * 1.08, 0.05, cy + 0.01);
+      const pom = new THREE.Mesh(new THREE.SphereGeometry(0.035, 12, 8), white);
+      pom.position.set(0, cy + R * 1.42, 0);
       g.add(b, cuff, pom);
       break;
     }
     case "visor": {
-      const visorMat = new THREE.MeshStandardMaterial({ color: 0x18c8ff, roughness: 0.2, metalness: 0.1, transparent: true, opacity: 0.85 });
-      g.add(ring(white, 0.108, 0.035, 0.18), brim(visorMat, 1.6));
+      const visorMat = new THREE.MeshStandardMaterial({ color: 0x18c8ff, roughness: 0.2, transparent: true, opacity: 0.85 });
+      g.add(ring(white, R * 1.02, 0.035, cy + R * 0.2), brim(visorMat, 1.6));
       break;
     }
     case "band":
     default: {
-      g.add(ring(white, 0.106, 0.04, 0.165));
-      const mid = ring(new THREE.MeshStandardMaterial({ color: team, roughness: 0.8 }), 0.1075, 0.012, 0.165);
-      g.add(mid);
+      g.add(ring(white, R * 1.0, 0.04, cy + R * 0.25));
+      g.add(ring(new THREE.MeshStandardMaterial({ color: team, roughness: 0.8 }), R * 1.012, 0.012, cy + R * 0.25));
     }
   }
   attachToBone(model, "mixamorigHead", g);
 }
 
-/** Boyun zinciri gibi takılar. */
-function addAccessory(model: THREE.Object3D, id: string) {
-  if (id !== "chain") return;
-  const gold = new THREE.MeshStandardMaterial({ color: 0xf2c75c, roughness: 0.25, metalness: 1 });
-  const g = new THREE.Group();
-  const chain = new THREE.Mesh(new THREE.TorusGeometry(0.07, 0.009, 8, 40), gold);
-  chain.rotation.x = Math.PI / 2 + 0.75;
-  chain.scale.set(1.0, 1.35, 1);
-  chain.position.set(0, -0.045, 0.055);
-  const charm = new THREE.Mesh(new THREE.OctahedronGeometry(0.02), gold);
-  charm.position.set(0, -0.105, 0.115);
-  g.add(chain, charm);
-  attachToBone(model, "mixamorigNeck", g);
+function addAccessory(model: THREE.Object3D, tpl: Template, id: string, team: number) {
+  if (id === "chain") {
+    const gold = new THREE.MeshStandardMaterial({ color: 0xf2c75c, roughness: 0.25, metalness: 1 });
+    const g = new THREE.Group();
+    const r = tpl.sex === "m" ? 0.078 : 0.068;
+    const chain = new THREE.Mesh(new THREE.TorusGeometry(r, 0.009, 8, 40), gold);
+    chain.rotation.x = Math.PI / 2 + 0.75;
+    chain.scale.set(1.0, 1.35, 1);
+    chain.position.set(0, -0.03, 0.045);
+    const charm = new THREE.Mesh(new THREE.OctahedronGeometry(0.02), gold);
+    charm.position.set(0, -0.095, 0.11);
+    g.add(chain, charm);
+    attachToBone(model, "mixamorigNeck", g);
+  }
+  if (id === "wrist") {
+    for (const side of ["Left", "Right"]) {
+      const g = new THREE.Group();
+      const w = new THREE.Mesh(new THREE.CylinderGeometry(0.036, 0.036, 0.05, 20, 1, true), new THREE.MeshStandardMaterial({ color: 0xf4f6fa, roughness: 1 }));
+      const s = new THREE.Mesh(new THREE.CylinderGeometry(0.0365, 0.0365, 0.014, 20, 1, true), new THREE.MeshStandardMaterial({ color: team, roughness: 1 }));
+      w.position.y = -0.02;
+      s.position.y = -0.02;
+      g.add(w, s);
+      attachToBone(model, `mixamorig${side}Hand`, g, true);
+    }
+  }
+  if (id === "captain") {
+    const g = new THREE.Group();
+    const b = new THREE.Mesh(new THREE.CylinderGeometry(0.052, 0.052, 0.05, 20, 1, true), new THREE.MeshStandardMaterial({ color: 0xffd400, roughness: 0.8 }));
+    b.position.y = 0.13;
+    g.add(b);
+    attachToBone(model, "mixamorigLeftArm", g, true);
+  }
 }

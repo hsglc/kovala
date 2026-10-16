@@ -14,6 +14,7 @@ export class WardrobePreview {
   private drag: { x: number; yaw: number } | null = null;
   private disposed = false;
   private key = "";
+  private pose: "idle" | "run" | "cheer" = "idle";
 
   constructor(private canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
@@ -40,8 +41,8 @@ export class WardrobePreview {
     const ring = new THREE.Mesh(new THREE.TorusGeometry(0.65, 0.008, 8, 64), new THREE.MeshBasicMaterial({ color: 0xf5b83d }));
     ring.rotation.x = Math.PI / 2;
     this.scene.add(ring);
-    this.camera.position.set(0, 1.15, 4.6);
-    this.camera.lookAt(0, 0.92, 0);
+    this.camera.position.set(0, 1.05, 5.3);
+    this.camera.lookAt(0, 0.9, 0);
 
     canvas.addEventListener("pointerdown", this.onDown);
     window.addEventListener("pointermove", this.onMove);
@@ -54,10 +55,10 @@ export class WardrobePreview {
     if (k === this.key) return;
     this.key = k;
     loadAthlete()
-      .then((tpl) => {
+      .then(() => {
         if (this.disposed || this.key !== k) return;
         if (this.athlete) this.scene.remove(this.athlete.root);
-        const a = new Athlete(tpl, team === 0 ? 0xff3b2f : 0x2f6bff, team === 0 ? 0xb0201a : 0x173fb0, 0xffffff, fit);
+        const a = new Athlete(null, team === 0 ? 0xff3b2f : 0x2f6bff, team === 0 ? 0xb0201a : 0x173fb0, 0xffffff, fit);
         a.setRing(0xffffff, 0);
         a.root.traverse((o) => {
           if ((o as THREE.Mesh).isMesh) (o as THREE.Mesh).castShadow = true;
@@ -66,6 +67,10 @@ export class WardrobePreview {
         this.scene.add(a.root);
       })
       .catch(() => {});
+  }
+
+  setPose(p: "idle" | "run" | "cheer") {
+    this.pose = p;
   }
 
   private onDown = (e: PointerEvent) => {
@@ -94,7 +99,11 @@ export class WardrobePreview {
     if (!this.drag) this.yaw += this.spin * dt;
     if (this.athlete) {
       // Athlete.update gövdeyi heading'e göre döndürür: rotation.y = PI/2 - heading
-      this.athlete.update({ phase: 0, run: 0, pose: -1, at: 0, now, mood: "run", heading: Math.PI / 2 - this.yaw, h: 0, hv: 0, airborne: false }, 0, dt);
+      this.athlete.update(
+        { phase: 0, run: 0, pose: -1, at: 0, now, mood: this.pose === "cheer" ? "cheer" : "run", heading: Math.PI / 2 - this.yaw, h: 0, hv: 0, airborne: false },
+        this.pose === "run" ? 5 : 0,
+        dt,
+      );
     }
     this.renderer.render(this.scene, this.camera);
   };
