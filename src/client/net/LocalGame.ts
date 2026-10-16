@@ -1,5 +1,5 @@
 import { getFit } from "../lib/identity";
-import { TICK_RATE } from "../../shared/constants";
+import { ACT_BUFFER_TICKS, TICK_RATE } from "../../shared/constants";
 import { Bot, type BotLevel } from "../../shared/bot";
 import { MatchEngine, type PublicState, type TickInput } from "../../shared/engine";
 import { LAYOUTS, type QuadLayout } from "../../shared/maps";
@@ -35,8 +35,9 @@ export class LocalGame implements GameSource {
   private last = 0;
   private prev = new Map<string, PlayerState>();
   private move = { mx: 0, my: 0 };
-  private act = false;
-  private act2 = false;
+  /** Giriş tamponu: basış bu kadar tick bekler, aksiyon başlayabildiği ilk anda devreye girer */
+  private act = 0;
+  private act2 = 0;
   private paused = false;
   /** Hayatta kal: yeni saha/mekân sonuç ve tekrar bitince (geri sayıma geçerken) uygulanır */
   private pending: { layout?: QuadLayout; venue?: VenueId } = {};
@@ -97,15 +98,16 @@ export class LocalGame implements GameSource {
         [cid, "chaser", cp, vp],
         [vid, "evader", vp, cp],
       ] as const) {
-        if (id === this.selfId) inputs.set(id, { input: quantizeInput(this.move.mx, this.move.my, this.act, this.act2) });
+        if (id === this.selfId) inputs.set(id, { input: quantizeInput(this.move.mx, this.move.my, this.act > 0, this.act2 > 0) });
         else inputs.set(id, { input: this.bots.get(id)!.think(role, self, opp, e.layout) });
       }
-      this.act = false;
-      this.act2 = false;
     } else {
-      this.act = false;
-      this.act2 = false;
+      this.act = 0;
+      this.act2 = 0;
     }
+    const meBefore = e.players.get(this.selfId);
+    const akBefore = meBefore ? meBefore.ak : -1;
+    const atBefore = meBefore ? meBefore.at : 0;
     // Sonuç ekranının son adımı: sıradaki chase yeni sahada kurulsun
     if (e.phase === "result" && e.tick + 1 >= e.phaseEndTick && (this.pending.layout || this.pending.venue)) {
       if (this.pending.layout) e.layout = this.pending.layout;
@@ -115,6 +117,15 @@ export class LocalGame implements GameSource {
     this.prev = new Map([...e.players].map(([id, p]) => [id, clonePlayer(p)]));
     const v = e.version;
     const events = e.step(inputs);
+    // Tamponu tüket: yeni bir aksiyon başladıysa sil, başlamadıysa bir tick azalt
+    const meAfter = e.players.get(this.selfId);
+    if (meAfter && meAfter.ak !== 0 && (meAfter.ak !== akBefore || meAfter.at < atBefore)) {
+      this.act = 0;
+      this.act2 = 0;
+    } else {
+      if (this.act > 0) this.act--;
+      if (this.act2 > 0) this.act2--;
+    }
     if (events.some((x) => x.type === "chaseStart")) for (const b of this.bots.values()) b.reset();
     if (this.survival) {
       for (const ev of events) {
@@ -198,10 +209,10 @@ export class LocalGame implements GameSource {
     this.move = { mx, my };
   }
   pressAction() {
-    this.act = true;
+    this.act = ACT_BUFFER_TICKS;
   }
   pressAction2() {
-    this.act2 = true;
+    this.act2 = ACT_BUFFER_TICKS;
   }
   switchTeam() {}
   setChases(n: number) {

@@ -4,6 +4,7 @@ import type { PublicState } from "../../shared/engine";
 import { getLayout, type QuadLayout } from "../../shared/maps";
 import { unpackPlayer, type ClientMsg, type InputTuple, type ServerMsg } from "../../shared/protocol";
 import { clonePlayer, quantizeInput, stepPlayer, type Input, type PlayerState, type Role } from "../../shared/sim";
+import { ACT_BUFFER_TICKS } from "../../shared/constants";
 import type { ConnStatus, FrameData, GameSource } from "./types";
 
 const TICK_MS = 1000 / TICK_RATE;
@@ -64,8 +65,9 @@ export class RoomClient implements GameSource {
   private stepAcc = 0;
   private lastFrame = 0;
   private move = { mx: 0, my: 0 };
-  private actQueued = false;
-  private act2Queued = false;
+  /** Giriş tamponu (tick): aksiyon başlayana ya da süre bitene kadar basılı gönderilir */
+  private actQueued = 0;
+  private act2Queued = 0;
   private offX = 0;
   private offY = 0;
 
@@ -299,12 +301,17 @@ export class RoomClient implements GameSource {
     while (this.stepAcc >= TICK_MS) {
       this.stepAcc -= TICK_MS;
       if (role && this.pred) {
-        const input = quantizeInput(this.move.mx, this.move.my, this.actQueued, this.act2Queued);
-        this.actQueued = false;
-        this.act2Queued = false;
+        const input = quantizeInput(this.move.mx, this.move.my, this.actQueued > 0, this.act2Queued > 0);
         const seq = ++this.seq;
         this.predPrev = clonePlayer(this.pred);
-        stepPlayer(this.pred, input, role, layout);
+        const res = stepPlayer(this.pred, input, role, layout);
+        if (res.started) {
+          this.actQueued = 0;
+          this.act2Queued = 0;
+        } else {
+          if (this.actQueued > 0) this.actQueued--;
+          if (this.act2Queued > 0) this.act2Queued--;
+        }
         this.pending.push({ seq, input });
         if (this.pending.length > MAX_PENDING) this.pending.shift();
         this.sendBuf.push([seq, input.mx, input.my, (input.act ? 1 : 0) | (input.act2 ? 2 : 0)]);
@@ -388,10 +395,10 @@ export class RoomClient implements GameSource {
     this.move = { mx, my };
   }
   pressAction() {
-    this.actQueued = true;
+    this.actQueued = ACT_BUFFER_TICKS;
   }
   pressAction2() {
-    this.act2Queued = true;
+    this.act2Queued = ACT_BUFFER_TICKS;
   }
   switchTeam() {
     this.sendMsg({ t: "team" });

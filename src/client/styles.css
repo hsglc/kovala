@@ -4390,3 +4390,17 @@ body:has(.game) {
   line-height: 1.35;
   color: var(--muted);
 }
+
+/* Kıl payı kaçış */
+.banner-tag.near {
+  background: var(--role-evader);
+  color: var(--ink);
+  animation: nearpop 0.5s cubic-bezier(0.2, 1.6, 0.4, 1) both;
+}
+
+@keyframes nearpop {
+  from {
+    scale: 0.4;
+    opacity: 0;
+  }
+}

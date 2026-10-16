@@ -12,6 +12,17 @@ export interface PatchNote {
 
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: "0.28.5",
+    date: "16 Eki 2026",
+    time: "20:45",
+    title: "Tuşlar kaybolmaz",
+    items: [
+      "SIÇRA, DALIŞ ve PARKUR'a biraz erken bassan da basış kaybolmuyor: 200 ms bekletilip hamle mümkün olduğu anda yapılıyor (çevrimiçi ve antrenmanda)",
+      "Yere inmeden hemen önce PARKUR'a basınca takla artık güvenle çıkıyor",
+      "Kovalayan çok yaklaşmışken kaçarsan sonuçta KIL PAYI! yazısı ve özel titreşim",
+    ],
+  },
+  {
     version: "0.28.4",
     date: "16 Eki 2026",
     time: "20:42",

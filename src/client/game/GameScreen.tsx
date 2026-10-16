@@ -10,6 +10,7 @@ import type { GameSource } from "../net/types";
 import { computeView, drawOverlay, updateCamera, HUD_TOP, type Camera, type JoyVisual } from "./renderer";
 import { Scene3D } from "./three/Scene3D";
 import { ExitIcon, LeaveDialog } from "../ui/LeaveDialog";
+import { TAG_DISTANCE } from "../../shared/sim";
 import { RotatePrompt, goLandscape, leaveLandscape, useRotatePrompt } from "../ui/RotatePrompt";
 
 interface Props {
@@ -21,6 +22,7 @@ interface Props {
 }
 
 export function GameScreen({ source, state, onLeave, leaveText: leaveOverride }: Props) {
+  const closestRef = useRef(99);
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const timeRef = useRef<HTMLDivElement>(null);
@@ -57,7 +59,7 @@ export function GameScreen({ source, state, onLeave, leaveText: leaveOverride }:
       if (r.evader === source.selfId || r.chaser === source.selfId) vibrate([60, 40, 120]);
     } else {
       sfx.evade();
-      if (r.evader === source.selfId) vibrate(40);
+      if (r.evader === source.selfId) vibrate(closestRef.current < TAG_DISTANCE + 0.45 ? [30, 40, 30, 40, 90] : 40);
     }
   }, [state, source.selfId]);
 
@@ -270,6 +272,13 @@ export function GameScreen({ source, state, onLeave, leaveText: leaveOverride }:
       if (s.phase === "countdown") cam.init = cam.init && s.chaseStartTick === lastChaseTick;
       lastChaseTick = s.chaseStartTick;
       void me; void other; void dtc; void cam; void updateCamera;
+      // Kıl payı: chase boyunca iki oyuncunun en yakın mesafesi
+      if (s.phase === "countdown") closestRef.current = 99;
+      if (s.phase === "chase" && s.chaserId && s.evaderId) {
+        const a = f.players.get(s.chaserId);
+        const b = f.players.get(s.evaderId);
+        if (a && b) closestRef.current = Math.min(closestRef.current, Math.hypot(a.x - b.x, a.y - b.y));
+      }
       if (s.phase === "chase") {
         // frame() her karede yeni nesneler döndürür; kopyalamaya gerek yok
         rec.push({ t: now, players: f.players });
@@ -564,6 +573,7 @@ export function GameScreen({ source, state, onLeave, leaveText: leaveOverride }:
 
       {s.phase === "result" && last && (
         <div className={`banner result replay-top ${last.winner}`} key={`r-${last.n}-${last.sd}`}>
+          {last.winner === "evader" && last.reason !== "forfeit" && closestRef.current < TAG_DISTANCE + 0.45 && <div className="banner-tag near">KIL PAYI!</div>}
           <div className="banner-title">{resultTitle(last)}</div>
           <div className="banner-line">{resultLine(s, last)}</div>
           {!last.sd && last.winner === "evader" && last.reason !== "forfeit" && (

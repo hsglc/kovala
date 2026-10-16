@@ -101,6 +101,8 @@ export const JUMP_V = 6.0;
 export const JUMP_COST = 10;
 
 export const ACTION_COOLDOWN = 0.25;
+/** Aksiyon tuşu tamponu (~200 ms): bekleme süresi ya da hamle bitmeden basılan tuş kaybolmaz */
+export const ACT_BUFFER_TICKS = 6;
 
 /** Resmî maç 16 chase. */
 export const CHASE_OPTIONS = [16, 10] as const;
