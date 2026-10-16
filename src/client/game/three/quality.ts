@@ -159,7 +159,7 @@ export class Pipeline {
       ao.setQualityMode(this.opts.kind === "wardrobe" ? "Medium" : "Performance");
       composer.addPass(ao);
       this.ao = ao;
-      this.bloom = new BloomEffect({ mipmapBlur: true, luminanceThreshold: 0.92, luminanceSmoothing: 0.2, intensity: 0.55, radius: 0.6 });
+      this.bloom = new BloomEffect({ mipmapBlur: true, luminanceThreshold: 1.05, luminanceSmoothing: 0.15, intensity: 0.45, radius: 0.6 });
       this.fxFull = new EffectPass(this.camera, this.exposureFx, this.bloom, tone(), smaa());
       composer.addPass(this.fxFull);
     } else {

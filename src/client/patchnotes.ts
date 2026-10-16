@@ -12,6 +12,19 @@ export interface PatchNote {
 
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: "0.24.0",
+    date: "16 Eki 2026",
+    time: "14:57",
+    title: "Yeni ana ekran",
+    items: [
+      "Ana ekran yenilendi: üstte kendi sporcun, kendi kombininle saha çizgisinin üzerinde duruyor; parmağınla döndürebilirsin",
+      "İnce üst çubuk: seviye halkası (dolduğunda seviye atlarsın), adın ve sürüm",
+      "Tüm menü tek ekranda: büyük Hızlı maç tuşu, dört mod kartı (Antrenman, Hayatta kal, Oda kur, Kodla gir) ve alt sırada Gardırop, Görevler, Sıralama, Kurallar",
+      "Kombin kartına dokununca gardırop açılıyor",
+      "Tişört ve üstler artık şortun bel bandının üstünde temiz duruyor; beyaz ayakkabılardaki aşırı parlama azaldı",
+    ],
+  },
+  {
     version: "0.23.2",
     date: "16 Eki 2026",
     time: "14:47",

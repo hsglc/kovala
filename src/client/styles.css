@@ -2864,3 +2864,487 @@ body:has(.game) {
 .ps-go .marker {
   font-size: 13px;
 }
+
+/* =====================================================================
+   Ana ekran v3: oyun lobisi. Üstte kendi sporcun kırmızı/mavi saha çizgisinin
+   üzerinde; altta koyu menü güvertesi. Kaydırmadan tek ekran.
+   ===================================================================== */
+
+.hm {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: #121216;
+  overflow-x: hidden;
+}
+
+.hm-hero {
+  position: relative;
+  flex: none;
+  height: clamp(340px, 57dvh, 540px);
+  overflow: hidden;
+}
+
+.hm-split {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 46% 40% at 66% 62%, rgba(255, 255, 255, 0.26), transparent 70%),
+    linear-gradient(162deg, var(--red) 0 56%, var(--white) 56% 56.9%, var(--blue) 56.9%);
+}
+
+/* Saha çizgisi boyunca hafif hız çizgileri */
+.hm-split::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(162deg, transparent 0 22px, rgba(255, 255, 255, 0.05) 22px 23px);
+  mask: linear-gradient(90deg, #000, transparent 70%);
+}
+
+.hm-top {
+  position: absolute;
+  z-index: 3;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: calc(10px + var(--safe-t)) 16px 0;
+}
+
+.hm-lvl {
+  position: relative;
+  flex: none;
+  width: 46px;
+  height: 46px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(10, 10, 14, 0.42);
+  backdrop-filter: blur(8px);
+  color: var(--white);
+}
+
+.hm-lvl svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  rotate: -90deg;
+}
+
+.hm-lvl-track,
+.hm-lvl-fill {
+  fill: none;
+  stroke-width: 3.5;
+}
+
+.hm-lvl-track {
+  stroke: rgba(255, 255, 255, 0.16);
+}
+
+.hm-lvl-fill {
+  stroke: var(--yellow);
+  stroke-linecap: round;
+  stroke-dasharray: 106.8;
+  transition: stroke-dashoffset 0.6s ease;
+}
+
+.hm-lvl b {
+  position: relative;
+  font-family: var(--display);
+  font-weight: 900;
+  font-size: 20px;
+}
+
+.hm-name {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 6px 14px 5px;
+  border-radius: 14px;
+  background: rgba(10, 10, 14, 0.42);
+  backdrop-filter: blur(8px);
+  cursor: text;
+}
+
+.hm-name span {
+  font-size: 11px;
+  line-height: 1.2;
+  color: var(--muted);
+}
+
+.hm-name input {
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--white);
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: 21px;
+  line-height: 1.1;
+  outline: none;
+}
+
+.hm-name input::placeholder {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.hm-name:focus-within {
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.5);
+}
+
+.hm-name.error {
+  box-shadow: inset 0 0 0 2px var(--yellow);
+  animation: hm-shake 0.35s ease;
+}
+
+.hm-name.error span {
+  color: var(--yellow);
+}
+
+@keyframes hm-shake {
+  25% {
+    translate: -5px 0;
+  }
+  75% {
+    translate: 5px 0;
+  }
+}
+
+.hm-ver {
+  flex: none;
+  height: 34px;
+  padding: 0 11px;
+  border: 0;
+  border-radius: 17px;
+  background: rgba(10, 10, 14, 0.42);
+  backdrop-filter: blur(8px);
+  color: var(--white);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.hm-word {
+  position: absolute;
+  z-index: 2;
+  left: 16px;
+  top: calc(72px + var(--safe-t));
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  font-family: var(--display);
+  font-weight: 900;
+  font-size: clamp(64px, 19vw, 92px);
+  line-height: 0.8;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  pointer-events: none;
+}
+
+.hm-word span:last-child {
+  color: var(--white);
+  -webkit-text-stroke: 3px var(--ink);
+  paint-order: stroke fill;
+  margin-left: 0.32em;
+}
+
+.hm-tag {
+  position: absolute;
+  z-index: 2;
+  left: 18px;
+  top: calc(72px + var(--safe-t) + clamp(64px, 19vw, 92px) * 1.68);
+  margin: 0;
+  max-width: 44%;
+  font-family: var(--marker);
+  font-size: 15px;
+  line-height: 1.25;
+  color: var(--ink);
+}
+
+.hm-athlete {
+  position: absolute;
+  z-index: 1;
+  right: -8%;
+  bottom: 6px;
+  width: 76%;
+  height: calc(100% - 70px - var(--safe-t));
+  touch-action: pan-y;
+}
+
+.hm-fit {
+  position: absolute;
+  z-index: 2;
+  left: 16px;
+  bottom: 30px;
+  max-width: 52%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 8px 14px 9px;
+  border: 0;
+  border-radius: 14px;
+  background: rgba(10, 10, 14, 0.5);
+  backdrop-filter: blur(8px);
+  color: var(--white);
+  text-align: left;
+}
+
+.hm-fit-k {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.hm-fit-v {
+  max-width: 100%;
+  font-weight: 700;
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hm-fit:active {
+  scale: 0.97;
+}
+
+/* ---------- Güverte ---------- */
+
+.hm-deck {
+  position: relative;
+  z-index: 3;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: -20px;
+  padding: 16px 16px calc(12px + var(--safe-b));
+  border-radius: 22px 22px 0 0;
+  background: #121216;
+}
+
+.hm-alert {
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--red);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.hm-alert.soft {
+  background: #24242b;
+}
+
+.hm-cta {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 80px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 18px;
+  background: var(--yellow);
+  color: var(--ink);
+  text-align: left;
+  box-shadow: 0 6px 0 #a88a00;
+  transition: transform 0.08s ease, box-shadow 0.08s ease;
+}
+
+.hm-cta:active:not(:disabled) {
+  transform: translateY(4px);
+  box-shadow: 0 2px 0 #a88a00;
+}
+
+.hm-cta:disabled {
+  opacity: 0.6;
+}
+
+.hm-led {
+  flex: none;
+  padding: 7px 10px 5px;
+  border-radius: 10px;
+  background: #141414;
+  color: var(--led);
+  font-family: var(--display);
+  font-weight: 900;
+  font-size: 30px;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  text-shadow: 0 0 10px rgba(255, 194, 26, 0.6);
+}
+
+.hm-cta-t {
+  display: flex;
+  flex-direction: column;
+}
+
+.hm-cta-t b {
+  font-family: var(--display);
+  font-weight: 900;
+  font-size: 38px;
+  line-height: 0.9;
+}
+
+.hm-cta-t small {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(20, 20, 20, 0.7);
+}
+
+.hm-modes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.hm-mode {
+  --mc: var(--white);
+  position: relative;
+  min-width: 0;
+  min-height: 74px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 2px;
+  padding: 12px 14px 11px;
+  border: 0;
+  border-radius: 16px;
+  background: linear-gradient(140deg, color-mix(in srgb, var(--mc) 20%, #1e1e25), #1e1e25 62%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  color: var(--white);
+  text-align: left;
+  overflow: hidden;
+}
+
+.hm-mode::before {
+  content: "";
+  position: absolute;
+  left: 14px;
+  top: 0;
+  width: 26px;
+  height: 4px;
+  border-radius: 0 0 3px 3px;
+  background: var(--mc);
+}
+
+.hm-mode b {
+  font-family: var(--display);
+  font-weight: 900;
+  font-size: 25px;
+  line-height: 0.95;
+}
+
+.hm-mode small {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hm-mode:active:not(:disabled) {
+  scale: 0.97;
+}
+
+.m-ply {
+  --mc: var(--birch);
+}
+
+.m-surv {
+  --mc: var(--red);
+}
+
+.m-room {
+  --mc: #6f98ff;
+}
+
+.m-code {
+  --mc: var(--green);
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.m-code input {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--white);
+  font-family: var(--display);
+  font-weight: 900;
+  font-size: 28px;
+  letter-spacing: 0.18em;
+  outline: none;
+}
+
+.m-code input::placeholder {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.m-code button {
+  flex: none;
+  width: 46px;
+  height: 46px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--green);
+  color: var(--ink);
+  font-weight: 800;
+  font-size: 14px;
+}
+
+.m-code button:disabled {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.hm-dock {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  margin-top: auto;
+}
+
+.hm-dock button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 9px 0 8px;
+  border: 0;
+  border-radius: 12px;
+  background: none;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.hm-dock button:active {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.hm .foot {
+  padding-top: 2px;
+  font-size: 10.5px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.hm button:focus-visible,
+.hm input:focus-visible {
+  outline: 2px solid var(--yellow);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hm-name.error {
+    animation: none;
+  }
+}

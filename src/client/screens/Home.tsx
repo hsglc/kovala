@@ -5,7 +5,7 @@ import { LAYOUTS, LEVEL_LABEL } from "../../shared/maps";
 import { fitItem, REGIONS } from "../../shared/outfit";
 import { getFit, getName, getPid, setName } from "../lib/identity";
 import { QuadThumb } from "../ui/QuadThumb";
-import { VsBg } from "../ui/VsBg";
+import { WardrobePreview } from "../game/three/WardrobePreview";
 import { getProgress } from "../lib/progress";
 import { BOT_FITS, survivalBest } from "../net/LocalGame";
 import { prewarmGame } from "../game/three/prewarm";
@@ -85,79 +85,107 @@ export function Home({ offline, initialCode, busy, error, onQuick, onCreate, onJ
       .join("")
       .slice(0, ROOM_CODE_LENGTH);
 
+  // Kahraman: kendi sporcun, kendi kombininle, yavaşça dönerek
+  const heroRef = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    if (!heroRef.current) return;
+    const p = new WardrobePreview(heroRef.current, { stage: false });
+    // Mavi forma kırmızı zeminde öne çıkar
+    p.set(1, getFit());
+    p.setPose("idle");
+    return () => p.dispose();
+  }, []);
+
   const prog = getProgress();
   const fitSummary = REGIONS.map((r) => fitItem(getFit(), r.id))
     .filter((it) => it.id !== "none")
     .map((it) => it.name);
 
   return (
-    <div className="vs-home">
-      {/* Çapraz bölünmüş VS ekranı: üst kırmızı (kovalayan), alt mavi (kaçan) */}
-      <VsBg />
-
-      <div className="vs-top">
-        <div className="topbar">
-          <button className="lvl-chip" onClick={() => setSheet("missions")} aria-label={`Seviye ${prog.level}, görevler`}>
+    <div className="hm">
+      {/* Sahne: üst kırmızı (kovalayan), alt mavi (kaçan); sporcun saha çizgisinin üstünde */}
+      <section className="hm-hero">
+        <div className="hm-split" aria-hidden="true" />
+        <header className="hm-top">
+          <button className="hm-lvl" onClick={() => setSheet("missions")} aria-label={`Seviye ${prog.level}, görevler`}>
+            <svg viewBox="0 0 40 40" aria-hidden="true">
+              <circle cx="20" cy="20" r="17" className="hm-lvl-track" />
+              <circle cx="20" cy="20" r="17" className="hm-lvl-fill" style={{ strokeDashoffset: `${106.8 * (1 - prog.into / prog.need)}` }} />
+            </svg>
             <b>{prog.level}</b>
-            <span className="lvl-rail">
-              <i style={{ width: `${Math.round((prog.into / prog.need) * 100)}%` }} />
-            </span>
           </button>
-          <button className="ver-chip" onClick={() => setSheet("notes")}>
+          <label className={`hm-name ${nameError ? "error" : ""}`}>
+            <span>{nameError ? "Önce adını yaz" : "Oyuncu"}</span>
+            <input
+              id="name-input"
+              value={name}
+              maxLength={16}
+              placeholder="Adını yaz"
+              autoComplete="nickname"
+              onChange={(e) => {
+                setNameState(e.target.value);
+                setNameError(false);
+              }}
+            />
+          </label>
+          <button className="hm-ver" onClick={() => setSheet("notes")} aria-label="Yama notları">
             v{CURRENT_VERSION}
           </button>
-        </div>
-        <h1 className="mega" aria-label="Evade">
-          <span className="mega-1">EVA</span>
-          <span className="mega-2">DE</span>
+        </header>
+        <h1 className="hm-word" aria-label="Evade">
+          <span>EVA</span>
+          <span>DE</span>
         </h1>
-        <p className="mega-sub">20 saniye. Biri kovalar, biri kaçar.</p>
-      </div>
+        <p className="hm-tag">20 saniye. Biri kovalar, biri kaçar.</p>
+        <canvas className="hm-athlete" ref={heroRef} aria-hidden="true" />
+        <button className="hm-fit" onClick={onWardrobe}>
+          <span className="hm-fit-k">Kombin</span>
+          <span className="hm-fit-v">{fitItem(getFit(), "top").name}, {fitItem(getFit(), "bottom").name}</span>
+        </button>
+      </section>
 
-      <div className="vs-bottom">
-        <label className={`tape tape-white name-tape ${nameError ? "error" : ""}`}>
-          <span className="marker">Adın</span>
-          <input
-            id="name-input"
-            value={name}
-            maxLength={16}
-            placeholder="buraya yaz"
-            autoComplete="nickname"
-            onChange={(e) => {
-              setNameState(e.target.value);
-              setNameError(false);
-            }}
-          />
-        </label>
-
-        {error && <div className="tape tape-alert">{error}</div>}
+      <section className="hm-deck">
+        {error && <div className="hm-alert">{error}</div>}
+        {offline && <div className="hm-alert soft">Bu önizlemede sadece botla antrenman var.</div>}
 
         {initialCode && (
-          <button className="tape tape-go" disabled={busy} onClick={() => ensureName() && onJoin(initialCode)}>
-            <span className="tape-main">{initialCode} odasına katıl</span>
-            <span className="marker">davet edildin</span>
+          <button className="hm-cta" disabled={busy} onClick={() => ensureName() && onJoin(initialCode)}>
+            <span className="hm-led">{initialCode}</span>
+            <span className="hm-cta-t">
+              <b>Odaya katıl</b>
+              <small>davet edildin</small>
+            </span>
           </button>
         )}
 
-        {offline && <div className="tape">Bu önizlemede sadece botla antrenman var.</div>}
-
-        {!offline && (
-          <button className="tape tape-go big" disabled={busy} onClick={() => ensureName() && onQuick()}>
-            <span className="tape-main">Hızlı maç</span>
-            <span className="marker">rastgele rakip, 1'e 1</span>
+        {!offline && !initialCode && (
+          <button className="hm-cta" disabled={busy} onClick={() => ensureName() && onQuick()}>
+            <span className="hm-led" aria-hidden="true">20,0</span>
+            <span className="hm-cta-t">
+              <b>Hızlı maç</b>
+              <small>Rastgele rakip, 1'e 1</small>
+            </span>
           </button>
         )}
 
-        <div className="tape-row">
+        <div className="hm-modes">
+          <button className="hm-mode m-ply" onClick={() => ensureName() && setSheet("practice")}>
+            <b>Antrenman</b>
+            <small>Botlara karşı, {LAYOUTS.length} saha</small>
+          </button>
+          <button className="hm-mode m-surv" onClick={() => ensureName() && onSurvival()}>
+            <b>Hayatta kal</b>
+            <small>Rekorun: {survivalBest()} chase</small>
+          </button>
           {!offline && (
-            <button className="tape" disabled={busy} onClick={() => ensureName() && onCreate()}>
-              <span className="tape-main">Oda kur</span>
-              <span className="marker">arkadaşlarla</span>
+            <button className="hm-mode m-room" disabled={busy} onClick={() => ensureName() && onCreate()}>
+              <b>Oda kur</b>
+              <small>Arkadaşlarla oyna</small>
             </button>
           )}
           {!offline && (
             <form
-              className="tape code-tape"
+              className="hm-mode m-code"
               onSubmit={(e) => {
                 e.preventDefault();
                 if (code.length === ROOM_CODE_LENGTH && ensureName()) onJoin(code);
@@ -180,34 +208,26 @@ export function Home({ offline, initialCode, busy, error, onQuick, onCreate, onJ
           )}
         </div>
 
-        <button className="tape tape-ply" onClick={() => ensureName() && setSheet("practice")}>
-          <span className="tape-main">Antrenman</span>
-          <span className="marker">botlara karşı, 9 saha</span>
-        </button>
-
-        <button className="tape tape-red" onClick={() => ensureName() && onSurvival()}>
-          <span className="tape-main">Hayatta kal</span>
-          <span className="marker">yakalanana kadar kaç. Rekorun: {survivalBest()} chase</span>
-        </button>
-
-        <div className="tape-row">
-          <button className="tape" onClick={onWardrobe}>
-            <span className="tape-main">Gardırop</span>
-            <span className="marker clip">{fitSummary[0] ?? "kıyafetler"}</span>
+        <nav className="hm-dock" aria-label="Diğer">
+          <button onClick={onWardrobe}>
+            <Icon d="M12 5a2 2 0 1 1 2 2c-1 .4-2 1-2 2v1M3.5 18.5 12 11l8.5 7.5a1 1 0 0 1-.7 1.5H4.2a1 1 0 0 1-.7-1.5Z" />
+            Gardırop
           </button>
-          <button className="tape" onClick={() => setSheet("ladder")}>
-            <span className="tape-main">Sıralama</span>
-            <span className="marker">bu hafta</span>
+          <button onClick={() => setSheet("missions")}>
+            <Icon d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Zm0-4a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm0-4a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" />
+            Görevler
           </button>
-        </div>
-
-        <nav className="small-links">
-          <button onClick={() => setSheet("rules")}>Nasıl oynanır</button>
-          <button onClick={() => setSheet("missions")}>Görevler</button>
-          <button onClick={() => setSheet("notes")}>Yama notları</button>
+          <button onClick={() => setSheet("ladder")}>
+            <Icon d="M9 21V9h6v12M3 21v-7h6M15 21v-5h6v5M3 21h18M12 3l1 2 2 .3-1.5 1.4.4 2.1L12 7.8 10.1 8.8l.4-2.1L9 5.3l2-.3 1-2Z" />
+            Sıralama
+          </button>
+          <button onClick={() => setSheet("rules")}>
+            <Icon d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM9.5 9.3a2.6 2.6 0 0 1 5 .9c0 1.7-2.5 2.2-2.5 3.8M12 17h.01" />
+            Kurallar
+          </button>
         </nav>
         <footer className="foot">World Chase Tag'den esinlenilmiştir; resmî bir ürün değildir.</footer>
-      </div>
+      </section>
 
       {sheet && (
         <div className="sheet-backdrop" onClick={() => setSheet(null)}>
@@ -470,5 +490,13 @@ function Notes() {
         </article>
       ))}
     </div>
+  );
+}
+
+function Icon({ d }: { d: string }) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d={d} />
+    </svg>
   );
 }

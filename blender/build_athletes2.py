@@ -562,6 +562,16 @@ def garments(body, rig, sex):
 
         return f
 
+    def waist_tuck(p, d):
+        """Altların bel bandı üstlerin altında kalsın: kalça çizgisinden yukarısı 8 mm içeri."""
+        if p.z < hipZ - 0.03 or p.z < z0 or p.z > z1:
+            return None
+        zi = min(nz - 1, max(0, int((p.z - z0) / ZB)))
+        dxy = Vector((p.x, p.y, 0)) - CEN[zi]
+        if dxy.length < 1e-4:
+            return None
+        return dxy.normalized() * (-0.008 * smooth01((p.z - (hipZ - 0.03)) / 0.05))
+
     def combine(*fs):
         def f(p, d):
             tot = None
@@ -748,12 +758,12 @@ def garments(body, rig, sex):
 
     short_z = hipZ - (hipZ - kneeZ) * 0.55
     bike_z = hipZ - (hipZ - kneeZ) * 0.8
-    out.append(make_garment(body, "shorts", pants(short_z), 0.016, drape=legwear(lambda z: 0.006 + 0.03 * smooth01((hipZ - 0.04 - z) / (hipZ - 0.04 - short_z)))))
-    out.append(make_garment(body, "bball", pants(kneeZ - 0.03), 0.022, drape=legwear(lambda z: 0.012 + 0.05 * smooth01((hipZ - 0.04 - z) / (hipZ - kneeZ)))))
+    out.append(make_garment(body, "shorts", pants(short_z), 0.016, drape=combine(waist_tuck, legwear(lambda z: 0.006 + 0.03 * smooth01((hipZ - 0.04 - z) / (hipZ - 0.04 - short_z))))))
+    out.append(make_garment(body, "bball", pants(kneeZ - 0.03), 0.022, drape=combine(waist_tuck, legwear(lambda z: 0.012 + 0.05 * smooth01((hipZ - 0.04 - z) / (hipZ - kneeZ))))))
     out.append(make_garment(body, "bike", pants(bike_z), 0.005))
     out.append(make_garment(body, "leggings", pants(ankZ + 0.02), 0.005))
-    out.append(make_garment(body, "joggers", pants(ankZ + 0.03), 0.014, drape=legwear(lambda z: (0.0 if z < ankZ + 0.09 else 0.016 + 0.012 * smooth01(1 - abs(z - (ankZ + 0.15)) / 0.07)) * smooth01((z - ankZ - 0.03) / 0.06))))
-    out.append(make_garment(body, "track", pants(ankZ + 0.015), 0.016, drape=legwear(lambda z: 0.012 + 0.02 * smooth01((kneeZ - z) / (kneeZ - ankZ)))))
+    out.append(make_garment(body, "joggers", pants(ankZ + 0.03), 0.014, drape=combine(waist_tuck, legwear(lambda z: (0.0 if z < ankZ + 0.09 else 0.016 + 0.012 * smooth01(1 - abs(z - (ankZ + 0.15)) / 0.07)) * smooth01((z - ankZ - 0.03) / 0.06)))))
+    out.append(make_garment(body, "track", pants(ankZ + 0.015), 0.016, drape=combine(waist_tuck, legwear(lambda z: 0.012 + 0.02 * smooth01((kneeZ - z) / (kneeZ - ankZ))))))
 
     # -- Ayakkabılar --
     def shoe(top_z):

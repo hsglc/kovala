@@ -18,7 +18,10 @@ export class WardrobePreview {
   private key = "";
   private pose: "idle" | "run" | "cheer" = "idle";
 
-  constructor(private canvas: HTMLCanvasElement) {
+  constructor(
+    private canvas: HTMLCanvasElement,
+    opts: { stage?: boolean } = {},
+  ) {
     this.pipe = new Pipeline(canvas, { kind: "wardrobe", alpha: true, maxDpr: 3, aoRadius: 0.35, aoIntensity: 2.2 });
     this.renderer = this.pipe.renderer;
     this.renderer.setClearColor(0x000000, 0);
@@ -56,10 +59,18 @@ export class WardrobePreview {
     );
     base.position.y = -0.03;
     base.receiveShadow = true;
-    this.scene.add(base);
     const ring = new THREE.Mesh(new THREE.TorusGeometry(0.65, 0.008, 8, 64), new THREE.MeshBasicMaterial({ color: 0xf5b83d }));
     ring.rotation.x = Math.PI / 2;
-    this.scene.add(ring);
+    if (opts.stage !== false) {
+      this.scene.add(base);
+      this.scene.add(ring);
+    } else {
+      // Kaidesiz: yalnızca yere düşen yumuşak gölge
+      const sh = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 2.4), new THREE.ShadowMaterial({ opacity: 0.28 }));
+      sh.rotation.x = -Math.PI / 2;
+      sh.receiveShadow = true;
+      this.scene.add(sh);
+    }
     this.camera.position.set(0, 1.05, 5.0);
     this.camera.lookAt(0, 0.9, 0);
     this.pipe.attach(this.scene, this.camera);
