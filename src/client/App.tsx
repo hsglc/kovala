@@ -28,7 +28,7 @@ type Screen =
   | { k: "quick" }
   | { k: "wardrobe" }
   | { k: "room"; code: string; quick: boolean }
-  | { k: "practice"; level: BotLevel; map?: string; squad?: number; venue?: string }
+  | { k: "practice"; level: BotLevel; map?: string; squad?: number; venue?: string; mode?: "official" | "turns" }
   | { k: "survival"; n: number }
   | { k: "career"; last?: CareerLast | null }
   | { k: "careerMatch"; n: number };
@@ -142,7 +142,7 @@ function AppScreens() {
             }
           }}
           onJoin={(code) => setScreen({ k: "room", code, quick: false })}
-          onPractice={(level, map, squad, venue) => setScreen({ k: "practice", level, map, squad, venue })}
+          onPractice={(level, map, squad, venue, mode) => setScreen({ k: "practice", level, map, squad, venue, mode })}
           onWardrobe={() => setScreen({ k: "wardrobe" })}
           onSurvival={() => setScreen({ k: "survival", n: Date.now() })}
           onCareer={() => setScreen({ k: "career" })}
@@ -170,7 +170,7 @@ function AppScreens() {
     case "room":
       return <OnlineRoom key={screen.code} code={screen.code} quick={screen.quick} onLeave={home} />;
     case "practice":
-      return <Practice key={screen.level + (screen.map ?? "") + (screen.squad ?? 1) + (screen.venue ?? "")} level={screen.level} map={screen.map} squad={screen.squad} venue={screen.venue} onLeave={() => home()} />;
+      return <Practice key={screen.level + (screen.map ?? "") + (screen.squad ?? 1) + (screen.venue ?? "") + (screen.mode ?? "")} level={screen.level} map={screen.map} squad={screen.squad} venue={screen.venue} mode={screen.mode} onLeave={() => home()} />;
   }
 }
 
@@ -235,13 +235,13 @@ function Survival({ onLeave }: { onLeave: () => void }) {
   return inMatch ? <GameScreen source={source} state={state} onLeave={onLeave} /> : <Lobby source={source} state={state} onLeave={onLeave} />;
 }
 
-function Practice({ level, map, squad, venue, onLeave }: { level: BotLevel; map?: string; squad?: number; venue?: string; onLeave: () => void }) {
+function Practice({ level, map, squad, venue, mode, onLeave }: { level: BotLevel; map?: string; squad?: number; venue?: string; mode?: "official" | "turns"; onLeave: () => void }) {
   const [source, setSource] = useState<LocalGame | null>(null);
   useEffect(() => {
-    const g = new LocalGame(getPid(), getName() || "Sen", level, squad && squad > 1 ? 10 : 16, map ?? "random", squad ?? 1, "match", venue ?? "arena");
+    const g = new LocalGame(getPid(), getName() || "Sen", level, squad && squad > 1 ? 10 : 16, map ?? "random", squad ?? 1, "match", venue ?? "arena", undefined, mode ?? "official");
     setSource(g);
     return () => g.close();
-  }, [level, map, squad, venue]);
+  }, [level, map, squad, venue, mode]);
   const state = useSourceState(source);
   useProgressTracker(source?.selfId, state);
   if (!source || !state) return null;

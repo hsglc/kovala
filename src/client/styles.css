@@ -4383,3 +4383,10 @@ body:has(.game) {
   font-size: 12px;
   opacity: 0.75;
 }
+
+.setting-hint {
+  margin: 6px 0 0;
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--muted);
+}

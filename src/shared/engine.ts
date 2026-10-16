@@ -47,6 +47,8 @@ export interface ChaseRecord {
   evTeam: Team;
 }
 
+export type MatchMode = "official" | "turns";
+
 export interface PublicState {
   v: number;
   phase: Phase;
@@ -54,6 +56,8 @@ export interface PublicState {
   host: string | null;
   chases: number;
   rest: "official" | "quick";
+  /** official: kazanan sahada kalır (WCT). turns: roller her chase'te yer değiştirir (sırayla) */
+  mode: MatchMode;
   venue: VenueId;
   layoutId: string;
   scores: [number, number];
@@ -98,6 +102,9 @@ export class MatchEngine {
   chases = 16;
   /** Chase'ler arası dinlenme: "official" 25 sn, "quick" 5 sn */
   rest: "official" | "quick" = "quick";
+  mode: MatchMode = "official";
+  /** sırayla modunda son chase'te kaçan takım */
+  private lastEvTeam: Team | null = null;
   venue: VenueId = "arena";
   layoutChoice: string | "random" = "quad";
   layout: QuadLayout = LAYOUTS[0];
@@ -202,6 +209,14 @@ export class MatchEngine {
     return true;
   }
 
+  setMode(by: string, mode: string): boolean {
+    if (by !== this.host || this.inMatch()) return false;
+    if (mode !== "official" && mode !== "turns") return false;
+    this.mode = mode;
+    this.bump();
+    return true;
+  }
+
   setRest(by: string, rest: string): boolean {
     if (by !== this.host || this.inMatch()) return false;
     if (rest !== "official" && rest !== "quick") return false;
@@ -251,6 +266,7 @@ export class MatchEngine {
         : getLayout(this.layoutChoice);
     this.scores = [0, 0];
     this.chaseNo = 0;
+    this.lastEvTeam = null;
     this.sd = false;
     this.sdRound = 0;
     this.sdTimes = [null, null];
@@ -317,6 +333,7 @@ export class MatchEngine {
     this.pickable = pickable;
     this.chaserId = chaserId;
     this.evaderId = evaderId;
+    this.lastEvTeam = this.member(evaderId)?.team ?? this.lastEvTeam;
     let cPos: [number, number];
     let ePos: [number, number];
     if (this.layout.plates) {
@@ -529,15 +546,21 @@ export class MatchEngine {
       this.sdFirstTeam = lw ? lw.team : this.sdFirstTeam;
     }
 
+    const turns = this.mode === "turns";
     if (this.sd) {
       evTeam = this.sdRound === 0 ? this.sdFirstTeam : this.sdFirstTeam === 0 ? 1 : 0;
+    } else if (turns) {
+      // Sırayla: sonuç ne olursa olsun bir chase sen kaçarsın, bir chase o
+      evTeam = this.lastEvTeam === null ? 0 : this.lastEvTeam === 0 ? 1 : 0;
     } else {
       evTeam = lw ? lw.team : 0;
     }
+    this.lastEvTeam = evTeam;
     const chTeam: Team = evTeam === 0 ? 1 : 0;
 
-    let evader: Member | null = lw && lw.team === evTeam && lw.connected ? lw : null;
-    let chaser: Member | null = lw && lw.team === chTeam && lw.connected ? lw : null;
+    // Sırayla modunda kazanan sahada kalmaz: her takım sırayla oyuncu gönderir
+    let evader: Member | null = !turns && lw && lw.team === evTeam && lw.connected ? lw : null;
+    let chaser: Member | null = !turns && lw && lw.team === chTeam && lw.connected ? lw : null;
     if (evader) this.markUsed(evader);
     if (chaser) this.markUsed(chaser);
     evader = evader ?? this.nextFrom(evTeam);
@@ -584,6 +607,7 @@ export class MatchEngine {
       host: this.host,
       chases: this.chases,
       rest: this.rest,
+      mode: this.mode,
       venue: this.venue,
       layoutId: this.inMatch() || this.phase === "finished" ? this.layout.id : this.layoutChoice,
       scores: [...this.scores] as [number, number],
@@ -613,6 +637,7 @@ export class MatchEngine {
       host: this.host,
       chases: this.chases,
       rest: this.rest,
+      mode: this.mode,
       venue: this.venue,
       layoutChoice: this.layoutChoice,
       phase: this.phase === "finished" ? "finished" : "lobby",
@@ -629,6 +654,7 @@ export class MatchEngine {
     this.host = data.host;
     this.chases = data.chases;
     this.rest = data.rest ?? "quick";
+    this.mode = data.mode === "turns" ? "turns" : "official";
     this.venue = data.venue && isVenue(data.venue) ? data.venue : "arena";
     this.layoutChoice = data.layoutChoice;
     this.phase = data.phase as Phase;

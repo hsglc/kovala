@@ -374,3 +374,28 @@ describe("yeni hamleler", () => {
     expect(minVx).toBeLessThan(-5.5);
   });
 });
+
+describe("sırayla modu", () => {
+  it("roller her chase'te sonuçtan bağımsız yer değiştirir", () => {
+    const e = new MatchEngine(() => 0.42);
+    e.join("a", "A", "0000000");
+    e.join("b", "B", "1000000");
+    e.mode = "turns";
+    e.setChases("a", 10);
+    e.start("a");
+    const evaders: string[] = [];
+    let lastNo = -1;
+    for (let t = 0; t < 30 * 200 && evaders.length < 4; t++) {
+      e.step(new Map());
+      if (e.phase === "chase" && e.chaseNo !== lastNo) {
+        lastNo = e.chaseNo;
+        evaders.push(e.evaderId!);
+      }
+    }
+    // Girdi yok: kaçan her chase'te kazanır. Resmî kuralda hep aynı kişi kaçardı; sırayla modunda değişir.
+    expect(evaders.length).toBe(4);
+    expect(evaders[0]).not.toBe(evaders[1]);
+    expect(evaders[1]).not.toBe(evaders[2]);
+    expect(evaders[0]).toBe(evaders[2]);
+  });
+});

@@ -135,6 +135,9 @@ export class Room extends DurableObject<Env> {
       case "rest":
         this.engine.setRest(pid, String(msg.v));
         break;
+      case "mode":
+        this.engine.setMode(pid, String(msg.v));
+        break;
       case "start":
         this.engine.start(pid);
         break;

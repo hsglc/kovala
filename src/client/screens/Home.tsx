@@ -36,7 +36,7 @@ interface Props {
   onQuick: () => void;
   onCreate: () => void;
   onJoin: (code: string) => void;
-  onPractice: (level: BotLevel, map: string, squad: number, venue: string) => void;
+  onPractice: (level: BotLevel, map: string, squad: number, venue: string, mode: "official" | "turns") => void;
   onWardrobe: () => void;
   onSurvival: () => void;
   onCareer: () => void;
@@ -56,6 +56,7 @@ export function Home({ offline, initialCode, busy, error, onQuick, onCreate, onJ
     }
   });
   const [squad, setSquad] = useState<number>(1);
+  const [pmode, setPmode] = useState<"official" | "turns">("official");
   const [venue, setVenue] = useState<string>("arena");
   const pv = usePresence();
   const invitable = pv.players.filter((p) => INVITABLE.includes(p.s));
@@ -88,7 +89,7 @@ export function Home({ offline, initialCode, busy, error, onQuick, onCreate, onJ
   const pl = LAYOUTS.find((l) => l.id === pmap);
   const pmapLabel = pl ? `${pl.name} · ${LEVEL_LABEL[pl.level]}` : "Rastgele";
   const venueName = VENUES.find((v) => v.id === venue)?.name ?? "";
-  const summary = `${level[0].toUpperCase() + level.slice(1)} bot, ${squad > 1 ? "3'e 3" : "1'e 1"}, ${venueName}, ${pl ? pl.name : "rastgele saha"}`;
+  const summary = `${level[0].toUpperCase() + level.slice(1)} bot, ${squad > 1 ? "3'e 3" : "1'e 1"}, ${pmode === "turns" ? "sırayla, " : ""}${venueName}, ${pl ? pl.name : "rastgele saha"}`;
   useEffect(() => {
     if (sheet !== "practice") return;
     const el = mapsRef.current?.querySelector<HTMLElement>(".pmap.on");
@@ -298,6 +299,21 @@ export function Home({ offline, initialCode, busy, error, onQuick, onCreate, onJ
                   </div>
                 </div>
                 <div className="opt">
+                  <span className="ps-label">Kural</span>
+                  <div className="seg">
+                    {(
+                      [
+                        ["official", "Resmî: kazanan kalır"],
+                        ["turns", "Sırayla: bir sen, bir o"],
+                      ] as const
+                    ).map(([m, label]) => (
+                      <button key={m} className={pmode === m ? "on" : ""} onClick={() => setPmode(m)}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="opt">
                   <span className="ps-label">Mekân</span>
                   <div className="ps-venues">
                     {VENUES.map((v) => (
@@ -328,7 +344,7 @@ export function Home({ offline, initialCode, busy, error, onQuick, onCreate, onJ
                   </div>
                 </div>
                 <div className="ps-go">
-                  <button className="tape tape-go" onClick={() => onPractice(level, pmap, squad, venue)}>
+                  <button className="tape tape-go" onClick={() => onPractice(level, pmap, squad, venue, pmode)}>
                     <span className="tape-main">Başlat</span>
                     <span className="marker clip">{summary}</span>
                   </button>

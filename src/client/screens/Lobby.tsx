@@ -120,6 +120,26 @@ export function Lobby({ source, state: s, onLeave }: Props) {
           </div>
         </div>
         <div className="setting">
+          <span className="setting-label">Kural</span>
+          <div className="seg">
+            {(
+              [
+                ["official", "Resmî: kazanan kalır"],
+                ["turns", "Sırayla: bir sen, bir o"],
+              ] as const
+            ).map(([v, label]) => (
+              <button key={v} disabled={!isHost} className={s.mode === v ? "on" : ""} onClick={() => source.setMode(v)}>
+                {label}
+              </button>
+            ))}
+          </div>
+          <p className="setting-hint">
+            {s.mode === "turns"
+              ? "Roller her chase'te değişir: bir chase o seni kovalar, bir chase sen onu. Kaçış 1 puan."
+              : "World Chase Tag kuralı: kaçan kazanırsa sahada kalıp yine kaçar, yakalanırsa roller değişir."}
+          </p>
+        </div>
+        <div className="setting">
           <span className="setting-label">Chase arası dinlenme</span>
           <div className="seg">
             {(

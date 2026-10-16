@@ -55,6 +55,8 @@ export class LocalGame implements GameSource {
     venue = "arena",
     /** Kariyer: sırayla rakip, arkadaş, rakip… isim, kombin ve ustalık (0..1) */
     roster?: { name: string; fit: string; tune: number }[],
+    /** maç kuralı (resmî ya da sırayla) */
+    matchMode: "official" | "turns" = "official",
   ) {
     this.selfId = pid;
     this.survival = mode === "survival" ? { streak: 0, best: getBest(), over: false } : null;
@@ -72,6 +74,7 @@ export class LocalGame implements GameSource {
         this.bots.set(id, b);
       }
     }
+    this.engine.mode = matchMode;
     this.engine.setChases(pid, chases);
     // Kariyer turnuvaları daha kısa maçlar oynar (oda ayarlarında olmayan 8 chase gibi)
     if (roster && this.engine.chases !== chases) this.engine.chases = chases;
@@ -203,6 +206,11 @@ export class LocalGame implements GameSource {
   switchTeam() {}
   setChases(n: number) {
     this.engine.setChases(this.selfId, n);
+    this.state = this.engine.publicState();
+    this.emit();
+  }
+  setMode(v: "official" | "turns") {
+    this.engine.setMode(this.selfId, v);
     this.state = this.engine.publicState();
     this.emit();
   }

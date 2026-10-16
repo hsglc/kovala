@@ -408,6 +408,9 @@ export class RoomClient implements GameSource {
   setRest(v: "official" | "quick") {
     this.sendMsg({ t: "rest", v });
   }
+  setMode(v: "official" | "turns") {
+    this.sendMsg({ t: "mode", v });
+  }
   setLayout(id: string) {
     this.sendMsg({ t: "layout", id });
   }

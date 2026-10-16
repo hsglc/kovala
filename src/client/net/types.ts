@@ -32,6 +32,7 @@ export interface GameSource {
   setChases(n: number): void;
   setLayout(id: string): void;
   setRest(v: "official" | "quick"): void;
+  setMode(v: "official" | "turns"): void;
   setVenue(v: string): void;
   start(): void;
   /** Takım maçı: geri sayımda sahaya girecek takım arkadaşını seç */

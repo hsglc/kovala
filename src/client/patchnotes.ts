@@ -12,6 +12,17 @@ export interface PatchNote {
 
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: "0.28.4",
+    date: "16 Eki 2026",
+    time: "20:42",
+    title: "Sırayla modu",
+    items: [
+      "Oda lobisinde ve Antrenman panelinde yeni Kural seçeneği: Resmî (kazanan kalır) ya da Sırayla (bir sen, bir o)",
+      "Sırayla modunda sonuç ne olursa olsun roller her chase'te yer değiştirir; kaçış yine 1 puan",
+      "Arkadaşınla odada bu kuralı seçip birbirinizi sırayla kovalayabilirsiniz",
+    ],
+  },
+  {
     version: "0.28.3",
     date: "16 Eki 2026",
     time: "20:39",
