@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { fitIndex, REGIONS, withItem, type Region } from "../../shared/outfit";
 import { WardrobePreview } from "../game/three/WardrobePreview";
 import { getFit, setFit } from "../lib/identity";
+import { getProgress } from "../lib/progress";
 
 interface Props {
   onBack: () => void;
@@ -33,6 +34,7 @@ export function Wardrobe({ onBack }: Props) {
     window.setTimeout(() => setSaved(false), 1200);
   };
 
+  const myLevel = getProgress().level;
   const reg = REGIONS.find((r) => r.id === region)!;
   const sel = fitIndex(fit, region);
 
@@ -68,8 +70,16 @@ export function Wardrobe({ onBack }: Props) {
       </div>
 
       <div className="wr-items">
-        {reg.items.map((it, i) => (
-          <button key={it.id} className={`wr-item ${sel === i ? "on" : ""}`} onClick={() => pick(i)}>
+        {reg.items.map((it, i) => {
+          const locked = (it.lvl ?? 0) > myLevel;
+          return (
+          <button
+            key={it.id}
+            className={`wr-item ${sel === i ? "on" : ""} ${locked ? "locked" : ""}`}
+            disabled={locked}
+            onClick={() => pick(i)}
+          >
+            {locked && <span className="wr-lock">Seviye {it.lvl}</span>}
             <span className="wr-swatch" style={{ background: it.swatch }} />
             <span className="wr-text">
               <b>{it.name}</b>
@@ -77,9 +87,12 @@ export function Wardrobe({ onBack }: Props) {
             </span>
             <span className="wr-check">{sel === i ? "✓" : ""}</span>
           </button>
-        ))}
+          );
+        })}
       </div>
-      <p className="wr-note">Renkler maçta takımına göre değişir. Seçimin rakiplerine de görünür.</p>
+      <p className="wr-note">
+        Seviyen {myLevel}. Kilitli parçalar seviye atladıkça açılır; görev yaparak hızlı XP topla. Renkler maçta takımına göre değişir.
+      </p>
     </div>
   );
 }

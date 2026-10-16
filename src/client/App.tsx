@@ -10,6 +10,10 @@ import { Home } from "./screens/Home";
 import { Lobby } from "./screens/Lobby";
 import { QuickMatch } from "./screens/QuickMatch";
 import { Wardrobe } from "./screens/Wardrobe";
+import { recordChase, recordMatch } from "./lib/progress";
+import { ProgressToasts } from "./ui/ProgressToasts";
+import { useRef } from "react";
+import type { PublicState } from "../shared/engine";
 
 type Screen =
   | { k: "home"; error?: string }
@@ -38,6 +42,39 @@ function setUrlRoom(code: string | null) {
 }
 
 export function App() {
+  return (
+    <>
+      <AppScreens />
+      <ProgressToasts />
+    </>
+  );
+}
+
+/** Chase ve maç sonuçlarını ilerlemeye işler. */
+function useProgressTracker(selfId: string | undefined, state: PublicState | null) {
+  const seen = useRef<string>("");
+  const fin = useRef<string>("");
+  useEffect(() => {
+    if (!state || !selfId) return;
+    const r = state.last;
+    if (r && (state.phase === "result" || state.phase === "finished")) {
+      const k = `${r.n}-${r.sd}-${r.chaser}-${r.ticks}`;
+      if (seen.current !== k) {
+        seen.current = k;
+        if (state.phase === "result") recordChase(r, selfId, state.layoutId);
+      }
+    }
+    if (state.phase === "finished" && state.winner !== null) {
+      if (!fin.current) {
+        fin.current = "1";
+        recordMatch(state, selfId);
+      }
+    }
+    if (state.phase === "countdown" && state.history.length === 0) fin.current = "";
+  }, [state, selfId]);
+}
+
+function AppScreens() {
   const [invite, setInvite] = useState(inviteFromUrl);
   const [screen, setScreen] = useState<Screen>(() =>
     invite && getName() ? { k: "room", code: invite, quick: false } : { k: "home" },
@@ -115,6 +152,7 @@ function OnlineRoom({ code, quick, onLeave }: { code: string; quick: boolean; on
     return () => c.close();
   }, [code, quick]);
   const state = useSourceState(source);
+  useProgressTracker(source?.selfId, state);
 
   if (!source) return null;
   const status = source.getStatus();
@@ -154,6 +192,7 @@ function Practice({ level, map, squad, onLeave }: { level: BotLevel; map?: strin
     return () => g.close();
   }, [level, map, squad]);
   const state = useSourceState(source);
+  useProgressTracker(source?.selfId, state);
   if (!source || !state) return null;
   const inMatch = state.phase === "countdown" || state.phase === "chase" || state.phase === "result";
   return inMatch ? <GameScreen source={source} state={state} onLeave={onLeave} /> : <Lobby source={source} state={state} onLeave={onLeave} />;

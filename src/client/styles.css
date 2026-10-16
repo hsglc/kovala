@@ -2169,3 +2169,221 @@ body:has(.game) {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ---------- İlerleme ---------- */
+
+/* Kariyer şeridi: rozet + XP rayı */
+.career {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--rubber);
+  color: var(--text);
+  text-align: left;
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.career-lvl {
+  flex: none;
+  width: 54px;
+  height: 54px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: var(--led-dim);
+  border: 2px solid var(--led);
+  color: var(--led);
+  font-family: var(--display);
+  font-weight: 900;
+  font-size: 30px;
+  line-height: 0.9;
+}
+
+.career-lvl small {
+  font-family: var(--body);
+  font-size: 9.5px;
+  font-weight: 700;
+}
+
+.career-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.career-bar,
+.ms-bar {
+  display: block;
+  height: 10px;
+  border-radius: 3px;
+  background: repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.07) 0 8px, transparent 8px 10px);
+  overflow: hidden;
+}
+
+.career-bar i,
+.ms-bar i {
+  display: block;
+  height: 100%;
+  background: repeating-linear-gradient(90deg, var(--led) 0 8px, transparent 8px 10px);
+  box-shadow: 0 0 10px rgba(255, 182, 39, 0.5);
+}
+
+.career-meta {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.career-go {
+  font-weight: 700;
+  font-size: 13.5px;
+  color: var(--led);
+}
+
+.missions {
+  list-style: none;
+  padding: 0 !important;
+  gap: 10px !important;
+}
+
+.missions li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px 10px;
+  padding: 12px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--text);
+}
+
+.ms-text {
+  font-weight: 600;
+}
+
+.ms-xp {
+  color: var(--led);
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.ms-n {
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.unlocks {
+  list-style: none;
+  padding: 0 !important;
+}
+
+.unlocks li {
+  display: grid;
+  grid-template-columns: 34px 1fr auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.unlocks small {
+  color: var(--muted);
+  margin-left: 4px;
+}
+
+.unlocks b {
+  color: var(--led);
+  font-size: 13px;
+}
+
+.wr-swatch.mini {
+  width: 34px;
+  height: 22px;
+}
+
+.wr-item.locked {
+  cursor: not-allowed;
+}
+
+.wr-item.locked .wr-swatch,
+.wr-item.locked .wr-text {
+  opacity: 0.35;
+  filter: grayscale(0.7);
+}
+
+.wr-lock {
+  position: absolute;
+  top: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1;
+  padding: 4px 10px;
+  border-radius: 4px;
+  background: var(--night);
+  border: 1px solid var(--led);
+  color: var(--led);
+  font-weight: 700;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+/* Bildirim şeritleri */
+.ptoasts {
+  position: fixed;
+  top: calc(64px + var(--safe-t));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  pointer-events: none;
+  width: min(92vw, 380px);
+}
+
+.ptoast {
+  padding: 8px 14px;
+  border-radius: 6px;
+  background: rgba(14, 16, 34, 0.94);
+  border-left: 4px solid var(--led);
+  font-size: 13.5px;
+  color: #d3d2e2;
+  box-shadow: 0 12px 24px -12px #000;
+  animation: rise 0.25s ease-out both;
+}
+
+.ptoast b {
+  color: var(--led);
+  margin-right: 4px;
+}
+
+.ptoast.mission {
+  border-left-color: var(--green);
+}
+
+.ptoast.mission b {
+  color: var(--green);
+}
+
+.ptoast.level {
+  border-left-color: var(--blue);
+  font-size: 15px;
+}
+
+.ptoast.level b {
+  color: var(--blue);
+  font-family: var(--display);
+  font-size: 22px;
+}
+
+.pt-xp {
+  margin-left: 4px;
+  color: var(--led);
+  font-weight: 700;
+}

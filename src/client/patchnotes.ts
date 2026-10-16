@@ -12,6 +12,18 @@ export interface PatchNote {
 
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: "0.14.0",
+    date: "16 Eki 2026",
+    time: "10:21",
+    title: "Görevler, XP ve seviyeler",
+    items: [
+      "XP ve seviye: her chase 10, kaçış 30, yakalama 25, galibiyet 50 XP. Ana sayfada seviye rozeti ve LED XP rayı.",
+      "Görevler: aynı anda 3 görev (ör. 5 duvar sıçraması, zor sahada kaç, 3'e 3 maç kazan); biten görevin yerine yenisi gelir.",
+      "Gardırobun 16 parçası artık seviye ödülü: Seviye 2'den 9'a kadar açılır. Görevler ekranında sıradaki ödüller görünür.",
+      "Oyun sırasında +XP, görev tamam ve seviye atladın bildirimleri. İlerleme bu cihazda saklanır.",
+    ],
+  },
+  {
     version: "0.13.0",
     date: "16 Eki 2026",
     time: "10:17",

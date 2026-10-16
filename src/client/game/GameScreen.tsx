@@ -4,6 +4,7 @@ import type { PublicState } from "../../shared/engine";
 import { ACT_CLIMB, ACT_JUMP, ACT_KICK, ACT_KONG, ACT_SLIDE, ACT_STUMBLE, ACT_VAULT, parkourPreview, type PlayerState } from "../../shared/sim";
 import { TEAM_COLORS, memberName, resultLine, resultTitle, teamName } from "../lib/text";
 import { music } from "../lib/music";
+import { recordMove } from "../lib/progress";
 import { isMuted, setMuted, sfx, unlockAudio, vibrate } from "../lib/sound";
 import type { GameSource } from "../net/types";
 import { computeView, drawOverlay, updateCamera, HUD_TOP, type Camera, type JoyVisual } from "./renderer";
@@ -327,6 +328,7 @@ export function GameScreen({ source, state, onLeave }: Props) {
         const cost2 = myRole === "chaser" ? DIVE_COST : JUKE_COST;
         disabled2 = f.self.st < cost2 || busy;
         if (f.self.ak !== lastAk && f.self.ak !== 0 && f.self.ak !== ACT_STUMBLE) {
+          recordMove(f.self.ak);
           if (f.self.ak === ACT_VAULT || f.self.ak === ACT_KONG || f.self.ak === ACT_CLIMB || f.self.ak === ACT_JUMP || f.self.ak === ACT_SLIDE) sfx.vault();
           else sfx.dash();
         }

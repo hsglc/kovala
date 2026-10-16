@@ -5,6 +5,7 @@ import { LAYOUTS, LEVEL_LABEL } from "../../shared/maps";
 import { fitItem, REGIONS } from "../../shared/outfit";
 import { getFit, getName, setName } from "../lib/identity";
 import { LedClock, QuadThumb } from "../ui/QuadThumb";
+import { getProgress } from "../lib/progress";
 import { unlockAudio } from "../lib/sound";
 import { CURRENT_VERSION, PATCH_NOTES } from "../patchnotes";
 
@@ -20,7 +21,7 @@ interface Props {
   onWardrobe: () => void;
 }
 
-type Sheet = null | "rules" | "notes";
+type Sheet = null | "rules" | "notes" | "missions";
 
 export function Home({ offline, initialCode, busy, error, onQuick, onCreate, onJoin, onPractice, onWardrobe }: Props) {
   const [name, setNameState] = useState(getName());
@@ -63,6 +64,7 @@ export function Home({ offline, initialCode, busy, error, onQuick, onCreate, onJ
       .join("")
       .slice(0, ROOM_CODE_LENGTH);
 
+  const prog = getProgress();
   const fitSummary = REGIONS.map((r) => fitItem(getFit(), r.id))
     .filter((it) => it.id !== "none")
     .map((it) => it.name);
@@ -88,6 +90,22 @@ export function Home({ offline, initialCode, busy, error, onQuick, onCreate, onJ
           </p>
         </div>
       </section>
+
+      <button className="career" onClick={() => setSheet("missions")}>
+        <span className="career-lvl">
+          <small>Seviye</small>
+          {prog.level}
+        </span>
+        <span className="career-body">
+          <span className="career-bar">
+            <i style={{ width: `${Math.round((prog.into / prog.need) * 100)}%` }} />
+          </span>
+          <span className="career-meta">
+            {prog.into}/{prog.need} XP, sonraki seviyeye {prog.need - prog.into}
+          </span>
+        </span>
+        <span className="career-go">Görevler</span>
+      </button>
 
       <label className={`field ${nameError ? "error" : ""}`}>
         <span>Sahada görünecek adın</span>
@@ -238,12 +256,12 @@ export function Home({ offline, initialCode, busy, error, onQuick, onCreate, onJ
         <div className="sheet-backdrop" onClick={() => setSheet(null)}>
           <div className="sheet" onClick={(e) => e.stopPropagation()} role="dialog">
             <div className="sheet-head">
-              <h2>{sheet === "rules" ? "Nasıl oynanır?" : "Yama notları"}</h2>
+              <h2>{sheet === "rules" ? "Nasıl oynanır?" : sheet === "missions" ? "Görevler" : "Yama notları"}</h2>
               <button className="icon-btn" onClick={() => setSheet(null)} aria-label="Kapat">
                 ✕
               </button>
             </div>
-            {sheet === "rules" ? <Rules /> : <Notes />}
+            {sheet === "rules" ? <Rules /> : sheet === "missions" ? <Missions /> : <Notes />}
           </div>
         </div>
       )}
@@ -280,6 +298,53 @@ function Rules() {
         <li>Telefon: ekranın sol tarafını sürükleyerek koş; sağdaki tuşlar hamle.</li>
         <li>Bilgisayar: WASD / ok tuşları, Boşluk = rol hamlesi, Shift = parkur.</li>
       </ul>
+    </div>
+  );
+}
+
+function Missions() {
+  const p = getProgress();
+  const unlocks = REGIONS.flatMap((r) => r.items.filter((it) => (it.lvl ?? 0) > p.level).map((it) => ({ ...it, region: r.label })))
+    .sort((a, b) => (a.lvl ?? 0) - (b.lvl ?? 0))
+    .slice(0, 4);
+  return (
+    <div className="sheet-body">
+      <p className="hint">Bir görevi bitirince yerine yenisi gelir. Tamamlanan görev: {p.done}.</p>
+      <ul className="missions">
+        {p.missions.map((m) => (
+          <li key={m.id}>
+            <span className="ms-text">{m.text}</span>
+            <span className="ms-xp">+{m.xp} XP</span>
+            <span className="ms-bar">
+              <i style={{ width: `${(m.n / m.goal) * 100}%` }} />
+            </span>
+            <span className="ms-n">
+              {m.n}/{m.goal}
+            </span>
+          </li>
+        ))}
+      </ul>
+      <h3>XP nasıl kazanılır?</h3>
+      <ul>
+        <li>Oynadığın her chase 10, her kaçış 30, her yakalama 25 XP.</li>
+        <li>Maç galibiyeti 50, mağlubiyet 15 XP. Görevler 50 ile 150 XP arası.</li>
+      </ul>
+      {unlocks.length > 0 && (
+        <>
+          <h3>Sıradaki ödüller</h3>
+          <ul className="unlocks">
+            {unlocks.map((u) => (
+              <li key={u.id}>
+                <span className="wr-swatch mini" style={{ background: u.swatch }} />
+                <span>
+                  {u.name} <small>{u.region}</small>
+                </span>
+                <b>Seviye {u.lvl}</b>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
     </div>
   );
 }
