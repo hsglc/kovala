@@ -5,6 +5,8 @@
  * siyah gaffer, sarı uyarı bandı, beyaz etiket bandı, kontrplak. Üstlerine keçeli kalemle yazılır.
  */
 :root {
+  --role-chaser: #ffcf1f;
+  --role-evader: #3ef0a4;
   --red: #ff3b2f;
   --red-deep: #c4170f;
   --blue: #1f5bff;
@@ -1990,11 +1992,11 @@ body:has(.game) {
 
 .banner-title.chaser,
 .banner.result.chaser .banner-title {
-  color: var(--red);
+  color: var(--role-chaser);
 }
 
 .banner-title.evader {
-  color: #6f98ff;
+  color: var(--role-evader);
 }
 
 .banner.result.evader .banner-title {
@@ -2034,11 +2036,50 @@ body:has(.game) {
 }
 
 .chip.chaser {
-  color: #ff7a71;
+  color: var(--role-chaser);
 }
 
 .chip.evader {
-  color: #9ab6ff;
+  color: var(--role-evader);
+}
+
+/* Maç sırasında kalıcı rol göstergesi (skor tabelasının altında) */
+.role-pill {
+  position: absolute;
+  z-index: 6;
+  top: calc(66px + var(--safe-t));
+  left: 50%;
+  translate: -50% 0;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 5px 14px 6px;
+  background: var(--rc);
+  color: #0b0f18;
+  clip-path: var(--torn);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.role-pill.chaser {
+  --rc: var(--role-chaser);
+}
+
+.role-pill.evader {
+  --rc: var(--role-evader);
+}
+
+.role-pill b {
+  font-family: var(--display);
+  font-weight: 900;
+  font-size: 18px;
+  letter-spacing: 0.02em;
+}
+
+.role-pill span {
+  font-weight: 700;
+  font-size: 13px;
+  opacity: 0.8;
 }
 
 .banner-point {

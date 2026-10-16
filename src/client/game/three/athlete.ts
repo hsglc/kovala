@@ -199,7 +199,7 @@ export class Athlete {
       this.actions.set(name, a);
     }
     this.ringMat = new THREE.MeshBasicMaterial({ color: ringColor, transparent: true, opacity: 0.85 });
-    this.ring = new THREE.Mesh(new THREE.RingGeometry(0.34, 0.42, 32), this.ringMat);
+    this.ring = new THREE.Mesh(new THREE.RingGeometry(0.33, 0.45, 40), this.ringMat);
     this.ring.rotation.x = -Math.PI / 2;
     this.ring.position.y = 0.02;
     this.root.add(this.ring);
@@ -329,9 +329,10 @@ export class Athlete {
     for (const x of this.extras) x.traverse((o) => ((o as THREE.Mesh).isMesh ? ((o as THREE.Mesh).castShadow = true) : null));
   }
 
-  setRing(color: number, opacity: number) {
+  setRing(color: number, opacity: number, scale = 1) {
     this.ringMat.color.setHex(color);
     this.ringMat.opacity = opacity;
+    this.ring.scale.setScalar(scale);
   }
 }
 

@@ -4,6 +4,7 @@ import type { QuadLayout } from "../../shared/maps";
 import type { PlayerState } from "../../shared/sim";
 import { TEAM_COLORS, memberName, memberTeam } from "../lib/text";
 import type { Projected } from "./three/Scene3D";
+import { ROLE_COLOR, ROLE_ICON, ROLE_NAME } from "./roles";
 
 export interface View {
   w: number;
@@ -104,23 +105,58 @@ export function drawOverlay(
   const chaserId = state?.chaserId;
   const phase = state?.phase;
 
-  // İsim etiketleri
-  ctx.font = "600 12px 'Barlow Condensed', system-ui, sans-serif";
+  // Baş üstü etiket: maç sırasında büyük rol rozeti (renkli, okla oyuncuyu gösterir) + üstünde isim
+  const evaderId = state?.evaderId;
+  const live = phase === "countdown" || phase === "chase" || phase === "result";
   ctx.textAlign = "center";
-  ctx.textBaseline = "bottom";
+  ctx.textBaseline = "middle";
   for (const [id] of players) {
     const pr = proj.get(id);
     if (!pr || !pr.on) continue;
-    const isChaser = id === chaserId;
-    const label = memberName(state, id) + (id === selfId ? " (sen)" : "");
-    const tw = ctx.measureText(label).width + 22;
-    const lx = Math.max(tw / 2 + 4, Math.min(v.w - tw / 2 - 4, pr.x));
-    const ty = pr.y;
-    ctx.fillStyle = "rgba(8, 14, 26, 0.75)";
-    roundRect(ctx, lx - tw / 2, ty - 16, tw, 17, 8);
-    ctx.fill();
-    ctx.fillStyle = isChaser ? "#ffd166" : "#bfe9ff";
-    ctx.fillText((isChaser ? "◆ " : "● ") + label, lx, ty);
+    const role = id === chaserId ? "chaser" : id === evaderId ? "evader" : null;
+    const mine = id === selfId;
+    const name = memberName(state, id);
+    if (live && role) {
+      const badge = `${ROLE_ICON[role]} ${mine ? "SEN · " : ""}${ROLE_NAME[role]}`;
+      ctx.font = "800 14px 'Barlow Condensed', system-ui, sans-serif";
+      const bw = ctx.measureText(badge).width + 22;
+      const bh = 22;
+      const lx = Math.max(bw / 2 + 4, Math.min(v.w - bw / 2 - 4, pr.x));
+      const by = pr.y - bh - 6;
+      ctx.fillStyle = ROLE_COLOR[role];
+      ctx.strokeStyle = "rgba(10, 14, 22, 0.85)";
+      ctx.lineWidth = 2;
+      roundRect(ctx, lx - bw / 2, by, bw, bh, 7);
+      ctx.fill();
+      ctx.stroke();
+      // ok
+      ctx.beginPath();
+      ctx.moveTo(pr.x - 6, by + bh - 1);
+      ctx.lineTo(pr.x + 6, by + bh - 1);
+      ctx.lineTo(pr.x, by + bh + 6);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = "#0b0f18";
+      ctx.fillText(badge, lx, by + bh / 2 + 1);
+      if (!mine) {
+        ctx.font = "600 12px 'Barlow Condensed', system-ui, sans-serif";
+        ctx.fillStyle = "rgba(255,255,255,0.92)";
+        ctx.strokeStyle = "rgba(0,0,0,0.6)";
+        ctx.lineWidth = 3;
+        ctx.strokeText(name, lx, by - 8);
+        ctx.fillText(name, lx, by - 8);
+      }
+    } else {
+      ctx.font = "600 12px 'Barlow Condensed', system-ui, sans-serif";
+      const label = name + (mine ? " (sen)" : "");
+      const tw = ctx.measureText(label).width + 18;
+      const lx = Math.max(tw / 2 + 4, Math.min(v.w - tw / 2 - 4, pr.x));
+      ctx.fillStyle = "rgba(8, 14, 26, 0.75)";
+      roundRect(ctx, lx - tw / 2, pr.y - 16, tw, 17, 8);
+      ctx.fill();
+      ctx.fillStyle = "#e8eef8";
+      ctx.fillText(label, lx, pr.y - 7);
+    }
   }
 
   // Kendi enerjin: etiketin altında ince çubuk
@@ -152,7 +188,7 @@ export function drawOverlay(
     ctx.save();
     ctx.translate(ax, ay);
     ctx.rotate(ang);
-    ctx.fillStyle = TEAM_COLORS[team];
+    ctx.fillStyle = id === chaserId ? ROLE_COLOR.chaser : id === state?.evaderId ? ROLE_COLOR.evader : TEAM_COLORS[team];
     ctx.beginPath();
     ctx.moveTo(16, 0);
     ctx.lineTo(-8, -11);

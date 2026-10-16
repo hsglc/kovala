@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { ROLE_HEX } from "../roles";
 import { gamePipeline, type Pipeline, skyEnvironment } from "./quality";
 import { cloneMaterialsOnce, mergeStatic } from "./merge";
 import { PLAYER_RADIUS, QUAD_H, QUAD_W, SPEED_EVADER } from "../../../shared/constants";
@@ -483,8 +484,18 @@ export class Scene3D {
         airborne,
       };
       if (e.ath) e.ath.update(anim, phase === "chase" ? e.run * SPEED_EVADER : 0, dt);
+      // Rol halkası: kovalayan sarı, kaçan yeşil (takım renginden bağımsız); maç sırasında nabız gibi atar
+      if (e.ath) {
+        const live = phase === "chase" || phase === "countdown";
+        const role = id === chaserId ? ROLE_HEX.chaser : id === evaderId ? ROLE_HEX.evader : 0;
+        if (live && role) {
+          const pulse = 0.5 + 0.5 * Math.sin(now / 160 + (id === chaserId ? 0 : Math.PI));
+          e.ath.setRing(role, 0.75 + 0.25 * pulse, 1.35 + 0.12 * pulse);
+        } else e.ath.setRing(id === selfId ? 0xffffff : parseInt(TEAM_DARK[team as 0 | 1].slice(1), 16), 0.85, 1);
+      }
       else e.fig?.update(anim);
       if (id === chaserId && phase === "chase") {
+        (this.reachRing.material as THREE.MeshBasicMaterial).color.setHex(ROLE_HEX.chaser);
         const rr = TAG_DISTANCE - PLAYER_RADIUS + chaserReach(p);
         this.reachRing.visible = true;
         this.reachRing.position.set(p.x, 0.015, p.y);

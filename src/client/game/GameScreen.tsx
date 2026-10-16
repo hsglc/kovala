@@ -514,6 +514,13 @@ export function GameScreen({ source, state, onLeave }: Props) {
         </button>
       </div>
 
+      {role && (s.phase === "chase" || s.phase === "countdown") && (
+        <div className={`role-pill ${role}`}>
+          <b>{role === "chaser" ? "◆ KOVALAYANSIN" : "● KAÇANSIN"}</b>
+          <span>{role === "chaser" ? "yeşil olanı yakala" : "sarıdan kaç"}</span>
+        </div>
+      )}
+
       {s.phase === "countdown" && (
         <div className="banner" key={`cd-${s.phaseEndTick}`}>
           {s.sd && <div className="banner-tag">SUDDEN DEATH</div>}

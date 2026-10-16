@@ -12,6 +12,18 @@ export interface PatchNote {
 
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: "0.26.3",
+    date: "16 Eki 2026",
+    time: "16:23",
+    title: "Kim kovalıyor, kim kaçıyor?",
+    items: [
+      "Kovalayan sarı, kaçan yeşil — kırmızı/mavi takım renginden bağımsız",
+      "Her oyuncunun başının üstünde büyük rol rozeti (SEN · KAÇAN gibi)",
+      "Ayak altındaki halka rol renginde nabız gibi atıyor",
+      "Skor tabelasının altında: KOVALAYANSIN / KAÇANSIN",
+    ],
+  },
+  {
     version: "0.26.2",
     date: "16 Eki 2026",
     time: "16:13",
