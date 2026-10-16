@@ -19,12 +19,23 @@ export function unlockAudio() {
   }
 }
 
+export function audioCtx(): AudioContext | null {
+  return ctx;
+}
+
+const muteListeners = new Set<(m: boolean) => void>();
+export function onMuteChange(fn: (m: boolean) => void) {
+  muteListeners.add(fn);
+  return () => muteListeners.delete(fn);
+}
+
 export function isMuted() {
   return muted;
 }
 
 export function setMuted(m: boolean) {
   muted = m;
+  muteListeners.forEach((f) => f(m));
   try {
     localStorage.setItem("evade:muted", m ? "1" : "0");
   } catch {}

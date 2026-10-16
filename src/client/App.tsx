@@ -9,10 +9,12 @@ import type { GameSource } from "./net/types";
 import { Home } from "./screens/Home";
 import { Lobby } from "./screens/Lobby";
 import { QuickMatch } from "./screens/QuickMatch";
+import { Wardrobe } from "./screens/Wardrobe";
 
 type Screen =
   | { k: "home"; error?: string }
   | { k: "quick" }
+  | { k: "wardrobe" }
   | { k: "room"; code: string; quick: boolean }
   | { k: "practice"; level: BotLevel };
 
@@ -76,8 +78,11 @@ export function App() {
           }}
           onJoin={(code) => setScreen({ k: "room", code, quick: false })}
           onPractice={(level) => setScreen({ k: "practice", level })}
+          onWardrobe={() => setScreen({ k: "wardrobe" })}
         />
       );
+    case "wardrobe":
+      return <Wardrobe onBack={() => home()} />;
     case "quick":
       return (
         <QuickMatch

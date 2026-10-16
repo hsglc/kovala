@@ -1,0 +1,18 @@
+<!doctype html><html><body><script type="module">
+import { music } from "/src/client/lib/music.ts";
+const sec = 62, sr = 44100;
+const ctx = new OfflineAudioContext(2, sec * sr, sr);
+music.renderTo(ctx, sec);
+const buf = await ctx.startRendering();
+const L = buf.getChannelData(0), R = buf.getChannelData(1);
+let peak = 0; const rms = [];
+for (let s = 0; s < sec; s += 2) { let a = 0; for (let i = s*sr; i < (s+2)*sr; i++) { a += L[i]*L[i]; peak = Math.max(peak, Math.abs(L[i])); } rms.push(+Math.sqrt(a/(2*sr)).toFixed(3)); }
+// WAV (16-bit)
+const n = L.length, b = new ArrayBuffer(44 + n*4), v = new DataView(b);
+const w = (o, s) => [...s].forEach((c, i) => v.setUint8(o+i, c.charCodeAt(0)));
+w(0,"RIFF"); v.setUint32(4, 36+n*4, true); w(8,"WAVEfmt "); v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,2,true);
+v.setUint32(24,sr,true); v.setUint32(28,sr*4,true); v.setUint16(32,4,true); v.setUint16(34,16,true); w(36,"data"); v.setUint32(40,n*4,true);
+for (let i = 0; i < n; i++) { v.setInt16(44+i*4, Math.max(-1,Math.min(1,L[i]))*32767, true); v.setInt16(46+i*4, Math.max(-1,Math.min(1,R[i]))*32767, true); }
+const bytes = new Uint8Array(b); let bin = ""; for (let i = 0; i < bytes.length; i += 32768) bin += String.fromCharCode(...bytes.subarray(i, i+32768));
+window.wav = btoa(bin); window.stats = JSON.stringify({ peak: +peak.toFixed(3), rms }); window.done = true;
+</script></body></html>

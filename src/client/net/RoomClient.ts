@@ -1,3 +1,4 @@
+import { getFit } from "../lib/identity";
 import { INPUT_SEND_EVERY, INTERP_TICKS, TICK_RATE } from "../../shared/constants";
 import type { PublicState } from "../../shared/engine";
 import { getLayout, type QuadLayout } from "../../shared/maps";
@@ -81,7 +82,7 @@ export class RoomClient implements GameSource {
 
   private connect() {
     const { wsBase, code, pid, name, quick } = this.opts;
-    const q = new URLSearchParams({ pid, name });
+    const q = new URLSearchParams({ pid, name, fit: getFit() });
     if (quick) q.set("quick", "1");
     const ws = new WebSocket(`${wsBase}/ws/room/${code}?${q}`);
     this.ws = ws;

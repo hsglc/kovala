@@ -1,3 +1,4 @@
+import { cleanFit } from "../shared/outfit";
 import { DurableObject } from "cloudflare:workers";
 import { SNAPSHOT_EVERY, TICK_RATE } from "../shared/constants";
 import { MatchEngine, type TickInput } from "../shared/engine";
@@ -67,6 +68,7 @@ export class Room extends DurableObject<Env> {
     const url = new URL(request.url);
     const pid = url.searchParams.get("pid");
     const name = cleanName(url.searchParams.get("name"));
+    const fit = cleanFit(url.searchParams.get("fit"));
     const code = url.searchParams.get("code") ?? "";
     if (!isValidPid(pid)) return new Response("Geçersiz oyuncu", { status: 400 });
 
@@ -91,7 +93,7 @@ export class Room extends DurableObject<Env> {
     }
 
     this.ctx.acceptWebSocket(server, [pid]);
-    if (!this.engine.join(pid, name)) {
+    if (!this.engine.join(pid, name, fit)) {
       this.send(server, { t: "err", m: "Oda dolu" });
       server.close(4001, "full");
       return new Response(null, { status: 101, webSocket: client });

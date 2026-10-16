@@ -12,6 +12,18 @@ export interface PatchNote {
 
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: "0.9.0",
+    date: "16 Eki 2026",
+    time: "09:38",
+    title: "Maç müziği ve gardırop",
+    items: [
+      "Maç müziği: 128 BPM elektronik parça; geri sayımda yükselen girişle başlar, maç ilerledikçe arpej ve melodi katmanları eklenir. Ses tuşu müziği de kapatır.",
+      "Gardırop: ana sayfadan aç, sporcunu 3B önizlemede döndürerek giydir. Seçimin otomatik kaydedilir.",
+      "Baş: Snapback Kep, Ter Bandı. Üst: Pro Forma, Çizgili Forma. Alt: Antrenman Taytı, Üç Şeritli Eşofman. Ayakkabı: Neon Koşu, Beyaz Sneaker.",
+      "Kıyafet renkleri takımına uyar; online maçta rakiplerin de senin kıyafetini görür. Botların da kendi tarzı var.",
+    ],
+  },
+  {
     version: "0.8.0",
     date: "16 Eki 2026",
     time: "08:03",

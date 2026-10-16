@@ -3,6 +3,7 @@ import { CLIMB_COST, DIVE_COST, JUKE_COST, JUMP_COST, KICK_COST } from "../../sh
 import type { PublicState } from "../../shared/engine";
 import { ACT_CLIMB, ACT_JUMP, ACT_KICK, ACT_KONG, ACT_SLIDE, ACT_STUMBLE, ACT_VAULT, parkourPreview } from "../../shared/sim";
 import { TEAM_COLORS, memberName, resultLine, resultTitle, teamName } from "../lib/text";
+import { music } from "../lib/music";
 import { isMuted, setMuted, sfx, unlockAudio, vibrate } from "../lib/sound";
 import type { GameSource } from "../net/types";
 import { computeView, drawOverlay, updateCamera, HUD_TOP, type Camera, type JoyVisual } from "./renderer";
@@ -31,6 +32,12 @@ export function GameScreen({ source, state, onLeave }: Props) {
 
   // Ses ve titreşim: chase sonuçları
   const lastSeen = useRef<string>("");
+  // Maç müziği: ekran açılınca (ilk geri sayım) başlar, maç bitince ya da çıkınca susar
+  useEffect(() => {
+    music.start();
+    return () => music.stop();
+  }, []);
+
   useEffect(() => {
     const r = state.last;
     if (state.phase !== "result" || !r) return;

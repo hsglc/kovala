@@ -1,3 +1,4 @@
+import { getFit } from "../lib/identity";
 import { TICK_RATE } from "../../shared/constants";
 import { Bot, type BotLevel } from "../../shared/bot";
 import { MatchEngine, type PublicState, type TickInput } from "../../shared/engine";
@@ -11,6 +12,8 @@ const BOT_ID = "bot-evade";
 const BOT_NAMES: Record<BotLevel, string> = { kolay: "Çaylak Bot", orta: "Bot", zor: "Usta Bot" };
 
 /** Botla antrenman: aynı maç motoru tarayıcıda çalışır, ağ yok. */
+const BOT_FITS: Record<BotLevel, string> = { kolay: "1000", orta: "0111", zor: "1110" };
+
 export class LocalGame implements GameSource {
   readonly kind = "local" as const;
   readonly selfId: string;
@@ -29,8 +32,8 @@ export class LocalGame implements GameSource {
   constructor(pid: string, name: string, level: BotLevel, chases = 16) {
     this.selfId = pid;
     this.bot = new Bot(level);
-    this.engine.join(pid, name);
-    this.engine.join(BOT_ID, BOT_NAMES[level]);
+    this.engine.join(pid, name, getFit());
+    this.engine.join(BOT_ID, BOT_NAMES[level], BOT_FITS[level]);
     this.engine.setChases(pid, chases);
     this.engine.start(pid);
     this.state = this.engine.publicState();

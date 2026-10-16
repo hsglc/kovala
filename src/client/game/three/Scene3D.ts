@@ -27,6 +27,7 @@ interface FigEntry {
   heading: number;
   last: number;
   team: number;
+  fit: string;
 }
 
 export interface Projected {
@@ -249,9 +250,9 @@ export class Scene3D {
 
   // ---------- Çerçeve ----------
 
-  private figureFor(id: string, team: number, selfId: string, now: number, p: PlayerState): FigEntry {
+  private figureFor(id: string, team: number, fit: string, selfId: string, now: number, p: PlayerState): FigEntry {
     let e = this.figures.get(id);
-    if (!e || e.team !== team) {
+    if (!e || e.team !== team || (e.ath && e.fit !== fit)) {
       if (e) this.scene.remove(e.obj);
       const shirt = team === 0 ? 0xff5a4f : 0x35b8ff;
       const shorts = team === 0 ? 0xa8302a : 0x1a6fa3;
@@ -261,13 +262,13 @@ export class Scene3D {
       let obj: THREE.Object3D;
       const tpl = athleteTemplate();
       if (tpl) {
-        ath = new Athlete(tpl, shirt, shorts, ringColor);
+        ath = new Athlete(tpl, shirt, shorts, ringColor, fit);
         obj = ath.root;
       } else {
         fig = new Figure3D(lookFor(id, shirt, shorts), ringColor);
         obj = fig.root;
       }
-      e = { fig, ath, obj, phase: 0, run: 0, lx: p.x, ly: p.y, heading: Math.atan2(p.fy, p.fx), last: now, team };
+      e = { fig, ath, obj, phase: 0, run: 0, lx: p.x, ly: p.y, heading: Math.atan2(p.fy, p.fx), last: now, team, fit };
       this.figures.set(id, e);
       this.scene.add(obj);
     }
@@ -327,7 +328,8 @@ export class Scene3D {
     for (const [id, p] of players) {
       seen.add(id);
       const team = memberTeam(state, id) ?? 0;
-      const e = this.figureFor(id, team, selfId, now, p);
+      const fit = state?.members.find((m) => m.id === id)?.fit ?? "0000";
+      const e = this.figureFor(id, team, fit, selfId, now, p);
       const dt = Math.max(1, now - e.last) / 1000;
       e.last = now;
       let d = Math.hypot(p.x - e.lx, p.y - e.ly);

@@ -1,7 +1,8 @@
 import { useState } from "react";
 import type { BotLevel } from "../../shared/bot";
 import { ROOM_CODE_ALPHABET, ROOM_CODE_LENGTH } from "../../shared/protocol";
-import { getName, setName } from "../lib/identity";
+import { fitIndex, REGIONS } from "../../shared/outfit";
+import { getFit, getName, setName } from "../lib/identity";
 import { unlockAudio } from "../lib/sound";
 import { CURRENT_VERSION, PATCH_NOTES } from "../patchnotes";
 
@@ -14,11 +15,12 @@ interface Props {
   onCreate: () => void;
   onJoin: (code: string) => void;
   onPractice: (level: BotLevel) => void;
+  onWardrobe: () => void;
 }
 
 type Sheet = null | "rules" | "notes";
 
-export function Home({ offline, initialCode, busy, error, onQuick, onCreate, onJoin, onPractice }: Props) {
+export function Home({ offline, initialCode, busy, error, onQuick, onCreate, onJoin, onPractice, onWardrobe }: Props) {
   const [name, setNameState] = useState(getName());
   const [code, setCode] = useState(initialCode ?? "");
   const [level, setLevel] = useState<BotLevel>("orta");
@@ -134,6 +136,17 @@ export function Home({ offline, initialCode, busy, error, onQuick, onCreate, onJ
           </form>
         </div>
       </div>
+
+      <button className="wardrobe-card" onClick={onWardrobe}>
+        <span className="wc-icon" aria-hidden="true">
+          👕
+        </span>
+        <span className="wc-text">
+          <b>Gardırop</b>
+          <small>{REGIONS.map((r) => r.items[fitIndex(getFit(), r.id)].name).join(" · ")}</small>
+        </span>
+        <span className="wc-arrow">›</span>
+      </button>
 
       <section className="practice">
         <div className="practice-head">

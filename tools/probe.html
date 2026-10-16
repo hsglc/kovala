@@ -1,0 +1,13 @@
+<!doctype html><html><body><script type="module">
+import * as THREE from "three";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+const g = await new GLTFLoader().loadAsync("/models/athlete.glb");
+const out = [];
+g.scene.updateMatrixWorld(true);
+g.scene.traverse(o => {
+  if (o.isMesh) { o.geometry.computeBoundingBox(); const b=o.geometry.boundingBox;
+    out.push({mesh:o.name, skinned:o.isSkinnedMesh, mats:(Array.isArray(o.material)?o.material:[o.material]).map(m=>m.name+":"+(m.map?"map":"")), bmin:b.min.toArray().map(v=>+v.toFixed(3)), bmax:b.max.toArray().map(v=>+v.toFixed(3)), groups:o.geometry.groups.length, scale:o.getWorldScale(new THREE.Vector3()).toArray()}); }
+  if (o.isBone && /Head|Foot|Hips|Neck/.test(o.name)) { const p=o.getWorldPosition(new THREE.Vector3()); const q=o.getWorldQuaternion(new THREE.Quaternion()); const up=new THREE.Vector3(0,1,0).applyQuaternion(q), fw=new THREE.Vector3(0,0,1).applyQuaternion(q); out.push({bone:o.name,p:p.toArray().map(v=>+v.toFixed(3)),yAxis:up.toArray().map(v=>+v.toFixed(2)),zAxis:fw.toArray().map(v=>+v.toFixed(2))}); }
+});
+window.out = JSON.stringify(out); window.done = true;
+</script></body></html>

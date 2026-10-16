@@ -30,6 +30,8 @@ export interface Member {
   name: string;
   team: Team;
   connected: boolean;
+  /** Gardırop seçimi (outfit.ts) */
+  fit?: string;
 }
 
 export interface ChaseRecord {
@@ -133,11 +135,12 @@ export class MatchEngine {
   }
 
   /** Oyuncuyu ekler ya da yeniden bağlanırsa eski yerine oturtur. false: oda dolu. */
-  join(id: string, name: string): boolean {
+  join(id: string, name: string, fit?: string): boolean {
     const existing = this.member(id);
     if (existing) {
       existing.connected = true;
       existing.name = name || existing.name;
+      if (fit) existing.fit = fit;
       if (!this.host || !this.member(this.host)?.connected) this.host = id;
       this.bump();
       return true;
@@ -146,7 +149,7 @@ export class MatchEngine {
     const a = this.teamMembers(0).length;
     const b = this.teamMembers(1).length;
     const team: Team = a <= b ? 0 : 1;
-    this.members.push({ id, name: name || "Oyuncu", team, connected: true });
+    this.members.push({ id, name: name || "Oyuncu", team, connected: true, fit });
     if (!this.host || !this.member(this.host)?.connected) this.host = id;
     this.bump();
     return true;

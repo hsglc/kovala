@@ -12,6 +12,7 @@ import {
   ACT_STUMBLE,
   ACT_VAULT,
 } from "../../../shared/sim";
+import { cleanFit, fitIndex } from "../../../shared/outfit";
 import type { FigureAnim } from "./figure3d";
 
 /**
@@ -78,27 +79,33 @@ export class Athlete {
   private ringMat: THREE.MeshBasicMaterial;
   private lastAk = 0;
 
-  constructor(tpl: Template, shirt: number, shorts: number, ringColor: number) {
+  constructor(tpl: Template, shirt: number, shorts: number, ringColor: number, fit = "0000") {
+    fit = cleanFit(fit);
     this.model = cloneSkinned(tpl.scene);
+    const top = fitIndex(fit, "top");
+    const bottom = fitIndex(fit, "bottom");
+    const shoes = fitIndex(fit, "shoes");
     this.model.traverse((o) => {
       const m = o as THREE.Mesh;
       if (!m.isMesh) return;
       const mats = Array.isArray(m.material) ? m.material : [m.material];
       const next = mats.map((mat) => {
+        const c = (mat as THREE.MeshStandardMaterial).clone();
         if (mat.name === "Jersey") {
-          const c = (mat as THREE.MeshStandardMaterial).clone();
           c.color.setHex(shirt);
-          return c;
-        }
-        if (mat.name === "Shorts") {
-          const c = (mat as THREE.MeshStandardMaterial).clone();
+          patchOutfit(c, top === 0 ? "proTop" : "stripeTop", shirt);
+        } else if (mat.name === "Shorts") {
           c.color.setHex(shorts);
-          return c;
+          c.roughness = 0.75;
+          patchOutfit(c, bottom === 0 ? "plainBottom" : "stripeBottom", shorts);
+        } else {
+          patchOutfit(c, shoes === 0 ? "neonShoes" : "whiteShoes", shirt, top === 0 ? "proTop" : "stripeTop");
         }
-        return mat;
+        return c;
       });
       m.material = Array.isArray(m.material) ? next : next[0];
     });
+    addHeadwear(this.model, fitIndex(fit, "head"), shirt);
     this.root.add(this.model);
     this.mixer = new THREE.AnimationMixer(this.model);
     for (const [name, clip] of tpl.clips) {
@@ -170,4 +177,134 @@ export class Athlete {
     this.ringMat.color.setHex(color);
     this.ringMat.opacity = opacity;
   }
+}
+
+/* ---------- Gardırop görünümleri ---------- */
+
+type Look = "proTop" | "stripeTop" | "plainBottom" | "stripeBottom" | "neonShoes" | "whiteShoes";
+
+/**
+ * Desenler bağ pozundaki (bind pose) yerel konuma göre çizilir; bu yüzden animasyonla kaymaz.
+ * Model ölçüsü: ayak 0, baş tepesi ~1,8 m; x sağ-sol, z ön.
+ */
+const TOP_GLSL: Record<string, string> = {
+  proTop: `
+    float side = smoothstep(0.80, 0.86, abs(vBindN.x));
+    float collar = step(1.405, vBind.y);
+    float hem = 1.0 - step(1.06, vBind.y);
+    tc = mix(tc, vec3(0.95), max(side, max(collar, hem)));`,
+  stripeTop: `
+    float band = step(0.55, fract(vBind.y * 24.0));
+    tc = mix(tc, vec3(0.96), band * 0.9);`,
+};
+
+function patchOutfit(mat: THREE.MeshStandardMaterial, look: Look, team: number, bodyTop?: "proTop" | "stripeTop") {
+  const teamCol = new THREE.Color(team);
+  mat.customProgramCacheKey = () => "fit-" + look + (bodyTop ?? "");
+  mat.onBeforeCompile = (sh) => {
+    sh.uniforms.uTeam = { value: teamCol };
+    sh.vertexShader = sh.vertexShader
+      .replace("#include <common>", "#include <common>\nvarying vec3 vBind;\nvarying vec3 vBindN;")
+      .replace("#include <begin_vertex>", "#include <begin_vertex>\nvBind = position;\nvBindN = normal;");
+    let frag = "";
+    switch (look) {
+      case "proTop":
+      case "stripeTop":
+        frag = `vec3 tc = diffuseColor.rgb; ${TOP_GLSL[look]} diffuseColor.rgb = tc;`;
+        break;
+      case "plainBottom":
+        frag = `diffuseColor.rgb *= 0.85;`;
+        break;
+      case "stripeBottom":
+        // Bacağın dış ve iç yanlarında üçlü şerit
+        frag = `
+          float s = abs(vBindN.x);
+          float tri = step(0.86, s) * step(0.5, fract(vBind.z * 70.0 + 0.25));
+          diffuseColor.rgb = mix(diffuseColor.rgb * 0.75, vec3(0.97), tri);`;
+        break;
+      case "neonShoes":
+        frag = `
+          float shoe = 1.0 - smoothstep(0.105, 0.125, vBind.y);
+          float sole = 1.0 - step(0.028, vBind.y);
+          float l = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11));
+          vec3 c = mix(vec3(0.78, 1.0, 0.16) * (0.7 + 0.6 * l), vec3(0.96), sole);
+          diffuseColor.rgb = mix(diffuseColor.rgb, c, shoe);`;
+        break;
+      case "whiteShoes":
+        frag = `
+          float shoe = 1.0 - smoothstep(0.105, 0.125, vBind.y);
+          float sole = 1.0 - step(0.028, vBind.y);
+          float l = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11));
+          vec3 c = mix(vec3(0.95) * (0.85 + 0.3 * l), uTeam, sole);
+          diffuseColor.rgb = mix(diffuseColor.rgb, c, shoe);`;
+        break;
+    }
+    if (bodyTop) {
+      // Modelin dokusundaki gri üstü de formaya çevir (gövdede, düşük doygunluklu pikseller)
+      frag += `
+        {
+          vec3 t0 = diffuseColor.rgb;
+          float mx = max(t0.r, max(t0.g, t0.b));
+          float mn = min(t0.r, min(t0.g, t0.b));
+          float gray = 1.0 - smoothstep(0.04, 0.09, mx - mn);
+          float torso = step(1.12, vBind.y) * (1.0 - step(1.40, vBind.y)) * (1.0 - step(0.17, abs(vBind.x)));
+          float l = dot(t0, vec3(0.3, 0.59, 0.11));
+          vec3 tc = uTeam * (0.65 + 0.7 * l);
+          ${TOP_GLSL[bodyTop]}
+          diffuseColor.rgb = mix(t0, tc, gray * torso);
+        }`;
+    }
+    sh.fragmentShader = sh.fragmentShader
+      .replace("#include <common>", "#include <common>\nvarying vec3 vBind;\nvarying vec3 vBindN;\nuniform vec3 uTeam;")
+      .replace("#include <map_fragment>", "#include <map_fragment>\n" + frag);
+  };
+  mat.needsUpdate = true;
+}
+
+/** Kafa kemiğine bağlı şapka / ter bandı. */
+function addHeadwear(model: THREE.Object3D, item: 0 | 1, team: number) {
+  let head: THREE.Bone | null = null;
+  model.traverse((o) => {
+    if ((o as THREE.Bone).isBone && o.name === "mixamorigHead") head = o as THREE.Bone;
+  });
+  if (!head) return;
+  const bone = head as THREE.Bone;
+  model.updateMatrixWorld(true);
+  const s = bone.getWorldScale(new THREE.Vector3()).x;
+  const q = bone.getWorldQuaternion(new THREE.Quaternion()).invert();
+  const g = new THREE.Group();
+  if (item === 0) {
+    // Snapback kep: kubbe + düz siperlik + düğme
+    const capMat = new THREE.MeshStandardMaterial({ color: team, roughness: 0.6 });
+    const dark = new THREE.MeshStandardMaterial({ color: 0x15171d, roughness: 0.7 });
+    const dome = new THREE.Mesh(new THREE.SphereGeometry(0.112, 20, 12, 0, Math.PI * 2, 0, Math.PI / 2), capMat);
+    dome.scale.set(1.12, 0.95, 1.2);
+    dome.position.set(0, 0.165, 0.0);
+    const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.085, 0.012, 20, 1, false, -Math.PI / 2, Math.PI), dark);
+    brim.scale.set(1.2, 1, 1.35);
+    brim.position.set(0, 0.17, 0.13);
+    const btn = new THREE.Mesh(new THREE.SphereGeometry(0.012, 8, 6), dark);
+    btn.position.set(0, 0.272, 0);
+    g.add(dome, brim, btn);
+  } else {
+    // Ter bandı: alın hizasında beyaz halka, ortada takım renginde şerit
+    const white = new THREE.MeshStandardMaterial({ color: 0xf4f6fa, roughness: 0.9 });
+    const stripe = new THREE.MeshStandardMaterial({ color: team, roughness: 0.8 });
+    const band = new THREE.Mesh(new THREE.CylinderGeometry(0.106, 0.106, 0.04, 24, 1, true), white);
+    band.position.set(0, 0.165, 0.008);
+    band.scale.set(1, 1, 1.12);
+    const mid = new THREE.Mesh(new THREE.CylinderGeometry(0.1075, 0.1075, 0.012, 24, 1, true), stripe);
+    mid.position.copy(band.position);
+    mid.scale.copy(band.scale);
+    g.add(band, mid);
+  }
+  g.traverse((o) => {
+    if ((o as THREE.Mesh).isMesh) (o as THREE.Mesh).castShadow = true;
+    const m = (o as THREE.Mesh).material as THREE.MeshStandardMaterial | undefined;
+    if (m) m.side = THREE.DoubleSide;
+  });
+  g.quaternion.copy(q);
+  g.scale.setScalar(1 / s);
+  g.position.set(0, 0, 0);
+  bone.add(g);
 }

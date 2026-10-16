@@ -1391,3 +1391,138 @@ body:has(.game) {
 .action-btn span {
   text-shadow: 0 1px 0 rgba(0, 0, 0, 0.25);
 }
+
+/* ---------- Gardırop ---------- */
+.wardrobe-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: linear-gradient(120deg, rgba(245, 184, 61, 0.14), rgba(53, 184, 255, 0.08)), var(--panel);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+.wardrobe-card:active { transform: scale(0.99); }
+.wc-icon {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: rgba(245, 184, 61, 0.18);
+  font-size: 22px;
+}
+.wc-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.wc-text b { font-family: var(--display); font-size: 20px; letter-spacing: 0.04em; text-transform: uppercase; }
+.wc-text small { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wc-arrow { color: var(--amber); font-size: 26px; }
+
+.wardrobe { gap: 12px; }
+.wr-head { display: flex; align-items: center; gap: 12px; }
+.wr-head h1 {
+  flex: 1;
+  margin: 0;
+  font-family: var(--display);
+  font-size: 30px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.wr-saved { color: var(--green); font-size: 13px; opacity: 0; transition: opacity 0.2s; }
+.wr-saved.on { opacity: 1; }
+.wr-stage {
+  position: relative;
+  height: min(52vh, 440px);
+  border-radius: 22px;
+  border: 1px solid var(--line);
+  background: radial-gradient(ellipse at 50% 30%, rgba(53, 184, 255, 0.18), transparent 60%),
+    radial-gradient(ellipse at 50% 100%, rgba(245, 184, 61, 0.16), transparent 55%), #0d1424;
+  overflow: hidden;
+}
+.wr-canvas { width: 100%; height: 100%; display: block; touch-action: pan-y; cursor: grab; }
+.wr-team {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 999px;
+  background: rgba(9, 14, 26, 0.7);
+  border: 1px solid var(--line);
+}
+.wr-team button {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: 600 12px/1 system-ui, sans-serif;
+  padding: 7px 11px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.wr-team button.on.red { background: var(--red); color: #fff; }
+.wr-team button.on.blue { background: var(--blue); color: #06121f; }
+.wr-hint {
+  position: absolute;
+  top: 18px;
+  left: 14px;
+  color: var(--muted);
+  font-size: 12px;
+  pointer-events: none;
+}
+.wr-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  padding: 4px;
+  border-radius: 14px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+}
+.wr-tabs button {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--display);
+  font-size: 17px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 9px 0;
+  border-radius: 10px;
+  cursor: pointer;
+}
+.wr-tabs button.on { background: var(--panel-2); color: var(--text); box-shadow: inset 0 -2px 0 var(--amber); }
+.wr-items { display: grid; gap: 8px; }
+.wr-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.wr-item.on { border-color: var(--amber); background: linear-gradient(120deg, rgba(245, 184, 61, 0.16), transparent), var(--panel); }
+.wr-swatch { width: 46px; height: 46px; border-radius: 12px; flex: none; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12); }
+.wr-text { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+.wr-text b { font-size: 16px; }
+.wr-text small { color: var(--muted); font-size: 13px; }
+.wr-check {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+  color: #1a1204;
+}
+.wr-item.on .wr-check { background: var(--amber); }
+.wr-note { color: var(--muted); font-size: 12px; text-align: center; margin: 2px 0 0; }

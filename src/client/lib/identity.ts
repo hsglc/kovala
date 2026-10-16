@@ -1,3 +1,5 @@
+import { cleanFit } from "../../shared/outfit";
+
 const PID_KEY = "evade:pid";
 const NAME_KEY = "evade:name";
 
@@ -40,4 +42,14 @@ export function getName(): string {
 
 export function setName(name: string) {
   safeSet(NAME_KEY, name.trim().slice(0, 16));
+}
+
+const FIT_KEY = "evade:fit";
+
+export function getFit(): string {
+  return cleanFit(safeGet(FIT_KEY));
+}
+
+export function setFit(fit: string) {
+  safeSet(FIT_KEY, cleanFit(fit));
 }
